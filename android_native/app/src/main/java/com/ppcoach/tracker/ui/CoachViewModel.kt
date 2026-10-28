@@ -30,6 +30,10 @@ import com.ppcoach.tracker.data.Durable
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
 import com.ppcoach.tracker.data.PitchMode
+import com.ppcoach.tracker.data.PitchReference
+import com.ppcoach.tracker.data.Stroke
+import com.ppcoach.tracker.analysis.ReferenceImages
+import androidx.core.content.FileProvider
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.Settings
 import com.ppcoach.tracker.data.StorageKind
@@ -50,6 +54,8 @@ sealed interface Screen {
     data class ClipDetail(val clipId: Int, val seekMs: Long = -1) : Screen
     data class Analysis(val clipId: Int) : Screen
     data class PitchTouches(val clipId: Int) : Screen
+    data class PitchReferences(val matchId: Int, val clipId: Int) : Screen
+    data class PaintReference(val matchId: Int, val refId: Int) : Screen
 }
 
 /** Progress of a clip's chain as the UI shows it. */
@@ -342,7 +348,68 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveTouches(clipId: Int, touches: com.ppcoach.tracker.data.PitchTouches?) {
-        updateClip(clipId) { it.copy(touches = touches?.takeIf { t -> t.points.isNotEmpty() }) }
+        updateClip(clipId) { it.copy(touches = touches?.takeIf { t -> !t.isEmpty }) }
+    }
+
+    // ── reference pictures of the pitch ─────────────────────────────────────
+
+    fun referenceFile(match: Match, ref: PitchReference): File = AppGraph.referenceFile(ctx, match, ref)
+
+    /** A file and its content URI for the camera app's photo; the reference is added by [addReferencePhoto]. */
+    fun newReferencePhoto(matchId: Int): Pair<PitchReference, Uri>? {
+        val match = library.value.match(matchId) ?: return null
+        if (match.references.size >= PitchReference.MAX) return null
+        val ref = PitchReference(match.nextReferenceId, PitchReference.PHOTO, createdAt = System.currentTimeMillis())
+        val file = referenceFile(match, ref)
+        file.parentFile?.mkdirs()
+        return ref to FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
+    }
+
+    /** The camera app answered: the photo is scaled and kept, or its file dropped. */
+    fun addReferencePhoto(matchId: Int, ref: PitchReference, taken: Boolean) {
+        val match = library.value.match(matchId) ?: return
+        val file = referenceFile(match, ref)
+        viewModelScope.launch {
+            val ok = taken && withContext(Dispatchers.IO) { ReferenceImages.normalizePhoto(file) }
+            if (!ok) {
+                file.delete()
+                return@launch
+            }
+            AppGraph.commit { it.updateMatch(matchId) { m -> m.copy(references = m.references + ref) } }
+            push(Screen.PaintReference(matchId, ref.id))
+        }
+    }
+
+    /** A frame of a clip of the match as a reference (where the lines are seen best). */
+    fun addReferenceFrame(matchId: Int, clip: Clip, tMs: Long) {
+        val match = library.value.match(matchId) ?: return
+        if (match.references.size >= PitchReference.MAX) return
+        val ref = PitchReference(match.nextReferenceId, PitchReference.FRAME, tMs = tMs, clipId = clip.id, createdAt = System.currentTimeMillis())
+        viewModelScope.launch {
+            val bmp = frameAt(clip, tMs, ReferenceImages.MAX_SIDE) ?: return@launch
+            withContext(Dispatchers.IO) { ReferenceImages.save(bmp, referenceFile(match, ref)) }
+            AppGraph.commit { it.updateMatch(matchId) { m -> m.copy(references = m.references + ref) } }
+            push(Screen.PaintReference(matchId, ref.id))
+        }
+    }
+
+    fun saveReferenceStrokes(matchId: Int, refId: Int, strokes: List<Stroke>) {
+        AppGraph.commit { it.updateMatch(matchId) { m -> m.copy(references = m.references.map { r -> if (r.id == refId) r.copy(strokes = strokes) else r }) } }
+    }
+
+    fun deleteReference(matchId: Int, refId: Int) {
+        val match = library.value.match(matchId) ?: return
+        match.references.firstOrNull { it.id == refId }?.let { referenceFile(match, it).delete() }
+        AppGraph.commit { it.updateMatch(matchId) { m -> m.copy(references = m.references.filterNot { r -> r.id == refId }) } }
+    }
+
+    suspend fun loadReference(match: Match, ref: PitchReference, maxSide: Int = 1280): Bitmap? = withContext(Dispatchers.IO) {
+        val file = referenceFile(match, ref)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
     }
 
     /** A frame of the clip's video at [tMs], scaled to [maxWidth]. */

@@ -48,6 +48,8 @@ import com.ppcoach.tracker.ui.screens.ClipDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchEditor
 import com.ppcoach.tracker.ui.screens.MatchesScreen
+import com.ppcoach.tracker.ui.screens.PaintReferenceScreen
+import com.ppcoach.tracker.ui.screens.PitchReferencesScreen
 import com.ppcoach.tracker.ui.screens.PitchTouchesScreen
 import com.ppcoach.tracker.ui.screens.RecordScreen
 import com.ppcoach.tracker.ui.screens.SettingsScreen
@@ -90,6 +92,8 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
                 is Screen.ClipDetail -> ClipDetailScreen(vm, lib, top.clipId, top.seekMs)
                 is Screen.Analysis -> ClipAnalysisScreen(vm, lib, top.clipId)
                 is Screen.PitchTouches -> PitchTouchesScreen(vm, lib, top.clipId)
+                is Screen.PitchReferences -> PitchReferencesScreen(vm, lib, top.matchId, top.clipId)
+                is Screen.PaintReference -> PaintReferenceScreen(vm, lib, top.matchId, top.refId)
             }
         }
         if (isRoot) {

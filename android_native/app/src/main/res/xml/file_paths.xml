@@ -2,6 +2,7 @@
 <paths>
     <external-files-path name="movies" path="Movies/" />
     <files-path name="private_movies" path="Movies/" />
+    <files-path name="references" path="references/" />
     <cache-path name="proxies" path="proxies/" />
     <root-path name="sd" path="." />
 </paths>

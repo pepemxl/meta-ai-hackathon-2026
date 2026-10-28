@@ -8,9 +8,11 @@ import com.ppcoach.tracker.AppGraph
 import com.ppcoach.tracker.BuildConfig
 import com.ppcoach.tracker.data.ApiClient
 import com.ppcoach.tracker.data.ApiException
+import com.ppcoach.tracker.data.CalibrationRequest
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.PitchMode
+import com.ppcoach.tracker.data.PitchReference
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.UploadPlan
 import org.json.JSONObject
@@ -80,11 +82,18 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             if (PitchMode.valid(clip.pitchMode)) body.put("analysis", JSONObject().put("pitch_mode", clip.pitchMode))
             val remote = api.register(body)
             AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id) } }
-            // The coach's points right after registering; if the server rejects them, the video goes anyway.
-            val touches = clip.touches
-            if (touches != null && touches.points.size >= 4 && clip.pitchMode != PitchMode.OFF) {
+            // The coach's points, painted lines and reference pictures right after
+            // registering; if the server rejects them, the video goes anyway.
+            val match = AppGraph.library.value.match(clip.matchId)
+            val references = match?.references.orEmpty().take(PitchReference.MAX)
+            val calibration = if (clip.pitchMode != PitchMode.OFF) CalibrationRequest.build(clip.touches, references) else null
+            if (calibration != null) {
                 try {
-                    api.calibration(remote.id, touches.toRequest())
+                    api.calibration(remote.id, calibration)
+                    references.forEachIndexed { i, r ->
+                        val jpeg = match?.let { ReferenceImages.forUpload(AppGraph.referenceFile(applicationContext, it, r)) }
+                        if (jpeg != null) api.putReference(remote.id, i + 1, jpeg)
+                    }
                 } catch (e: ApiException) {
                     if (e.code == 401) throw e
                 }

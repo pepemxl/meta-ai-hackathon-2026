@@ -257,13 +257,17 @@ private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: String
         }
         if (on) {
             val n = clip.touches?.points?.size ?: 0
-            if (n > 0) Text(s.pointsMarked(n), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
-            if (clip.pitchMode == PitchMode.NO_LINES && n == 0) Text(s.noLinesNoPoints, style = MaterialTheme.typography.bodyMedium, color = c.warning)
+            val lines = clip.touches?.lines?.size ?: 0
+            val refs = vm.library.collectAsState().value.match(clip.matchId)?.references.orEmpty()
+            if (n > 0 || lines > 0) Text(s.marksSummary(n, lines), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+            if (refs.isNotEmpty()) Text(s.referencesSummary(refs.size, refs.sumOf { it.strokes.size }), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+            if (clip.pitchMode == PitchMode.NO_LINES && n == 0 && lines == 0) Text(s.noLinesNoPoints, style = MaterialTheme.typography.bodyMedium, color = c.warning)
             if (!locked) {
                 Row {
                     PpTextButton(s.markPitchPoints, { vm.push(Screen.PitchTouches(clip.id)) })
                     PpTextButton(s.changeAnswer, { vm.pitchFor = clip.id to false })
                 }
+                PpTextButton(s.referenceImages, { vm.push(Screen.PitchReferences(clip.matchId, clip.id)) })
             }
         }
     }

@@ -19,3 +19,11 @@ Con el video sintético propio de una cancha de 7 (cámara fija, jugadores a vel
 | Puntos de la cancha | En la cancha, en metros |
 |---|---|
 | ![](puntos-cancha-claro.png) | ![](cancha-metros-claro.png) |
+
+## Imágenes de referencia y líneas pintadas
+
+Con el mismo video sintético: 3 puntos y 2 líneas pintadas con nombre (banda cercana y medio campo) más una sin nombre; una foto tomada con la cámara virtual y un cuadro del video, cada uno con 2 trazos. El clip se envió a la API PHP local, que guardó las líneas en `calibration` y las dos imágenes (`reference_1.jpg`, `reference_2.jpg`); el worker calculó la cancha con esas 5 marcas.
+
+| Puntos y líneas pintadas | Imágenes de referencia | Pintar sobre una referencia |
+|---|---|---|
+| ![](lineas-pintadas-claro.png) | ![](referencias-claro.png) | ![](pintar-referencia-claro.png) |

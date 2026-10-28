@@ -3,6 +3,8 @@ package com.ppcoach.tracker
 import android.content.Context
 import android.os.Environment
 import com.ppcoach.tracker.data.Library
+import com.ppcoach.tracker.data.Match
+import com.ppcoach.tracker.data.PitchReference
 import com.ppcoach.tracker.data.LibraryStore
 import com.ppcoach.tracker.data.SettingsStore
 import com.ppcoach.tracker.data.StorageKind
@@ -57,4 +59,8 @@ object AppGraph {
     }
 
     fun proxyDir(context: Context, relative: String): File = File(context.applicationContext.cacheDir, relative)
+
+    /** The match's reference pictures of the pitch live in private storage: references/match_NNNN/reference_NNN.jpg. */
+    fun referenceFile(context: Context, match: Match, ref: PitchReference): File =
+        File(File(File(context.applicationContext.filesDir, "references"), match.folder), ref.fileName)
 }

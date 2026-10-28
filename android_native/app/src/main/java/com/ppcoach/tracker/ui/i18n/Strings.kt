@@ -222,6 +222,25 @@ interface Strings {
     val undo: String
     val clearAll: String
     val frameAt: String
+    fun marksSummary(points: Int, lines: Int): String
+    fun referencesSummary(n: Int, strokes: Int): String
+    val referenceImages: String
+    val referencesTitle: String
+    val referencesHelp: String
+    val takePhoto: String
+    val useThisFrame: String
+    val referencesMax: String
+    fun strokesCount(n: Int): String
+    val referenceFromPhoto: String
+    val referenceFromFrame: String
+    val paintTitle: String
+    val paintHelp: String
+    val modePoints: String
+    val modeLines: String
+    val lineStepPaint: String
+    val lineStepName: String
+    val justALine: String
+    fun touchReadyMarks(points: Int, lines: Int): String
     val pitchInMeters: String
     val metersPerMinute: String
     val sprintSpeed: String
@@ -448,6 +467,28 @@ object Es : Strings {
     override val undo = "Deshacer"
     override val clearAll = "Borrar todo"
     override val frameAt = "Cuadro"
+    override fun marksSummary(points: Int, lines: Int) = buildList {
+        if (points > 0) add(if (points == 1) "1 punto marcado" else "$points puntos marcados")
+        if (lines > 0) add(if (lines == 1) "1 línea pintada" else "$lines líneas pintadas")
+    }.joinToString(" y ")
+    override fun referencesSummary(n: Int, strokes: Int) = (if (n == 1) "1 imagen de referencia" else "$n imágenes de referencia") + " · " + strokesCount(strokes)
+    override val referenceImages = "Imágenes de referencia de la cancha"
+    override val referencesTitle = "Imágenes de referencia"
+    override val referencesHelp = "Si hay poca luz o las líneas están borradas: toma fotos de la cancha (mejor desde donde grabas y con buena luz) o usa un cuadro del video, y pinta con el dedo encima de las líneas. SAM las usa como ejemplo de qué es una línea. Sirven para todos los videos de este partido."
+    override val takePhoto = "Tomar foto"
+    override val useThisFrame = "Usar este cuadro"
+    override val referencesMax = "Ya hay 6 imágenes: es el máximo por partido."
+    override fun strokesCount(n: Int) = if (n == 1) "1 línea pintada" else "$n líneas pintadas"
+    override val referenceFromPhoto = "Foto"
+    override val referenceFromFrame = "Cuadro del video"
+    override val paintTitle = "Pintar líneas"
+    override val paintHelp = "Pasa el dedo encima de cada línea de la cancha, aunque apenas se vea."
+    override val modePoints = "Tocar puntos"
+    override val modeLines = "Pintar líneas"
+    override val lineStepPaint = "Pasa el dedo encima de una línea de la imagen (sirve aunque esté tenue o borrada)"
+    override val lineStepName = "¿Qué línea es? Tócala en el dibujo"
+    override val justALine = "No sé cuál, solo es una línea"
+    override fun touchReadyMarks(points: Int, lines: Int) = "Listo: ${marksSummary(points, lines)}. La cancha calculada se ve en violeta."
     override val pitchInMeters = "En la cancha, en metros"
     override val metersPerMinute = "Metros por jugador por minuto"
     override val sprintSpeed = "Velocidad en los piques"
@@ -674,6 +715,28 @@ object En : Strings {
     override val undo = "Undo"
     override val clearAll = "Clear all"
     override val frameAt = "Frame"
+    override fun marksSummary(points: Int, lines: Int) = buildList {
+        if (points > 0) add(if (points == 1) "1 point marked" else "$points points marked")
+        if (lines > 0) add(if (lines == 1) "1 line painted" else "$lines lines painted")
+    }.joinToString(" and ")
+    override fun referencesSummary(n: Int, strokes: Int) = (if (n == 1) "1 reference picture" else "$n reference pictures") + " · " + strokesCount(strokes)
+    override val referenceImages = "Reference pictures of the pitch"
+    override val referencesTitle = "Reference pictures"
+    override val referencesHelp = "If the light is poor or the lines are worn out: take photos of the pitch (best from where you record, in good light) or use a frame of the video, and paint over the lines with your finger. SAM uses them as examples of what a line is. They serve every video of this match."
+    override val takePhoto = "Take photo"
+    override val useThisFrame = "Use this frame"
+    override val referencesMax = "There are 6 pictures already: the most per match."
+    override fun strokesCount(n: Int) = if (n == 1) "1 line painted" else "$n lines painted"
+    override val referenceFromPhoto = "Photo"
+    override val referenceFromFrame = "Video frame"
+    override val paintTitle = "Paint lines"
+    override val paintHelp = "Run your finger over each line of the pitch, even if it can barely be seen."
+    override val modePoints = "Tap points"
+    override val modeLines = "Paint lines"
+    override val lineStepPaint = "Run your finger over a line of the image (works even if it is faint or worn out)"
+    override val lineStepName = "Which line is it? Tap it in the drawing"
+    override val justALine = "Not sure, it is just a line"
+    override fun touchReadyMarks(points: Int, lines: Int) = "Ready: ${marksSummary(points, lines)}. The computed pitch shows in violet."
     override val pitchInMeters = "On the pitch, in meters"
     override val metersPerMinute = "Meters per player per minute"
     override val sprintSpeed = "Sprint speed"
