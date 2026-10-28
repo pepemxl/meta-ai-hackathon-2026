@@ -324,6 +324,7 @@ final class App
         $dir = $this->storage->ensureClipDir($clip['id']);
         $tmp = (string) tempnam($dir, 'ref');
         file_put_contents($tmp, $body);
+        chmod($tmp, 0644);
         rename($tmp, $dir . '/' . Storage::referenceName($n));
         return Response::json(['clip_id' => $clip['id'], 'n' => $n, 'bytes' => strlen($body)]);
     }
