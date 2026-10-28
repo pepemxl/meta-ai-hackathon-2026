@@ -61,6 +61,30 @@ services:
         condition: service_healthy
     networks: [default, ppcoachtracker-dev]
 
+  # The analysis worker (../worker), with the code mounted so changes apply on
+  # restart. Only with --profile worker. In development SAM goes to the local
+  # simulator (docs/13-entorno-desarrollo.md) through SAM_API_BASE_URL in .env.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: ../worker
+      args:
+        DEV: "1"
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PP_COACH_TRACKER_API_URL: http://php/pp-coach-tracker
+      WORKER_CALLBACK_SECRET: test-worker-secret-0123456789
+      POLL_SECONDS: "5"
+      META_CACHE_DIR: /worker/.local/meta_cache
+      WORK_DIR: /worker/.local/jobs
+    volumes:
+      - ../worker:/worker
+    depends_on:
+      - php
+    networks: [default, ppcoachtracker-dev]
+
 volumes:
   ppcoachtracker-mysql:
 
