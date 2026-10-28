@@ -69,7 +69,7 @@ fun ClipAnalysisScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                             )
                         }
                     }
-                    item { SummaryCard(a.summary, s.analyzedWith) }
+                    item { SummaryCard(a.summary, if (a.isSimulator) s.simulatorWarning else s.analyzedWith) }
                     item {
                         PpCard {
                             SectionTitle(s.possession)

@@ -93,7 +93,7 @@ fun RecordScreen(vm: CoachViewModel, matchId: Int) {
         } else {
             val capture = remember {
                 val recorder = Recorder.Builder()
-                    .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)))
+                    .setQualitySelector(QualitySelector.fromOrderedList(listOf(Quality.FHD, Quality.HD, Quality.SD), FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
                     .build()
                 VideoCapture.withOutput(recorder)
             }
@@ -107,7 +107,11 @@ fun RecordScreen(vm: CoachViewModel, matchId: Int) {
                         val provider = providerFuture.get()
                         val preview = androidx.camera.core.Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
                         provider.unbindAll()
-                        provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                        try {
+                            provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                        } catch (e: Exception) {
+                            vm.toast(s.recordFailed)
+                        }
                     }, ContextCompat.getMainExecutor(ctx))
                 }
             }, modifier = Modifier.fillMaxSize())
