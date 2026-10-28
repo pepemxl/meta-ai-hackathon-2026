@@ -215,6 +215,9 @@ private fun SendCard(vm: CoachViewModel, clip: Clip, progress: SendProgress?, s:
             }
         }
         val canSend = !running && clip.status !in listOf(ClipStatus.UPLOADED, ClipStatus.SEGMENTING, ClipStatus.READY)
+        if (canSend && clip.pitchShare in 0.0..0.4999) {
+            Text(s.fewPitchWarning, style = MaterialTheme.typography.bodyMedium, color = c.warning, modifier = Modifier.padding(top = 8.dp))
+        }
         if (canSend) {
             if (vm.hasServer && vm.settings.consentVersion.isNotEmpty()) {
                 Text(s.consentLine, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.padding(top = 8.dp))

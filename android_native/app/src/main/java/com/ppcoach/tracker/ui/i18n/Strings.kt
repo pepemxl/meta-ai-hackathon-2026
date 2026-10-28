@@ -230,6 +230,7 @@ interface Strings {
     fun pitchShare(pct: Int, seconds: Int): String
     val pitchApproximate: String
     val topDownTitle: String
+    val fewPitchWarning: String
 }
 
 object Es : Strings {
@@ -455,6 +456,7 @@ object Es : Strings {
     override fun pitchShare(pct: Int, seconds: Int) = "Sale del $pct % del video ($seconds s con la cancha calculada)."
     override val pitchApproximate = "Medidas por omisión de la cancha: las distancias son aproximadas."
     override val topDownTitle = "La cancha vista desde arriba"
+    override val fewPitchWarning = "En este video casi no se ve la cancha; el análisis puede salir vacío. Puedes enviarlo igual."
 }
 
 object En : Strings {
@@ -680,6 +682,7 @@ object En : Strings {
     override fun pitchShare(pct: Int, seconds: Int) = "From $pct% of the video ($seconds s with the pitch computed)."
     override val pitchApproximate = "Default pitch measures: distances are approximate."
     override val topDownTitle = "The pitch from above"
+    override val fewPitchWarning = "The pitch is barely visible in this video; the analysis may come out empty. You can send it anyway."
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { Es }

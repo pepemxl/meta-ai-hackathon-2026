@@ -31,6 +31,7 @@ import com.ppcoach.tracker.data.Chunks
 import com.ppcoach.tracker.data.ClipInfo
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.FrameRow
+import com.ppcoach.tracker.data.PitchMask
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.ProxySpec
 import kotlinx.coroutines.Dispatchers
@@ -82,6 +83,8 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val (outW, outH) = ProxySpec.outputSize(clip.width, clip.height, spec.maxHeight)
         val rows = mutableListOf<Chunks.IndexRow>()
         var prevMap: List<FrameRow> = emptyList()
+        var pitchFrames = 0
+        var pitchWith = 0
         try {
             for ((i, cut) in cuts.withIndex()) {
                 val n = i + 1
@@ -90,13 +93,15 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 val existing = if (yamlFile.exists() && mp4.exists()) Chunks.parseChunkYaml(yamlFile.readText()) else null
                 if (existing != null && existing.height == outH && sha256(mp4) == existing.sha256) {
                     prevMap = existing.map
+                    existing.withPitch?.let { pitchWith += it; pitchFrames += existing.count }
                     rows += Chunks.IndexRow(n, mp4.name, existing.startMs, existing.endMs, existing.count)
                     continue
                 }
                 val start = if (n == 1) cut.startMs else Chunks.alignedStart(prevMap, cut.startMs)
                 setProgress(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to 0))
+                // Encoding is the first 85 % of each chunk; the pitch mask, the last 15 %.
                 transcode(source, mp4, start, cut.endMs, outH, spec.bitrate) { pct ->
-                    setProgressAsync(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to pct))
+                    setProgressAsync(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to pct * 85 / 100))
                 }
                 val outputMs = frameTimesMs(mp4).map { start + it }
                 val map = Chunks.frameMap(outputMs, info.sourceFps)
@@ -107,7 +112,22 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     overlapMs = if (n == 1) 0 else (prevMap.lastOrNull()?.ms ?: cut.startMs) - (map.firstOrNull()?.ms ?: start) + 100,
                     width = outW, height = outH, bitrate = spec.bitrate, map = map, overlapFrames = overlap, sha256 = sha256(mp4),
                 )
-                com.ppcoach.tracker.data.Durable.writeText(yamlFile, Chunks.chunkYaml(info, meta))
+                // The pitch of each frame (docs/prompts/12-mascara-cancha.md). If it fails, the YAML goes without it.
+                val started = System.currentTimeMillis()
+                val pitch = try {
+                    PitchSampler.sample(mp4) { pct ->
+                        setProgressAsync(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to 85 + pct * 15 / 100))
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("ChunkWorker", "chunk $n: pitch failed: ${e.message}")
+                    null
+                }
+                android.util.Log.i("ChunkWorker", "chunk $n: pitch in ${System.currentTimeMillis() - started} ms")
+                if (pitch != null) {
+                    pitchFrames += pitch.size
+                    pitchWith += pitch.count { it.third.size >= 6 }
+                }
+                com.ppcoach.tracker.data.Durable.writeText(yamlFile, Chunks.chunkYaml(info, meta, pitch?.let { PitchMask.yamlSection(it) }))
                 rows += Chunks.IndexRow(n, mp4.name, meta.startMs, meta.endMs, map.size)
                 com.ppcoach.tracker.data.Durable.writeText(File(dir, ProxyPaths.INDEX), Chunks.indexYaml(clip.id, profile, cuts.size, rows))
                 prevMap = map
@@ -118,7 +138,8 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             AppGraph.commit { l -> l.updateClip(clipId) { it.copy(status = ClipStatus.FAILED, error = "prepare: ${e.message ?: e.javaClass.simpleName}") } }
             return Result.failure()
         }
-        AppGraph.commit { l -> l.updateClip(clipId) { if (it.status == ClipStatus.PREPARING) it.copy(status = ClipStatus.LOCAL) else it } }
+        val share = if (pitchFrames > 0) pitchWith.toDouble() / pitchFrames else -1.0
+        AppGraph.commit { l -> l.updateClip(clipId) { (if (it.status == ClipStatus.PREPARING) it.copy(status = ClipStatus.LOCAL) else it).copy(pitchShare = share) } }
         return Result.success(workDataOf(KEY_CLIP to clipId))
     }
 
