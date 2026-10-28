@@ -20,6 +20,7 @@ from .config import Config
 from .debug import save_run
 from . import ball as ball_mod, cuts as cuts_mod, pitch as pitch_mod, shots as shots_mod
 from .calibration import calibrate
+from .calibration.sam_lines import SamLines
 from .chunks import iter_frames
 from .insights import MuseSpark, warnings_of
 from .meta_api import MetaClient, ResponseCache, Usage
@@ -78,7 +79,10 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
 
 
     # The pitch in meters: only from the coach's points, never guessed.
-    cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames)
+    lines = SamLines(sam_client, cfg.sam_model, cfg.line_concept, raw_dir) if cfg.pitch_sam else None
+    cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames, lines=lines)
+    if lines is not None:
+        segmenter.simulator |= lines.simulator
     pitch = None
     if cal is not None:
         rows = []
@@ -209,7 +213,8 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
     work = cfg.work_dir / f"job_{job_id:06d}"
     log.info("job %s: clip %s (%s chunks)", job_id, clip["id"], clip.get("chunk_count"))
     try:
-        for name in clip["files"]:
+        # The coach's reference pictures (if any) go next to the chunks.
+        for name in list(clip["files"]) + list(clip.get("references") or []):
             try:
                 api.download(int(clip["id"]), name, work / "clip" / name)
             except ApiError as e:

@@ -2,8 +2,9 @@
 
 Rule of the whole thing: BETTER NO METERS THAN FALSE METERS.
 
-- pitch_mode "off": nothing. "no_lines": only the coach's points. "lines" or
-  absent: the points too (lines with SAM are step 5, off by default).
+- pitch_mode "off": nothing. "no_lines": only the coach's points and painted
+  lines. "lines" or absent: the same, and SAM for the lines when PP_PITCH_SAM=1
+  (sam_lines.py; with "no_lines" only if the coach painted something).
 - The homography of each touched frame, from 5 or more marks that agree
   (points, and lines the coach painted over a named line when they are faint
   or the light is poor; with 4 any names fit), not used if the median error passes 1.5 % of the
@@ -20,9 +21,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..chunks import Clip, iter_frames
-from ..types import TrackSet
+from ..types import MetaError, RetryableError, TrackSet
+from . import sam_lines
 from .propagate import chain, motion_steps
-from .solver import Correspondences, fit_homography, fit_line, project, ransac_points, residuals, unproject, well_posed
+from .solver import Camera, Correspondences, fit_homography, fit_line, project, ransac_points, residuals, unproject, well_posed
 from .template import Template, build
 
 MAX_TOUCH_ERROR = 0.015  # of the image height
@@ -143,8 +145,64 @@ def _fit_points_and_lines(template: Template, pitch_pts, img_pts, lines, thresho
     return H, sum(1 for e in errs if e <= threshold), float(np.median(errs))
 
 
-def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mode: str | None, frames=None) -> tuple[PitchCalibration | None, list[str]]:
-    """Returns the calibration (or None) and notes for the result. [frames] overrides decoding (tests)."""
+def _reference_pictures(clip: Clip, refs: list[dict]) -> list["sam_lines.Reference"]:
+    """The coach's pictures downloaded next to the clip (reference_N.jpg) with their strokes."""
+    import cv2
+
+    out = []
+    for r in refs:
+        path = clip.dir / f"reference_{int(r.get('n', 0))}.jpg"
+        img = cv2.imread(str(path)) if path.is_file() else None
+        if img is None:
+            continue
+        strokes = [[(p["x"], p["y"]) for p in st.get("points") or []] for st in r.get("strokes") or []]
+        out.append(sam_lines.Reference(img, [s for s in strokes if len(s) >= 2], r.get("source", "photo")))
+    return out
+
+
+def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method):
+    """SAM's lines on the key frames: new keys where the template falls on them,
+    cuts where they contradict the propagated pitch; then the chain again."""
+    notes: list[str] = []
+    report = {"concept": lines.concept, "key_frames": 0, "frames_charged": 0, "references": sum(1 for g in video.order if g is None),
+              "exemplars": sum(len(b) for _, b in video.exemplars), "found": 0, "used": 0, "confirmed": 0, "contradicted": 0, "frames": []}
+    try:
+        white, charged = sam_lines.find_white(lines, video)
+    except (MetaError, RetryableError, OSError) as e:
+        notes.append(f"SAM no pudo buscar las líneas de la cancha ({str(e)[:120]}): la cancha queda solo con los puntos marcados.")
+        return chained, report, notes
+    report.update(key_frames=sum(1 for g in video.order if g is not None), frames_charged=charged, found=len(white))
+    if not white:
+        notes.append("SAM no encontró líneas de la cancha en los cuadros clave: la cancha queda solo con los puntos marcados.")
+        return chained, report, notes
+    # The camera's place from the first touched frame (a tripod or a broadcast camera does not move).
+    k0 = min(keys)
+    camera = Camera.from_homography(keys[k0], w, h, list(template.points.values()))
+    start = {i: Hm for i, (Hm, _) in chained.items()}
+    new_keys, contradicted, frames = sam_lines.refine_keys({g: m for g, m in white.items() if g not in keys}, start, camera, template)
+    confirmed = sum(1 for f in frames if f.get("confirmed"))
+    report.update(used=len(new_keys), confirmed=confirmed, contradicted=len(contradicted), frames=frames[:60])
+    if not new_keys and not contradicted and not confirmed:
+        notes.append("Las líneas que encontró SAM no confirmaron la cancha en ningún cuadro clave: queda la de los puntos marcados.")
+        return chained, report, notes
+    if not new_keys and not contradicted:
+        return chained, report, notes
+    for g in new_keys:
+        method[g] = "meta_sam"
+
+    def accept2(i, Hm):
+        return i not in contradicted and accept(i, Hm)
+
+    return chain(steps, {**keys, **new_keys}, accept2), report, notes
+
+
+def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mode: str | None, frames=None,
+              lines: "sam_lines.SamLines | None" = None) -> tuple[PitchCalibration | None, list[str]]:
+    """Returns the calibration (or None) and notes for the result. [frames] overrides decoding (tests).
+
+    [lines] (PP_PITCH_SAM=1): SAM looks for the lines on key frames, shown by
+    the coach's strokes. With "Se ven poco o no hay" only when the coach
+    painted something: that is the coach saying where the lines are."""
     if pitch_mode == "off":
         return None, []
     touches = (calibration or {}).get("frames") or []
@@ -161,11 +219,13 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
 
     keys: dict[int, np.ndarray] = {}
     key_report = []
-    for t in touches:
+    touched_at: dict[int, int] = {}  # index in calibration["frames"] → global frame
+    for ti, t in enumerate(touches):
         if "frame" in t:
             g = min(max(int(t["frame"]), 0), len(infos) - 1)
         else:
             g = min(range(len(infos)), key=lambda i: abs(infos[i].t_ms - int(t["t_ms"])))
+        touched_at[ti] = g
         H, entry, note = solve_frame(t, template, w, h)
         entry = {"frame": g, "t_ms": infos[g].t_ms, **entry}
         if note:
@@ -200,16 +260,41 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         return inside / len(feet) >= FEET_INSIDE
 
     source = frames if frames is not None else ((fi.frame, img) for fi, _, _, img in iter_frames(clip))
+    refs, touched_strokes = sam_lines.strokes_of(calibration)
+    painted = bool(touched_strokes) or any(r.get("strokes") for r in refs)
+    video = None
+    if lines is not None and (pitch_mode != "no_lines" or painted):
+        # The key frames go into SAM's video as the frames pass for the motion.
+        stroke_frames = {touched_at[i]: st for i, st in touched_strokes.items() if i in touched_at}
+        step = max(1, round(clip.fps))
+        wanted = set(range(0, len(infos), step)[:sam_lines.MAX_KEY_FRAMES]) | set(stroke_frames)
+        video = sam_lines.PromptVideo(clip.dir / "sam_lines" / "prompt.mp4", w, h, _reference_pictures(clip, refs))
+
+        def tap(src):
+            for g, img in src:
+                if g in wanted:
+                    video.add(g, img, stroke_frames.get(g))
+                yield g, img
+
+        source = tap(source)
     steps = motion_steps(source, boxes_of)
     chained = chain(steps, keys, accept)
-    homographies = {i: (Hm, "manual" if i == k else "propagated") for i, (Hm, k) in chained.items()}
+    method = {k: "manual" for k in keys}
+    if video is not None:
+        chained, sam_report, sam_notes = _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method)
+        report["lines"] = "sam"
+        report["sam"] = sam_report
+        notes += sam_notes
+    homographies = {i: (Hm, method[k] if i == k else "propagated") for i, (Hm, k) in chained.items()}
 
     n = max(1, len(infos))
     manual = sum(1 for _, s in homographies.values() if s == "manual")
+    by_sam = sum(1 for _, s in homographies.values() if s == "meta_sam")
     errs = [e["median_error_px"] for e in key_report if e["used"]]
     report.update(
         frames_with_homography=round(len(homographies) / n, 4),
-        by_method={"manual": round(manual / n, 4), "propagated": round((len(homographies) - manual) / n, 4)},
+        by_method={"manual": round(manual / n, 4), "propagated": round((len(homographies) - manual - by_sam) / n, 4),
+                   **({"meta_sam": round(by_sam / n, 4)} if video is not None else {})},
         median_error=round(float(np.median(errs)) / h, 5) if errs else None,
     )
     if len(homographies) / n < 0.5:

@@ -50,10 +50,12 @@ Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (
 | `PP_COACH_TRACKER_API_URL`, `WORKER_CALLBACK_SECRET` | La API y el secreto de `/internal/*` (para `run` y `once`) | — |
 | `POLL_SECONDS` | Cada cuánto consulta la cola | 10 |
 | `WORK_DIR` | Carpeta de trabajo (`job_NNNNNN`; se borra si salió bien) | `.local/jobs` |
+| `PP_PITCH_SAM` | `1` = SAM busca las líneas de la cancha en cuadros clave (`calibration/sam_lines.py`) | `0` |
+| `SAM_LINE_CONCEPT` | Concepto de SAM para las líneas | `white line on a soccer field` |
 
 ## Flujo de un trabajo
 
-1. `GET /internal/jobs/next` → descarga `clip.files` a `WORK_DIR/job_NNNNNN/clip`.
+1. `GET /internal/jobs/next` → descarga `clip.files` y las imágenes de referencia del entrenador (`clip.references`, `reference_N.jpg`) a `WORK_DIR/job_NNNNNN/clip`.
 2. Lee `chunks.yaml` (perfil: `chunk_seconds`, `overlap_ms`; nunca se suponen) y los YAML de cada chunk (quita la línea `%YAML:1.0` antes de PyYAML).
 3. **SAM 3.1** por chunk: `POST /files` y un `POST /responses` con stream por concepto (`player in <color> jersey` por equipo y `soccer ball`; `soccer player` si los colores no distinguen a los equipos). Los streams crudos quedan en `raw/` y todas las cajas en `raw/tracks.json`.
 4. Une los tracks entre chunks por IoU en los cuadros del traslape: misma identidad si IoU > 0.5 en al menos la mitad de los cuadros de traslape donde aparecen los dos, y en 5 o más. El traslape se conserva una vez.
@@ -63,10 +65,10 @@ Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (
    **Posesión** con histéresis: se gana a 0.06 y se suelta cuando nadie del equipo está a 0.09; dura hasta 2 s sin ver el balón; la racha mínima (5) se cuenta en cuadros con balón. **Equipos:** un tercer grupo de color, chico y lejos de los dos equipos (el árbitro), queda sin equipo aunque lo encuentre el concepto de un equipo.
    **Máscara de la cancha** (`pitch.py`, `shots.py`): la sección `pitch` del YAML de cada chunk (la escribe la app) y, donde no viene o no se puede leer, medida del video con el mismo método (rejilla de 160×90 en HSV, la mancha de pasto más grande y su contorno convexo de hasta 12 puntos; menos de 70 % de pasto dentro no es cancha). Los cuadros sin cancha se descartan (`video.discarded`, `video.frames_used`) y un jugador cuenta si sus pies caen en el polígono ampliado 0.02. Si menos de la mitad de los cuadros tiene cancha, no se usa la máscara. `notes` dice cuántos cuadros vinieron de la app y cuántos se midieron.
 7. Métricas en coordenadas de **pantalla**, siempre. Y, si el entrenador marcó puntos y no contestó "No calcular la cancha" (`options.pitch_mode` distinto de `off`), **la cancha en metros** (`calibration/`):
-   - la homografía del cuadro tocado con 5 o más puntos que coincidan (con 4 cualquier nombre encaja; RANSAC quita los mal nombrados), si la mediana del error no pasa de 1.5 % del alto;
+   - la homografía del cuadro tocado con 5 o más marcas que coincidan: puntos y **líneas pintadas** (el trazo del dedo sobre una línea con nombre, para líneas tenues, borradas o con poca luz; a cada trazo se le ajusta una recta y uno que se dobla más de 1.5 % del alto no cuenta). Con 4 cualquier nombre encaja. Solo puntos: RANSAC quita los mal nombrados; con líneas, se quita la peor marca mientras algo pase de 1.5 % del alto, y al final se recuperan las que encajan. Líneas de una sola dirección dejan la cancha libre y no se usan. Se acepta si la mediana del error no pasa de 1.5 % del alto;
    - propagada por su toma con KLT sobre el pasto y `findHomography` (una cámara que no se mueve queda fija); la cadena se corta en un corte de cámara, con menos de 30 % (o de 30) puntos que coinciden, o donde menos del 90 % de los pies cae en la cancha con 5 m de margen;
    - cada jugador gana `mx`, `my`; las métricas en metros (`pitch`) salen solo de los cuadros con homografía y solo con 10 s o más, con velocidades entre las posiciones medias de cada segundo (un paso de más de 11 m/s es un cambio de track y no cuenta).
-   - Las líneas con SAM (paso 5 de la etapa 13) no están hechas: no hay nada automático sin puntos.
+   - **Líneas con SAM** (`PP_PITCH_SAM=1`; apagadas por omisión): un MP4 a 1 fps con las imágenes de referencia del entrenador (con franjas negras al tamaño del video) y luego un cuadro clave por segundo. SAM recibe el concepto y, en cada cuadro con trazos (las referencias y los trazos de los cuadros tocados, con nombre o sin él), cajitas a lo largo de cada trazo como ejemplos positivos. Las máscaras son los píxeles blancos. Con el lugar de la cámara del cuadro tocado: si la homografía propagada ya cae sobre ellos, se confirma; si no, se ajustan paneo, inclinación y zoom midiendo en los dos sentidos, con filtro de calidad (≤ 2.5 px de la plantilla a las líneas, ≤ 2 px de las líneas a la plantilla, 60 % de los blancos explicados, dos familias de líneas). Lo que pasa se vuelve un cuadro clave nuevo; un cuadro con líneas en dos direcciones lejos de la propagada la corta. Con "Se ven poco o no hay" solo se llama si el entrenador pintó algo. Si SAM falla, una nota lo dice y queda la cancha de los puntos. El bloque `calibration.sam` dice cuadros clave, cuadros cobrados, ejemplos, encontrados, confirmados, usados y contradichos. **No hay nada automático sin un cuadro tocado.**
 8. **Muse Spark** con salida estructurada (`json_schema` estricto); una reparación si no valida; si tampoco, falla.
 9. `POST /internal/jobs/:id/result` (multipart, el análisis como archivo `analysis`).
 
@@ -75,6 +77,8 @@ Errores: `RetryableError` (429, 5xx, timeout, stream cortado) se reintenta 3 vec
 **Caché:** cada respuesta cruda se guarda con la llave `URL base + sha256(chunk) + modelo + concepto` (o el sha256 del prompt para Muse Spark). La URL base evita que una respuesta del simulador salga de la caché en una corrida contra SAM real. Es caché, no respaldo.
 
 ## Formato de SAM
+
+> **Las líneas tampoco están verificadas.** Los ejemplos van como `{"type": "input_visual_prompt", "frame": k, "boxes": [[x1, y1, x2, y2], …], "labels": [1, …]}` (`sam_lines.exemplar_content`) y las máscaras se leen de `<|mask;…|>` con un lector tolerante (`counts` COCO numérico o la cadena de pycocotools, `bits` empacados, `png`; del cuadro o de la caja). Al tener key: ajustar las dos piezas y sus pruebas al formato real.
 
 > **No verificado todavía.** El parser sigue el formato documentado: una marca `<Nf>` por cuadro y, por objeto, su ordinal y `<|box;x1=..;y1=..;x2=..;y2=..;c=..|>` (normalizadas 0..1 o en pixeles), dentro de eventos `response.output_text.delta` hasta `response.completed`. Las pruebas usan streams **sintéticos** con ese formato (`tests/fakes.py`). En cuanto haya key: capturar el stream de un clip propio de 1 min (`analyze` deja los crudos en `raw/`), ajustar el parser y el simulador a lo que de verdad devuelve, reemplazar los streams sintéticos de las pruebas por esos y escribir aquí el formato real.
 
