@@ -65,10 +65,8 @@ class Correspondences:
         return cls([tuple(p) for p in pitch], [tuple(p) for p in image], [], [])
 
 
-def dlt(c: Correspondences) -> np.ndarray:
-    """Normalized DLT with points and lines. Needs 4 elements (points + lines)."""
-    if len(c.pitch_points) + len(c.pitch_lines) < 4:
-        raise ValueError("need at least 4 points or lines")
+def _dlt_system(c: Correspondences) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The normalized DLT rows and both normalizers."""
     allp = np.array(c.pitch_points + [p for seg in c.pitch_lines for p in seg], dtype=float)
     alli = np.array(c.image_points + [p for seg in c.image_lines for p in seg], dtype=float)
     Tp, Ti = _normalizer(allp), _normalizer(alli)
@@ -92,10 +90,43 @@ def dlt(c: Correspondences) -> np.ndarray:
         cross = np.array([[0, -lp[2], lp[1]], [lp[2], 0, -lp[0]], [-lp[1], lp[0], 0]])
         A = cross @ M
         rows.extend([A[0], A[1]])
-    _, _, vt = np.linalg.svd(np.array(rows))
+    return np.array(rows), Tp, Ti
+
+
+def dlt(c: Correspondences) -> np.ndarray:
+    """Normalized DLT with points and lines. Needs 4 elements (points + lines)."""
+    if len(c.pitch_points) + len(c.pitch_lines) < 4:
+        raise ValueError("need at least 4 points or lines")
+    rows, Tp, Ti = _dlt_system(c)
+    _, _, vt = np.linalg.svd(rows)
     Hn = vt[-1].reshape(3, 3)
     H = np.linalg.inv(Ti) @ Hn @ Tp
     return H / H[2, 2]
+
+
+def well_posed(c: Correspondences) -> bool:
+    """False when the correspondences leave the homography free (five parallel
+    lines, or lines of one direction and a single point): then a tiny error
+    proves nothing."""
+    if len(c.pitch_points) + len(c.pitch_lines) < 4:
+        return False
+    rows = _dlt_system(c)[0]
+    sv = np.linalg.svd(rows / np.linalg.norm(rows, axis=1, keepdims=True), compute_uv=False)
+    return len(sv) >= 9 and sv[-2] > 1e-3 * sv[0]
+
+
+def fit_line(pts) -> tuple[tuple[float, float], tuple[float, float], float]:
+    """A straight line through a painted stroke (total least squares): its two
+    ends (the extreme points projected on it) and the largest distance of a
+    stroke point to it, in the stroke's units."""
+    P = np.asarray(pts, dtype=float)
+    c = P.mean(axis=0)
+    _, _, vt = np.linalg.svd(P - c)
+    d = vt[0]
+    t = (P - c) @ d
+    dev = float(np.max(np.abs((P - c) @ vt[1]))) if len(P) > 2 else 0.0
+    a, b = c + t.min() * d, c + t.max() * d
+    return (float(a[0]), float(a[1])), (float(b[0]), float(b[1])), dev
 
 
 def residuals(H: np.ndarray, c: Correspondences) -> np.ndarray:

@@ -119,3 +119,13 @@ def touches(names=("corner_far_left", "corner_far_right", "corner_near_left", "c
         x, y = project(Hm, [TPL.points[n]])[0]
         pts.append({"name": n, "x": round(float(x / W), 5), "y": round(float(y / H), 5)})
     return {"pitch": {"size": 7}, "frames": [{"frame": frame, "points": pts}]}
+
+
+def stroke(name: str, start: float = 0.0, end: float = 1.0, n: int = 12, noise_px: float = 0.0, seed: int = 0) -> dict:
+    """A line the coach painted with a finger: points along the named template
+    line from [start] to [end] of its length (normalized image), with noise."""
+    rng = np.random.default_rng(seed)
+    a, b = np.array(TPL.lines[name], dtype=float)
+    pts = project(CAM.homography(), [a + (b - a) * s for s in np.linspace(start, end, n)])
+    pts = pts + rng.normal(0, noise_px, pts.shape)
+    return {"name": name, "points": [{"x": round(float(x / W), 5), "y": round(float(y / H), 5)} for x, y in pts]}
