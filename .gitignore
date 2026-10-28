@@ -4,7 +4,7 @@ api/storage/
 api/php/dist/
 worker/.local/
 LOCAL_DATA/
-data/
+/data/
 *.mp4
 android_native/keystore.properties
 *.jks
