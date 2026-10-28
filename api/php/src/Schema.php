@@ -37,13 +37,22 @@ final class Schema
 
     /**
      * Cambios a tablas existentes. Cada uno revisa antes si hace falta (idempotente).
-     * Por ahora no hay: el esquema nació con esta versión.
      *
      * @return list<string>
      */
     public static function migrate(PDO $db): array
     {
-        return [];
+        $done = [];
+        // Etapa 13: la pregunta de la cancha y los puntos del entrenador.
+        if (!self::hasColumn($db, 'clips', 'pitch_mode')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN pitch_mode VARCHAR(16) NULL AFTER overlap_ms');
+            $done[] = 'clips.pitch_mode';
+        }
+        if (!self::hasColumn($db, 'clips', 'calibration')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN calibration TEXT NULL AFTER pitch_mode');
+            $done[] = 'clips.calibration';
+        }
+        return $done;
     }
 
     public static function hasColumn(PDO $db, string $table, string $column): bool

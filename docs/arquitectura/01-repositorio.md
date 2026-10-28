@@ -102,7 +102,7 @@ api/
     ├── src/                App, Router, Request/Response, Multipart, Auth, Repo, Schema, Consent, Calibration…
     ├── public/             entrada web: index.php, .htaccess, .user.ini y legal/
     ├── bin/                CLI: migrate.php, user.php
-    ├── tools/              package.sh, install_Cloud Provider.php, legal_pages.py
+    ├── tools/              package.sh, install_cloud_provider.php, legal_pages.py
     └── docker/Dockerfile   PHP 8.3 + Apache para imitar a Cloud Provider
 ```
 

@@ -44,6 +44,7 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/health` | Cualquiera | `{ok, version, db, authenticated, consent_version}` |
 | POST | `/auth/login` | Cualquiera | `{email, password}` → `{token, email, name}`. JWT HS256, `sub` = `u<id>`, 30 días. 10 fallos por correo en 15 min → 429 con `Retry-After` |
 | POST | `/clips` | Entrenador | Registro idempotente por `(coach_id, client_clip_id)`; ver abajo |
+| POST | `/clips/:id/calibration` | Entrenador | Puntos de la cancha que marcó el entrenador (abajo); 409 cuando el worker ya tomó el clip |
 | PUT | `/clips/:id/chunks/:n/video?offset=<bytes>` | Entrenador | Una parte cruda (`application/octet-stream`) de hasta `MAX_PART_BYTES` → `{number, received_bytes}` |
 | PUT | `/clips/:id/chunks/:n` | Entrenador | Multipart `yaml` + `sha256`, sin video: cierra el chunk → `{number, sha256, size_bytes}` |
 | POST | `/clips/:id/complete` | Entrenador | Multipart `index` (`chunks.yaml`) → como `POST /clips` + `job_id` |
@@ -51,7 +52,7 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/clips/:id/analysis` | Entrenador | `{clip_id, job_id, segmenter, analyst, created_at, result}` o 404 `{error: "analysis not found", status}` |
 | POST | `/consent` | Entrenador | `{action: accept\|withdraw, version, at, app_version}` → `{id, action, version, at}` |
 | GET | `/consent` | Entrenador | `{consent_version, current: none\|accepted\|withdrawn\|outdated, events: [...]}` |
-| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files}, match: {home, away, home_color, away_color, date, venue}}` |
+| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files}, options: {pitch_mode}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
 | GET | `/internal/clips/:id/files/:name` | Worker | Solo `chunks.yaml` y `video_part_NNN.(mp4\|yaml)`; 404 si no |
 | POST | `/internal/jobs/:id/result` | Worker | JSON `{status: done\|failed, error}` o multipart con el archivo `analysis` (JSON) |
 
@@ -66,13 +67,24 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 }
 ```
 
-Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
+Opcional: `"analysis": {"pitch_mode": "lines" | "no_lines" | "off"}` (si se calcula la cancha; sin el campo, `null`; otro valor, 400 con `analysis.pitch_mode`). Queda fijo cuando el worker toma el clip.
+
+Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
 
 - **400** `{error: "invalid fields", fields: [...]}`: `duration_ms` ≤ 6 h, `chunk_count` 1..1000, textos 1..160 (`venue` puede ir vacío), `chunk_seconds` 60..300 (perfiles `dev` = 60 y `demo` = 300), `overlap_ms` 2000..5000.
 - **428** `{error: "consent required", consent_version}`: falta el consentimiento, no es la versión vigente (`2026-10-27`) o la fecha es inválida o está más de 1 día en el futuro.
 - **428** `{error: "consent withdrawn", consent_version}`: `accepted_at` es anterior o igual al último retiro del entrenador.
 - Registra la aceptación como evento y liga el clip a él. El partido es idempotente por `(coach_id, client_match_id)`.
 - Si cambia `chunk_count`, `chunk_seconds` u `overlap_ms`, se descartan los chunks y los `.partial`, y el clip vuelve a `registered`.
+
+### `POST /clips/:id/calibration`
+
+```json
+{"pitch": {"size": 7, "length_m": 60, "width_m": 40},
+ "frames": [{"t_ms": 1200, "points": [{"name": "corner_far_left", "x": 0.12, "y": 0.31}, …]}]}
+```
+
+`size` 11 o 7; `length_m` 20..130 y `width_m` 15..100 opcionales; de 1 a 20 cuadros, cada uno con `t_ms` o `frame` y de 4 a 40 puntos con nombres de la plantilla (`[a-z0-9_]`, sin repetir) y `x`, `y` en 0..1. 400 `{error: "invalid calibration", detail}` si no. Se puede reemplazar mientras el clip está en `registered`, `uploading` o `queued`; después, 409. El worker lo recibe tal cual en `calibration`.
 
 ### Subida en partes
 

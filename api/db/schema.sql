@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS clips (
   chunk_count SMALLINT UNSIGNED NOT NULL,
   chunk_seconds SMALLINT UNSIGNED NOT NULL,
   overlap_ms SMALLINT UNSIGNED NOT NULL,
+  -- lines | no_lines | off | NULL (docs/prompts/13-cancha-en-metros.md)
+  pitch_mode VARCHAR(16) NULL,
+  -- Puntos de la cancha que marcó el entrenador (JSON), o NULL.
+  calibration TEXT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'registered',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

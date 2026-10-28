@@ -7,6 +7,7 @@ const multer = require('multer');
 const storage = require('./storage');
 const { verifyPassword, signToken, verifyToken, matchStaticToken, safeEqual } = require('./auth');
 const { CONSENT_VERSION, parseClipConsent, parseConsentEvent, currentState, iso } = require('./consent');
+const { parsePitchMode, parseCalibration } = require('./calibration');
 
 const VERSION = require('../package.json').version;
 
@@ -22,13 +23,17 @@ const LOGIN_MAX_FAILURES = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 // Uploads only while the clip is not being analyzed.
 const UPLOAD_BLOCKED = ['queued', 'segmenting'];
+// The coach's points can change until the worker takes the clip.
+const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
 
 /**
  * The pp-coach-tracker API (contract in api/README.md):
  *
  *   GET  /health                           server, database and token check
  *   POST /auth/login                       email + password → JWT (30 days)
- *   POST /clips                            register (idempotent), needs consent → what is already here
+ *   POST /clips                            register (idempotent), needs consent → what is already here;
+ *                                          analysis.pitch_mode: whether to compute the pitch
+ *   POST /clips/:id/calibration            the coach's points on the pitch; 409 once the worker took the clip
  *   PUT  /clips/:id/chunks/:n/video        one raw part of a chunk at ?offset=
  *   PUT  /clips/:id/chunks/:n              close a chunk: yaml + sha256, checked on the assembled video
  *   POST /clips/:id/complete               chunks.yaml; all chunks there → analysis job queued
@@ -122,6 +127,7 @@ function createApp({
       chunk_count: clip.chunk_count,
       chunk_seconds: clip.chunk_seconds,
       overlap_ms: clip.overlap_ms,
+      pitch_mode: clip.pitch_mode ?? null,
       received: chunks.map((c) => ({ number: c.number, sha256: c.sha256 })),
       partial: storage.partials(storageDir, clip.id),
     };
@@ -185,6 +191,8 @@ function createApp({
     text(m.away_color, 'match.away_color');
     text(m.date, 'match.date');
     text(m.venue ?? '', 'match.venue', 0);
+    const pitchMode = parsePitchMode(b.analysis);
+    if (pitchMode.error) bad.push('analysis.pitch_mode');
     if (bad.length) return fail(res, 400, 'invalid fields', { fields: bad });
 
     const consent = parseClipConsent(b.consent, now());
@@ -202,11 +210,14 @@ function createApp({
       const id = await repo.createClip({
         coach_id: req.coachId, client_clip_id: b.client_clip_id, match_id: matchId, title: b.title,
         duration_ms: b.duration_ms, chunk_count: b.chunk_count, chunk_seconds: b.chunk_seconds, overlap_ms: b.overlap_ms,
+        pitch_mode: pitchMode.value,
       });
       clip = await repo.getClip(id);
     } else {
       const profileChanged = clip.chunk_count !== b.chunk_count || clip.chunk_seconds !== b.chunk_seconds || clip.overlap_ms !== b.overlap_ms;
       const fields = { title: b.title, duration_ms: b.duration_ms, match_id: matchId };
+      // The answer is fixed once the worker took the clip.
+      if (!UPLOAD_BLOCKED.includes(clip.status)) fields.pitch_mode = pitchMode.value;
       if (profileChanged && !UPLOAD_BLOCKED.includes(clip.status)) {
         // The app regenerated the chunks with another profile: the old ones are useless.
         await repo.deleteChunks(clip.id);
@@ -218,6 +229,16 @@ function createApp({
     }
     await repo.linkClipConsent(clip.id, eventId);
     res.json(await clipState(clip));
+  }));
+
+  app.post('/clips/:id/calibration', auth, json, wrap(async (req, res) => {
+    const clip = await ownClip(req, res);
+    if (!clip) return;
+    if (!CALIBRATION_OPEN.includes(clip.status)) return fail(res, 409, 'clip already taken by the worker', { status: clip.status });
+    const cal = parseCalibration(req.body);
+    if (cal.error) return fail(res, 400, 'invalid calibration', { detail: cal.error });
+    await repo.updateClip(clip.id, { calibration: JSON.stringify(cal.value) });
+    res.json({ clip_id: clip.id, frames: cal.value.frames.length, points: cal.value.frames.reduce((n, f) => n + f.points.length, 0) });
   }));
 
   app.put('/clips/:id/chunks/:n/video', auth, express.raw({ type: () => true, limit: maxPartBytes }), wrap(async (req, res) => {
@@ -350,6 +371,8 @@ function createApp({
         chunk_seconds: clip.chunk_seconds, overlap_ms: clip.overlap_ms,
         dir: path.basename(storage.clipDir(storageDir, clip.id)), index: storage.INDEX, files,
       },
+      options: { pitch_mode: clip.pitch_mode ?? null },
+      calibration: clip.calibration ? JSON.parse(clip.calibration) : null,
       match: match ? { home: match.home, away: match.away, home_color: match.home_color, away_color: match.away_color, date: match.match_date, venue: match.venue } : null,
     });
   }));

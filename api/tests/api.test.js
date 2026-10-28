@@ -432,3 +432,64 @@ test('the app refuses a short JWT_SECRET and the server does not start without o
   assert.equal(r.status, 1);
   assert.match(r.stderr, /JWT_SECRET/);
 });
+
+const CAL = {
+  pitch: { size: 7, length_m: 60, width_m: 40 },
+  frames: [{ t_ms: 1200, points: [
+    { name: 'corner_far_left', x: 0.1, y: 0.2 }, { name: 'corner_far_right', x: 0.9, y: 0.2 },
+    { name: 'corner_near_left', x: 0.05, y: 0.9 }, { name: 'corner_near_right', x: 0.95, y: 0.9 }, { name: 'center', x: 0.5, y: 0.5 },
+  ] }],
+};
+
+test('pitch_mode is validated, stored and given to the worker', async () => {
+  const { app } = h.makeApp();
+  const bad = await register(app, h.clipBody({ analysis: { pitch_mode: 'maybe' } }));
+  assert.equal(bad.status, 400);
+  assert.deepEqual(bad.body.fields, ['analysis.pitch_mode']);
+  const none = await register(app, h.clipBody());
+  assert.equal(none.body.pitch_mode, null);
+  const reg = await register(app, h.clipBody({ analysis: { pitch_mode: 'no_lines' } }));
+  assert.equal(reg.body.pitch_mode, 'no_lines');
+  const id = reg.body.clip_id;
+  assert.equal((await request(app).post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(CAL)).status, 200);
+  await uploadChunk(app, id, 1, Buffer.from('a'));
+  await uploadChunk(app, id, 2, Buffer.from('b'));
+  await complete(app, id);
+  let next;
+  // Other tests may leave jobs queued in MySQL: claim until this clip's.
+  do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
+  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines' });
+  assert.deepEqual(next.body.calibration, CAL);
+});
+
+test('calibration: validated, only the owner, 409 once the worker took the clip', async () => {
+  const { app } = h.makeApp();
+  const { id } = await readyClip(app);
+  const post = (body, auth = h.COACH1) => request(app).post(`/clips/${id}/calibration`).set('Authorization', auth).send(body);
+  const pts = CAL.frames[0].points;
+  const cases = [
+    { ...CAL, pitch: { size: 9 } },
+    { ...CAL, pitch: { size: 11, length_m: 500 } },
+    { ...CAL, frames: [] },
+    { ...CAL, frames: [{ points: pts }] },
+    { ...CAL, frames: [{ t_ms: 0, points: pts.slice(0, 3) }] },
+    { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { ...pts[0] }] }] },
+    { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { name: 'x', x: 1.5, y: 0 }] }] },
+    { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { name: 'Bad Name', x: 0, y: 0 }] }] },
+  ];
+  for (const c of cases) {
+    const r = await post(c);
+    assert.equal(r.status, 400, JSON.stringify(c).slice(0, 80));
+    assert.equal(r.body.error, 'invalid calibration');
+  }
+  assert.equal((await post(CAL, h.COACH2)).status, 404);
+  const ok = await post({ ...CAL, frames: [{ frame: 12, points: pts }] });
+  assert.deepEqual(ok.body, { clip_id: id, frames: 1, points: 5 });
+  let next;
+  do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
+  assert.equal(next.body.calibration.frames[0].frame, 12);
+  assert.equal(next.body.options.pitch_mode, null);
+  const late = await post(CAL);
+  assert.equal(late.status, 409);
+  assert.equal(late.body.status, 'segmenting');
+});

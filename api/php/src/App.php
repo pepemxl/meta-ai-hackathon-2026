@@ -20,6 +20,8 @@ final class App
     private const LOGIN_MAX_IP = 30;
     /** Mientras se analiza no se aceptan subidas. */
     private const UPLOAD_BLOCKED = ['queued', 'segmenting'];
+    /** Los puntos de la cancha se pueden cambiar hasta que el worker toma el clip. */
+    private const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
 
     private Router $router;
     private ?Repo $repo = null;
@@ -127,6 +129,7 @@ final class App
             'chunk_count' => $clip['chunk_count'],
             'chunk_seconds' => $clip['chunk_seconds'],
             'overlap_ms' => $clip['overlap_ms'],
+            'pitch_mode' => $clip['pitch_mode'] ?? null,
             'received' => array_map(fn($c) => ['number' => $c['number'], 'sha256' => $c['sha256']], $this->repo()->chunks($clip['id'])),
             'partial' => $this->storage->partials($clip['id']),
         ];
@@ -146,6 +149,7 @@ final class App
         ]));
         $r->add('POST', '/auth/login', fn(Request $q) => $this->login($q));
         $r->add('POST', '/clips', fn(Request $q) => $this->registerClip($q));
+        $r->add('POST', '/clips/:id/calibration', fn(Request $q) => $this->postCalibration($q));
         $r->add('PUT', '/clips/:id/chunks/:n/video', fn(Request $q) => $this->putPart($q));
         $r->add('PUT', '/clips/:id/chunks/:n', fn(Request $q) => $this->finishChunk($q));
         $r->add('POST', '/clips/:id/complete', fn(Request $q) => $this->complete($q));
@@ -213,6 +217,10 @@ final class App
         $text($m['away_color'] ?? null, 'match.away_color');
         $text($m['date'] ?? null, 'match.date');
         $text($m['venue'] ?? '', 'match.venue', 0);
+        [$pitchOk, $pitchMode] = Calibration::pitchMode($b['analysis'] ?? null);
+        if (!$pitchOk) {
+            $bad[] = 'analysis.pitch_mode';
+        }
         if ($bad) {
             throw new HttpError(400, 'invalid fields', ['fields' => $bad]);
         }
@@ -239,10 +247,15 @@ final class App
             $id = $this->repo()->createClip([
                 'coach_id' => $coach, 'client_clip_id' => $b['client_clip_id'], 'match_id' => $matchId, 'title' => $b['title'],
                 'duration_ms' => $b['duration_ms'], 'chunk_count' => $b['chunk_count'], 'chunk_seconds' => $b['chunk_seconds'], 'overlap_ms' => $b['overlap_ms'],
+                'pitch_mode' => $pitchMode,
             ]);
         } else {
             $id = $clip['id'];
             $fields = ['title' => $b['title'], 'duration_ms' => $b['duration_ms'], 'match_id' => $matchId];
+            // La respuesta queda fija cuando el worker toma el clip.
+            if (!in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
+                $fields['pitch_mode'] = $pitchMode;
+            }
             $changed = $clip['chunk_count'] !== $b['chunk_count'] || $clip['chunk_seconds'] !== $b['chunk_seconds'] || $clip['overlap_ms'] !== $b['overlap_ms'];
             if ($changed && !in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
                 // La app regeneró los chunks con otro perfil: los anteriores ya no sirven.
@@ -254,6 +267,25 @@ final class App
         }
         $this->repo()->linkClipConsent($id, $eventId);
         return Response::json($this->clipState($this->repo()->clip($id)));
+    }
+
+    private function postCalibration(Request $req): Response
+    {
+        $coach = $this->coach($req);
+        $clip = $this->ownClip($req, $coach);
+        if (!in_array($clip['status'], self::CALIBRATION_OPEN, true)) {
+            throw new HttpError(409, 'clip already taken by the worker', ['status' => $clip['status']]);
+        }
+        $cal = Calibration::parse($req->json());
+        if (isset($cal['error'])) {
+            throw new HttpError(400, 'invalid calibration', ['detail' => $cal['error']]);
+        }
+        $this->repo()->updateClip($clip['id'], ['calibration' => json_encode($cal['value'], JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)]);
+        return Response::json([
+            'clip_id' => $clip['id'],
+            'frames' => count($cal['value']['frames']),
+            'points' => array_sum(array_map(fn($f) => count($f['points']), $cal['value']['frames'])),
+        ]);
     }
 
     private function putPart(Request $req): Response
@@ -476,6 +508,8 @@ final class App
                 'chunk_seconds' => $clip['chunk_seconds'], 'overlap_ms' => $clip['overlap_ms'],
                 'dir' => Storage::clipDirName($clip['id']), 'index' => Storage::INDEX, 'files' => $files,
             ],
+            'options' => ['pitch_mode' => $clip['pitch_mode'] ?? null],
+            'calibration' => empty($clip['calibration']) ? null : json_decode($clip['calibration']),
             'match' => $match === null ? null : [
                 'home' => $match['home'], 'away' => $match['away'], 'home_color' => $match['home_color'],
                 'away_color' => $match['away_color'], 'date' => $match['match_date'], 'venue' => $match['venue'],

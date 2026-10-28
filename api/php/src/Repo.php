@@ -121,9 +121,9 @@ final class Repo
     public function createClip(array $c): int
     {
         $this->run(
-            "INSERT INTO clips (coach_id, client_clip_id, match_id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'registered')",
-            [$c['coach_id'], $c['client_clip_id'], $c['match_id'], $c['title'], $c['duration_ms'], $c['chunk_count'], $c['chunk_seconds'], $c['overlap_ms']],
+            "INSERT INTO clips (coach_id, client_clip_id, match_id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, pitch_mode, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'registered')",
+            [$c['coach_id'], $c['client_clip_id'], $c['match_id'], $c['title'], $c['duration_ms'], $c['chunk_count'], $c['chunk_seconds'], $c['overlap_ms'], $c['pitch_mode'] ?? null],
         );
         return (int) $this->db->lastInsertId();
     }

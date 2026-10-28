@@ -24,7 +24,7 @@ en ~/ppcoachtracker_api. El plan no tiene SSH: usa el MCP de Cloud Provider
      .htaccess, .user.ini, legal/ y root.php con la ruta de la app) y el
      archivo WEB_DIR; además install.php y deny.htaccess ("Require all
      denied").
-   - install_Cloud Provider.php (lo corre un cron, solo por CLI): extrae el zip,
+   - install_cloud_provider.php (lo corre un cron, solo por CLI): extrae el zip,
      reemplaza src/bin/sql, copia el .env si venía (chmod 600), crea storage/,
      aplica Schema::apply (y migraciones), crea la cuenta de user.env
      (EMAIL, NAME, PASSWORD) si existe y no existía, copia public/ a la
