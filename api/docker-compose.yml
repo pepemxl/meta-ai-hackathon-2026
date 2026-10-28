@@ -29,6 +29,38 @@ services:
       retries: 20
     networks: [default, ppcoachtracker-dev]
 
+  # The PHP API (php/), as on Cloud Provider, on http://localhost:8097/pp-coach-tracker.
+  # Test settings: the static tokens are what tests/php/contract.test.js expects;
+  # the part and chunk limits are production's.
+  php:
+    build: ./php/docker
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ppcoachtracker
+      DB_USER: ppcoachtracker
+      DB_PASSWORD: ppcoachtracker-dev
+      JWT_SECRET: test-jwt-secret-0123456789abcdefghijkl
+      WORKER_CALLBACK_SECRET: test-worker-secret-0123456789
+      API_TOKENS: test-coach1:test-token-0123456789,test-coach2:other-coach-token-9876
+      MAX_PART_BYTES: "8388608"
+      MAX_CHUNK_BYTES: "167772160"
+      # Writable by Apache's www-data; lost when the container is recreated.
+      STORAGE_DIR: /tmp/pp-coach-tracker-storage
+      PP_COACH_TRACKER_ROOT: /app
+    ports:
+      - "${PHP_HOST_PORT:-8097}:80"
+    volumes:
+      - ./php:/app
+      - ./php/public:/var/www/html/pp-coach-tracker
+      # The same API with REQUIRE_META and a small chunk limit (see the Dockerfile).
+      - ./php/public:/var/www/html/pp-coach-tracker-strict
+      - ./db:/db:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [default, ppcoachtracker-dev]
+
 volumes:
   ppcoachtracker-mysql:
 

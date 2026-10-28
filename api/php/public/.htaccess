@@ -1,0 +1,29 @@
+# API de pp-coach-tracker (LiteSpeed en Cloud Provider, Apache en local).
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # HTTPS, salvo en local (PP_COACH_TRACKER_ALLOW_HTTP) o si el CDN ya llegó
+  # por HTTPS: detrás del CDN la petición entra como HTTP y, sin esta
+  # condición, la redirección no termina nunca.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{ENV:PP_COACH_TRACKER_ALLOW_HTTP} !=1
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Sin esto PHP no ve el Bearer y todo responde 401.
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # root.php y .user.ini no se sirven.
+  RewriteRule (^|/)(root\.php|\.user\.ini)$ - [F,L]
+
+  # Lo que no es un archivo (legal/*.html sí lo es) va a index.php.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<FilesMatch "^(root\.php|\.user\.ini)$">
+  Require all denied
+</FilesMatch>

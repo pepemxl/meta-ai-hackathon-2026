@@ -11,7 +11,10 @@
     "test": "node --test --test-concurrency=1 tests/*.test.js",
     "user:add": "node src/cli/add-user.js",
     "db:up": "wsl -e docker compose up -d mysql",
-    "db:down": "wsl -e docker compose down"
+    "db:down": "wsl -e docker compose down",
+    "php:up": "wsl -e docker compose up -d --build php",
+    "php:migrate": "wsl -e docker compose exec -T php php bin/migrate.php",
+    "test:php": "node --test --test-concurrency=1 tests/php/contract.test.js"
   },
   "engines": {
     "node": ">=20.12"
