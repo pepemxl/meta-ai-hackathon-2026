@@ -89,7 +89,9 @@ def _dlt_system(c: Correspondences) -> tuple[np.ndarray, np.ndarray, np.ndarray]
                 M[j, 3 * i + j] = li[i]
         cross = np.array([[0, -lp[2], lp[1]], [lp[2], 0, -lp[0]], [-lp[1], lp[0], 0]])
         A = cross @ M
-        rows.extend([A[0], A[1]])
+        # Two independent rows of the three: the strongest (one is zero when the line passes through the origin).
+        k = np.argsort(np.linalg.norm(A, axis=1))[-2:]
+        rows.extend([A[k[0]], A[k[1]]])
     return np.array(rows), Tp, Ti
 
 

@@ -64,3 +64,11 @@ def test_template_lines_match_the_shared_fixture():
     if not fixture.exists():
         fixture.write_text(json.dumps(current, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     assert json.loads(fixture.read_text(encoding="utf-8")) == current
+
+
+def test_a_line_through_the_middle_of_the_points_still_counts():
+    # Symmetric points put the halfway line through the normalized origin: one of its rows is zero.
+    f = frame(("center", "corner_far_left", "corner_far_right"), [ps.stroke("touch_near"), ps.stroke("halfway", 0.1, 0.9)])
+    H, entry, note = solve_frame(f, ps.TPL, ps.W, ps.H)
+    assert note is None and entry["used"] and entry["inliers"] == 5
+    assert pitch_error_m(H, ps.CAM.homography(), GRID) < 0.5
