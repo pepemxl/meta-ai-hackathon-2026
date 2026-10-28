@@ -1,0 +1,270 @@
+{
+ "11": {
+  "box_far_left": [
+   -36.0,
+   20.16
+  ],
+  "box_far_left_goal": [
+   -52.5,
+   20.16
+  ],
+  "box_far_right": [
+   36.0,
+   20.16
+  ],
+  "box_far_right_goal": [
+   52.5,
+   20.16
+  ],
+  "box_near_left": [
+   -36.0,
+   -20.16
+  ],
+  "box_near_left_goal": [
+   -52.5,
+   -20.16
+  ],
+  "box_near_right": [
+   36.0,
+   -20.16
+  ],
+  "box_near_right_goal": [
+   52.5,
+   -20.16
+  ],
+  "center": [
+   0.0,
+   0.0
+  ],
+  "circle_far": [
+   0.0,
+   9.15
+  ],
+  "circle_left": [
+   -9.15,
+   0.0
+  ],
+  "circle_near": [
+   0.0,
+   -9.15
+  ],
+  "circle_right": [
+   9.15,
+   0.0
+  ],
+  "corner_far_left": [
+   -52.5,
+   34.0
+  ],
+  "corner_far_right": [
+   52.5,
+   34.0
+  ],
+  "corner_near_left": [
+   -52.5,
+   -34.0
+  ],
+  "corner_near_right": [
+   52.5,
+   -34.0
+  ],
+  "goal_area_far_left": [
+   -47.0,
+   9.16
+  ],
+  "goal_area_far_left_goal": [
+   -52.5,
+   9.16
+  ],
+  "goal_area_far_right": [
+   47.0,
+   9.16
+  ],
+  "goal_area_far_right_goal": [
+   52.5,
+   9.16
+  ],
+  "goal_area_near_left": [
+   -47.0,
+   -9.16
+  ],
+  "goal_area_near_left_goal": [
+   -52.5,
+   -9.16
+  ],
+  "goal_area_near_right": [
+   47.0,
+   -9.16
+  ],
+  "goal_area_near_right_goal": [
+   52.5,
+   -9.16
+  ],
+  "halfway_far": [
+   0.0,
+   34.0
+  ],
+  "halfway_near": [
+   0.0,
+   -34.0
+  ],
+  "post_far_left": [
+   -52.5,
+   3.66
+  ],
+  "post_far_right": [
+   52.5,
+   3.66
+  ],
+  "post_near_left": [
+   -52.5,
+   -3.66
+  ],
+  "post_near_right": [
+   52.5,
+   -3.66
+  ],
+  "spot_left": [
+   -41.5,
+   0.0
+  ],
+  "spot_right": [
+   41.5,
+   0.0
+  ]
+ },
+ "7": {
+  "box_far_left": [
+   -21.0,
+   12.0
+  ],
+  "box_far_left_goal": [
+   -30.0,
+   12.0
+  ],
+  "box_far_right": [
+   21.0,
+   12.0
+  ],
+  "box_far_right_goal": [
+   30.0,
+   12.0
+  ],
+  "box_near_left": [
+   -21.0,
+   -12.0
+  ],
+  "box_near_left_goal": [
+   -30.0,
+   -12.0
+  ],
+  "box_near_right": [
+   21.0,
+   -12.0
+  ],
+  "box_near_right_goal": [
+   30.0,
+   -12.0
+  ],
+  "center": [
+   0.0,
+   0.0
+  ],
+  "circle_far": [
+   0.0,
+   6.0
+  ],
+  "circle_left": [
+   -6.0,
+   0.0
+  ],
+  "circle_near": [
+   0.0,
+   -6.0
+  ],
+  "circle_right": [
+   6.0,
+   0.0
+  ],
+  "corner_far_left": [
+   -30.0,
+   20.0
+  ],
+  "corner_far_right": [
+   30.0,
+   20.0
+  ],
+  "corner_near_left": [
+   -30.0,
+   -20.0
+  ],
+  "corner_near_right": [
+   30.0,
+   -20.0
+  ],
+  "goal_area_far_left": [
+   -27.0,
+   6.0
+  ],
+  "goal_area_far_left_goal": [
+   -30.0,
+   6.0
+  ],
+  "goal_area_far_right": [
+   27.0,
+   6.0
+  ],
+  "goal_area_far_right_goal": [
+   30.0,
+   6.0
+  ],
+  "goal_area_near_left": [
+   -27.0,
+   -6.0
+  ],
+  "goal_area_near_left_goal": [
+   -30.0,
+   -6.0
+  ],
+  "goal_area_near_right": [
+   27.0,
+   -6.0
+  ],
+  "goal_area_near_right_goal": [
+   30.0,
+   -6.0
+  ],
+  "halfway_far": [
+   0.0,
+   20.0
+  ],
+  "halfway_near": [
+   0.0,
+   -20.0
+  ],
+  "post_far_left": [
+   -30.0,
+   3.0
+  ],
+  "post_far_right": [
+   30.0,
+   3.0
+  ],
+  "post_near_left": [
+   -30.0,
+   -3.0
+  ],
+  "post_near_right": [
+   30.0,
+   -3.0
+  ],
+  "spot_left": [
+   -22.0,
+   0.0
+  ],
+  "spot_right": [
+   22.0,
+   0.0
+  ]
+ }
+}

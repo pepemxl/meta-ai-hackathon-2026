@@ -38,6 +38,7 @@ import com.ppcoach.tracker.data.ClipSource
 import com.ppcoach.tracker.data.Match
 import com.ppcoach.tracker.ui.components.BottomItem
 import com.ppcoach.tracker.ui.components.ConsentDialog
+import com.ppcoach.tracker.ui.components.PitchDialog
 import com.ppcoach.tracker.ui.components.PpBottomBar
 import com.ppcoach.tracker.ui.components.SectionTitle
 import com.ppcoach.tracker.ui.components.SheetOption
@@ -47,6 +48,7 @@ import com.ppcoach.tracker.ui.screens.ClipDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchEditor
 import com.ppcoach.tracker.ui.screens.MatchesScreen
+import com.ppcoach.tracker.ui.screens.PitchTouchesScreen
 import com.ppcoach.tracker.ui.screens.RecordScreen
 import com.ppcoach.tracker.ui.screens.SettingsScreen
 import com.ppcoach.tracker.ui.theme.PpTheme
@@ -87,6 +89,7 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
                 is Screen.Record -> RecordScreen(vm, top.matchId)
                 is Screen.ClipDetail -> ClipDetailScreen(vm, lib, top.clipId, top.seekMs)
                 is Screen.Analysis -> ClipAnalysisScreen(vm, lib, top.clipId)
+                is Screen.PitchTouches -> PitchTouchesScreen(vm, lib, top.clipId)
             }
         }
         if (isRoot) {
@@ -151,6 +154,7 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
     }
 
     vm.consentFor?.let { ConsentDialog(vm, onDismiss = { vm.consentFor = null }) }
+    vm.pitchFor?.let { PitchDialog(vm, onDismiss = { vm.pitchFor = null }) }
 
     vm.message?.let { text ->
         LaunchedEffect(text) {

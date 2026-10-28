@@ -10,6 +10,7 @@ import com.ppcoach.tracker.data.ApiClient
 import com.ppcoach.tracker.data.ApiException
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Consent
+import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.UploadPlan
 import org.json.JSONObject
@@ -76,8 +77,18 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                         .put("venue", match.venue.take(160)),
                 )
                 .put("consent", Consent.clipBlock(settings.consentAt, BuildConfig.VERSION_NAME))
+            if (PitchMode.valid(clip.pitchMode)) body.put("analysis", JSONObject().put("pitch_mode", clip.pitchMode))
             val remote = api.register(body)
             AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id) } }
+            // The coach's points right after registering; if the server rejects them, the video goes anyway.
+            val touches = clip.touches
+            if (touches != null && touches.points.size >= 4 && clip.pitchMode != PitchMode.OFF) {
+                try {
+                    api.calibration(remote.id, touches.toRequest())
+                } catch (e: ApiException) {
+                    if (e.code == 401) throw e
+                }
+            }
 
             val chunks = files.mapValues { (_, f) -> f.length() to sha256(f) }
             val parts = UploadPlan.missingParts(chunks, remote)

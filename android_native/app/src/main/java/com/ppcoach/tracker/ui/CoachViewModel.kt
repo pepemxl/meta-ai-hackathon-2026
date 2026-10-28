@@ -29,6 +29,7 @@ import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.Durable
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
+import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.Settings
 import com.ppcoach.tracker.data.StorageKind
@@ -48,6 +49,7 @@ sealed interface Screen {
     data class Record(val matchId: Int) : Screen
     data class ClipDetail(val clipId: Int, val seekMs: Long = -1) : Screen
     data class Analysis(val clipId: Int) : Screen
+    data class PitchTouches(val clipId: Int) : Screen
 }
 
 /** Progress of a clip's chain as the UI shows it. */
@@ -73,6 +75,8 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     val thumbnails = mutableStateMapOf<Int, Bitmap?>()
     /** Clip waiting for the consent dialog before being sent. */
     var consentFor by mutableStateOf<Int?>(null)
+    /** Clip waiting for "Do we compute the pitch?" and whether to send it after the answer. */
+    var pitchFor by mutableStateOf<Pair<Int, Boolean>?>(null)
     val analyses = mutableStateMapOf<Int, AnalysisState>()
 
     private val ctx get() = getApplication<Application>()
@@ -306,8 +310,56 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
             consentFor = clipId
             return
         }
+        // "Do we compute the pitch?" once per match: the match's last answer applies to its other videos.
+        val clip = library.value.clip(clipId) ?: return
+        if (hasServer && clip.pitchMode.isEmpty()) {
+            val fromMatch = library.value.match(clip.matchId)?.pitchMode.orEmpty()
+            if (PitchMode.valid(fromMatch)) {
+                updateClip(clipId) { it.copy(pitchMode = fromMatch) }
+            } else {
+                pitchFor = clipId to true
+                return
+            }
+        }
         updateClip(clipId) { it.copy(error = "") }
         Work.send(ctx, clipId, upload = hasServer)
+    }
+
+    fun answerPitch(mode: String, forMatch: Boolean) {
+        val (clipId, sendAfter) = pitchFor ?: return
+        pitchFor = null
+        val clip = library.value.clip(clipId) ?: return
+        updateClip(clipId) { it.copy(pitchMode = mode) }
+        if (forMatch) AppGraph.commit { it.updateMatch(clip.matchId) { m -> m.copy(pitchMode = mode) } }
+        if (sendAfter) send(clipId)
+    }
+
+    /** The "Compute the pitch" switch: off, or back to the match's answer (or asked when sending). */
+    fun setPitchEnabled(clipId: Int, on: Boolean) {
+        val clip = library.value.clip(clipId) ?: return
+        val fromMatch = library.value.match(clip.matchId)?.pitchMode.orEmpty()
+        updateClip(clipId) { it.copy(pitchMode = if (!on) PitchMode.OFF else fromMatch.takeIf { m -> m == PitchMode.LINES || m == PitchMode.NO_LINES } ?: "") }
+    }
+
+    fun saveTouches(clipId: Int, touches: com.ppcoach.tracker.data.PitchTouches?) {
+        updateClip(clipId) { it.copy(touches = touches?.takeIf { t -> t.points.isNotEmpty() }) }
+    }
+
+    /** A frame of the clip's video at [tMs], scaled to [maxWidth]. */
+    suspend fun frameAt(clip: Clip, tMs: Long, maxWidth: Int = 1280): Bitmap? = withContext(Dispatchers.IO) {
+        val file = videoFile(clip) ?: return@withContext null
+        val r = MediaMetadataRetriever()
+        try {
+            r.setDataSource(file.absolutePath)
+            val w = clip.width.takeIf { it > 0 } ?: 1280
+            val h = clip.height.takeIf { it > 0 } ?: 720
+            val scale = minOf(1.0, maxWidth.toDouble() / w)
+            r.getScaledFrameAtTime(tMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST, (w * scale).toInt(), (h * scale).toInt())
+        } catch (e: Exception) {
+            null
+        } finally {
+            r.release()
+        }
     }
 
     fun acceptConsent() {

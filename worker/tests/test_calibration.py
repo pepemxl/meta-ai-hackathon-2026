@@ -136,3 +136,15 @@ def test_camera_model_with_two_lines_and_a_point():
     # Two lines alone are not enough for a free homography.
     with pytest.raises(ValueError):
         dlt(Correspondences([], [], plines, ilines))
+
+
+def test_template_matches_the_shared_fixture():
+    """The app (data/PitchTouches.kt) checks the same file: both sides use the same names and meters."""
+    import json
+    from pathlib import Path
+
+    fixture = Path(__file__).parent / "fixtures" / "pitch_template.json"
+    current = {str(size): {n: [round(x, 3), round(y, 3)] for n, (x, y) in sorted(build(size).points.items())} for size in (11, 7)}
+    if not fixture.exists():
+        fixture.write_text(json.dumps(current, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    assert json.loads(fixture.read_text(encoding="utf-8")) == current

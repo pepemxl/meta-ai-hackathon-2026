@@ -195,6 +195,41 @@ interface Strings {
     val analysisNotYet: String
     val analysisOffline: String
     val analysisSessionExpired: String
+
+    // pitch in meters (stage 13)
+    val pitchQuestionTitle: String
+    val pitchQuestionIntro: String
+    val pitchLinesQuestion: String
+    val pitchLines: String
+    val pitchNoLines: String
+    val pitchOff: String
+    val pitchUseForMatch: String
+    val computePitch: String
+    val pitchAnswerLines: String
+    val pitchAnswerNoLines: String
+    val pitchAnswerAsk: String
+    val changeAnswer: String
+    val markPitchPoints: String
+    fun pointsMarked(n: Int): String
+    val noLinesNoPoints: String
+    val pitchTouchesTitle: String
+    val football11: String
+    val football7: String
+    val touchStepImage: String
+    val touchStepName: String
+    val touchNeedFifth: String
+    fun touchReady(n: Int): String
+    val undo: String
+    val clearAll: String
+    val frameAt: String
+    val pitchInMeters: String
+    val metersPerMinute: String
+    val sprintSpeed: String
+    val teamWidth: String
+    val teamLength: String
+    fun pitchShare(pct: Int, seconds: Int): String
+    val pitchApproximate: String
+    val topDownTitle: String
 }
 
 object Es : Strings {
@@ -386,6 +421,40 @@ object Es : Strings {
     override val analysisNotYet = "El análisis todavía no está listo."
     override val analysisOffline = "Sin conexión: no se pudo descargar el análisis."
     override val analysisSessionExpired = "La sesión venció: inicia sesión para ver el análisis."
+
+    override val pitchQuestionTitle = "¿Calculamos la cancha?"
+    override val pitchQuestionIntro = "Así el análisis mide distancias y posiciones en metros, con los puntos de la cancha que marques."
+    override val pitchLinesQuestion = "¿Las líneas de la cancha se ven bien en este video?"
+    override val pitchLines = "Sí, se ven bien"
+    override val pitchNoLines = "Se ven poco o no hay"
+    override val pitchOff = "No calcular la cancha"
+    override val pitchUseForMatch = "Usar esta respuesta para los demás videos de este partido"
+    override val computePitch = "Calcular la cancha"
+    override val pitchAnswerLines = "Líneas bien marcadas"
+    override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
+    override val pitchAnswerAsk = "Se pregunta al enviar"
+    override val changeAnswer = "Cambiar respuesta"
+    override val markPitchPoints = "Marcar puntos de la cancha"
+    override fun pointsMarked(n: Int) = if (n == 1) "1 punto marcado" else "$n puntos marcados"
+    override val noLinesNoPoints = "Sin puntos marcados la cancha no se calcula."
+    override val pitchTouchesTitle = "Puntos de la cancha"
+    override val football11 = "Fútbol 11"
+    override val football7 = "Fútbol 7"
+    override val touchStepImage = "Toca un punto de la cancha en la imagen"
+    override val touchStepName = "Ahora toca cuál es en el dibujo"
+    override val touchNeedFifth = "Con 4 puntos cualquier nombre encaja: marca un quinto"
+    override fun touchReady(n: Int) = "Listo: $n puntos. La cancha calculada se ve en violeta."
+    override val undo = "Deshacer"
+    override val clearAll = "Borrar todo"
+    override val frameAt = "Cuadro"
+    override val pitchInMeters = "En la cancha, en metros"
+    override val metersPerMinute = "Metros por jugador por minuto"
+    override val sprintSpeed = "Velocidad en los piques"
+    override val teamWidth = "Ancho del equipo"
+    override val teamLength = "Largo del equipo"
+    override fun pitchShare(pct: Int, seconds: Int) = "Sale del $pct % del video ($seconds s con la cancha calculada)."
+    override val pitchApproximate = "Medidas por omisión de la cancha: las distancias son aproximadas."
+    override val topDownTitle = "La cancha vista desde arriba"
 }
 
 object En : Strings {
@@ -577,6 +646,40 @@ object En : Strings {
     override val analysisNotYet = "The analysis is not ready yet."
     override val analysisOffline = "Offline: the analysis could not be downloaded."
     override val analysisSessionExpired = "Your session expired: log in to see the analysis."
+
+    override val pitchQuestionTitle = "Shall we compute the pitch?"
+    override val pitchQuestionIntro = "The analysis then measures distances and positions in meters, with the pitch points you mark."
+    override val pitchLinesQuestion = "Are the pitch lines clearly visible in this video?"
+    override val pitchLines = "Yes, clearly"
+    override val pitchNoLines = "Barely or not at all"
+    override val pitchOff = "Do not compute the pitch"
+    override val pitchUseForMatch = "Use this answer for the other videos of this match"
+    override val computePitch = "Compute the pitch"
+    override val pitchAnswerLines = "Clear lines"
+    override val pitchAnswerNoLines = "No lines: with the marked points"
+    override val pitchAnswerAsk = "Asked when sending"
+    override val changeAnswer = "Change answer"
+    override val markPitchPoints = "Mark pitch points"
+    override fun pointsMarked(n: Int) = if (n == 1) "1 point marked" else "$n points marked"
+    override val noLinesNoPoints = "Without marked points the pitch is not computed."
+    override val pitchTouchesTitle = "Pitch points"
+    override val football11 = "11-a-side"
+    override val football7 = "7-a-side"
+    override val touchStepImage = "Tap a point of the pitch in the image"
+    override val touchStepName = "Now tap which one it is in the drawing"
+    override val touchNeedFifth = "With 4 points any names fit: mark a fifth"
+    override fun touchReady(n: Int) = "Ready: $n points. The computed pitch shows in violet."
+    override val undo = "Undo"
+    override val clearAll = "Clear all"
+    override val frameAt = "Frame"
+    override val pitchInMeters = "On the pitch, in meters"
+    override val metersPerMinute = "Meters per player per minute"
+    override val sprintSpeed = "Sprint speed"
+    override val teamWidth = "Team width"
+    override val teamLength = "Team length"
+    override fun pitchShare(pct: Int, seconds: Int) = "From $pct% of the video ($seconds s with the pitch computed)."
+    override val pitchApproximate = "Default pitch measures: distances are approximate."
+    override val topDownTitle = "The pitch from above"
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { Es }

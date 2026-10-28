@@ -37,6 +37,7 @@ import com.ppcoach.tracker.ui.components.PpTopBar
 import com.ppcoach.tracker.ui.components.SectionTitle
 import com.ppcoach.tracker.ui.components.SummaryCard
 import com.ppcoach.tracker.ui.components.TeamDot
+import com.ppcoach.tracker.ui.components.TopDownPitch
 import com.ppcoach.tracker.ui.i18n.LocalStrings
 import com.ppcoach.tracker.ui.theme.PpTheme
 
@@ -98,6 +99,31 @@ fun ClipAnalysisScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                             SideBySide(s.pressure, ta?.pressersPerFrame?.let { "%.1f".format(it) }, tb?.pressersPerFrame?.let { "%.1f".format(it) })
                             SideBySide(s.widthInImage, ta?.spreadX?.let { "${Math.round(it * 100)} %" }, tb?.spreadX?.let { "${Math.round(it * 100)} %" })
                             SideBySide(s.depthInImage, ta?.spreadY?.let { "${Math.round(it * 100)} %" }, tb?.spreadY?.let { "${Math.round(it * 100)} %" })
+                        }
+                    }
+                    a.pitch?.let { p ->
+                        item {
+                            PpCard {
+                                SectionTitle(s.pitchInMeters)
+                                Text(s.pitchShare(Math.round(p.framesWithHomography * 100).toInt(), p.seconds.toInt()), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                                if (p.approximate) Text(s.pitchApproximate, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                                TeamsHeader(home, away, homeColor, awayColor)
+                                val pa = p.teams["A"]
+                                val pb = p.teams["B"]
+                                SideBySide(s.metersPerMinute, pa?.metersPerMinute?.let { "%.0f m".format(it) }, pb?.metersPerMinute?.let { "%.0f m".format(it) })
+                                SideBySide(s.sprintSpeed, pa?.speedP95?.let { "%.1f km/h".format(it * 3.6) }, pb?.speedP95?.let { "%.1f km/h".format(it * 3.6) })
+                                SideBySide(s.teamWidth, pa?.widthM?.let { "%.0f m".format(it) }, pb?.widthM?.let { "%.0f m".format(it) })
+                                SideBySide(s.teamLength, pa?.lengthM?.let { "%.0f m".format(it) }, pb?.lengthM?.let { "%.0f m".format(it) })
+                                SectionTitle(s.topDownTitle)
+                                for ((name, color, team) in listOf(Triple(home, homeColor, pa), Triple(away, awayColor, pb))) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
+                                        TeamDot(color)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(name, style = MaterialTheme.typography.labelLarge, color = c.textPrimary)
+                                    }
+                                    TopDownPitch(p, team?.heatmap, color)
+                                }
+                            }
                         }
                     }
                     val heat = listOf(Triple(home, homeColor, a.teams["A"]?.heatmap), Triple(away, awayColor, a.teams["B"]?.heatmap)).filter { it.third != null }

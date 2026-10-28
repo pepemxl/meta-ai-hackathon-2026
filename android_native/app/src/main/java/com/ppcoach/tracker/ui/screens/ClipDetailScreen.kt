@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -55,6 +57,7 @@ import com.ppcoach.tracker.data.Clip
 import com.ppcoach.tracker.data.ClipKind
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Library
+import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.ProxySpec
 import com.ppcoach.tracker.ui.CoachViewModel
@@ -127,6 +130,7 @@ fun ClipDetailScreen(vm: CoachViewModel, lib: Library, clipId: Int, seekMs: Long
             }
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SendCard(vm, clip, progress, s)
+                PitchCard(vm, clip, locked = (progress != null && !progress.finished) || clip.status !in listOf(ClipStatus.LOCAL, ClipStatus.FAILED), s = s)
                 PpCard {
                     KeyValue(s.navMatches, "${match.home} ${s.vs} ${match.away}")
                     KeyValue(s.date.substringBefore(" ("), match.date)
@@ -222,6 +226,42 @@ private fun SendCard(vm: CoachViewModel, clip: Clip, progress: SendProgress?, s:
         val dir = vm.proxyDir(clip)
         if (!vm.hasServer && !running && clip.chunkCount > 0 && dir != null && File(dir, ProxyPaths.INDEX).exists()) {
             PpTextButton(s.share, { shareChunks(context, dir) })
+        }
+    }
+}
+
+/** "Compute the pitch": the switch, the answer, "Change answer" and the coach's points. Locked once sent. */
+@Composable
+private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: Strings) {
+    val c = PpTheme.colors
+    val on = clip.pitchMode != PitchMode.OFF
+    PpCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(s.computePitch, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+                Text(
+                    when (clip.pitchMode) {
+                        PitchMode.LINES -> s.pitchAnswerLines
+                        PitchMode.NO_LINES -> s.pitchAnswerNoLines
+                        PitchMode.OFF -> s.pitchOff
+                        else -> s.pitchAnswerAsk
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = c.textSecondary,
+                )
+            }
+            Switch(on, { vm.setPitchEnabled(clip.id, it) }, enabled = !locked, colors = SwitchDefaults.colors(checkedTrackColor = c.accent))
+        }
+        if (on) {
+            val n = clip.touches?.points?.size ?: 0
+            if (n > 0) Text(s.pointsMarked(n), style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+            if (clip.pitchMode == PitchMode.NO_LINES && n == 0) Text(s.noLinesNoPoints, style = MaterialTheme.typography.bodyMedium, color = c.warning)
+            if (!locked) {
+                Row {
+                    PpTextButton(s.markPitchPoints, { vm.push(Screen.PitchTouches(clip.id)) })
+                    PpTextButton(s.changeAnswer, { vm.pitchFor = clip.id to false })
+                }
+            }
         }
     }
 }
