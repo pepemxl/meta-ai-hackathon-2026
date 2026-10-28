@@ -1,18 +1,12 @@
+# Secretos y datos locales
 .env
-node_modules/
-api/storage/
-api/php/dist/
-worker/.local/
 LOCAL_DATA/
+# Anclado a la raíz: sin la barra también ignora el paquete data de la app.
 /data/
 *.mp4
-android_native/keystore.properties
-*.jks
-.gradle/
-build/
-local.properties
-outputs/
+
 # Python (worker)
+worker/.local/
 __pycache__/
 *.py[cod]
 .venv/
@@ -23,32 +17,28 @@ venv/
 # Node / PHP (api)
 node_modules/
 api/storage/
+api/php/dist/
 vendor/
 storage/logs/
 
 # Android
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-android/.idea/
+android_native/keystore.properties
 android_native/.gradle/
 android_native/.kotlin/
 android_native/build/
 android_native/app/build/
 android_native/dist/
-
-# Tracker local C++ (docs/06-plan-fallback.md)
-local/build/
-local/vcpkg_installed/
-local/models/
+.gradle/
+build/
+local.properties
+outputs/
+captures/
+.externalNativeBuild/
+.cxx/
 *.apk
 *.aab
 *.jks
 *.keystore
-captures/
-.externalNativeBuild/
-.cxx/
 
 # Editores y sistema
 .idea/
@@ -56,4 +46,3 @@ captures/
 *.log
 .DS_Store
 Thumbs.db
-api/php/dist/
