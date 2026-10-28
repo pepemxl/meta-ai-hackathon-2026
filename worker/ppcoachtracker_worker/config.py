@@ -41,6 +41,8 @@ class Config:
     work_dir: Path
     # The URL that counts as real Meta (tests point it at their fake API).
     meta_reference_url: str = DEFAULT_META_URL
+    # Saved runs for the viewer (debug.py); None = do not save.
+    debug_dir: Path | None = None
 
     @property
     def sam_is_meta(self) -> bool:
@@ -82,4 +84,5 @@ def from_env(env: dict[str, str] | None = None) -> Config:
         max_frames_per_job=max_frames,
         cache_dir=Path(e.get("META_CACHE_DIR") or ".local/meta_cache"),
         work_dir=Path(e.get("WORK_DIR") or ".local/jobs"),
+        debug_dir=Path(e["DEBUG_DIR"]) if e.get("DEBUG_DIR") else None,
     )

@@ -44,3 +44,12 @@ La imagen base es `python:3.12-slim` (PSF y licencias de Debian). No hay modelos
 | Nombre | Versión | Licencia | Para qué |
 |---|---|---|---|
 | Python-Markdown | 3.7 | BSD-3-Clause | `api/php/tools/legal_pages.py`: páginas públicas de los textos legales (no se despliega, solo su HTML) |
+
+## Visor (`viewer/`, solo desarrollo local)
+
+| Nombre | Versión | Licencia | Para qué |
+|---|---|---|---|
+| React, React DOM | 18.3.1 | MIT | Interfaz |
+| Vite, @vitejs/plugin-react | 5.4.11, 4.3.4 | MIT | Compilar |
+| TypeScript | 5.6.3 | Apache-2.0 | Tipos |
+| ffmpeg (paquete de Debian en la imagen Docker) | de Debian | LGPL/GPL | Convertir a H.264 los chunks de prueba; solo en el contenedor local, no se distribuye ni se despliega |

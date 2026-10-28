@@ -17,6 +17,7 @@ from . import VERSION, metrics as metrics_mod
 from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
+from .debug import save_run
 from .insights import MuseSpark, warnings_of
 from .meta_api import MetaClient, ResponseCache, Usage
 from .sam import SamSegmenter
@@ -127,7 +128,9 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
                 api.download(int(clip["id"]), name, work / "clip" / name)
             except ApiError as e:
                 raise InputError(f"cannot download {name}: {e}") from None
-        result, _ = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep)
+        result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep)
+        if cfg.debug_dir is not None:
+            log.info("job %s: run saved in %s", job_id, save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset))
         api.post_result(job_id, "done", analysis=result)
         log.info("job %s: done (%s, usage %s)", job_id, result["backends"]["segmenter"], result["backends"]["usage"])
         shutil.rmtree(work, ignore_errors=True)

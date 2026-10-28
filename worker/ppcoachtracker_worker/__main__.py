@@ -12,6 +12,8 @@ from pathlib import Path
 
 from .api import PpApi
 from .config import from_env, load_dotenv
+from .chunks import load_clip
+from .debug import save_run
 from .pipeline import analyze, error_message, run_job
 from .types import ConfigError
 
@@ -28,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--home-color", default="red")
     a.add_argument("--away-color", default="blue")
     a.add_argument("--out", type=Path, help="result JSON (default DIR/analysis.json)")
+    a.add_argument("--debug-dir", type=Path, help="also save the run for the viewer (default DEBUG_DIR)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -43,7 +46,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "analyze":
         match = {"home": args.home, "away": args.away, "home_color": args.home_color, "away_color": args.away_color}
         try:
-            result, _ = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw")
+            result, trackset = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw")
+            debug_dir = args.debug_dir or cfg.debug_dir
+            if debug_dir is not None:
+                print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset)}")
         except Exception as e:  # noqa: BLE001
             print(error_message(e), file=sys.stderr)
             return 1

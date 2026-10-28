@@ -91,3 +91,20 @@ def test_simulator_results_are_marked(meta, tmp_path, config_for):
     assert result["backends"]["analyst"] == "muse_spark_simulator"
     assert result["limitations"][0].startswith("Análisis de desarrollo")
     assert (tmp_path / "raw" / "tracks.json").is_file()
+
+
+def test_a_run_is_saved_for_the_viewer(meta, tmp_path, config_for):
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.debug import save_run
+
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS)
+    result, ts = analyze(clip_dir, MATCH, config_for(meta.url))
+    run = save_run(tmp_path / "runs", load_clip(clip_dir), result, ts, name="r1")
+    data = json.loads((run / "tracks.json").read_text())
+    assert data["columns"][:3] == ["frame", "t_ms", "track"]
+    assert [c["skip"] for c in data["chunks"]] == [0, 20]
+    assert data["chunks"][1]["base"] == data["chunks"][0]["frames"]
+    assert len(data["frames"]) == result["frames"]
+    assert sorted(p.name for p in (run / "chunks").iterdir()) == ["video_part_001.mp4", "video_part_001.yaml", "video_part_002.mp4", "video_part_002.yaml"]
+    assert json.loads((run / "result.json").read_text())["backends"]["segmenter"] == "meta_sam"

@@ -15,6 +15,7 @@
     "php:up": "wsl -e docker compose up -d --build php",
     "php:migrate": "wsl -e docker compose exec -T php php bin/migrate.php",
     "test:php": "node --test --test-concurrency=1 tests/php/contract.test.js",
+    "viewer:up": "wsl -e docker compose --profile viewer up -d --build viewer",
     "worker:up": "wsl -e docker compose --profile worker up -d --build worker",
     "worker:test": "wsl -e docker compose --profile worker run --rm --no-deps --entrypoint python worker -m pytest -q tests"
   },
