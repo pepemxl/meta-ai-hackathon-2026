@@ -44,7 +44,8 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/health` | Cualquiera | `{ok, version, db, authenticated, consent_version}` |
 | POST | `/auth/login` | Cualquiera | `{email, password}` → `{token, email, name}`. JWT HS256, `sub` = `u<id>`, 30 días. 10 fallos por correo en 15 min → 429 con `Retry-After` |
 | POST | `/clips` | Entrenador | Registro idempotente por `(coach_id, client_clip_id)`; ver abajo |
-| POST | `/clips/:id/calibration` | Entrenador | Puntos de la cancha que marcó el entrenador (abajo); 409 cuando el worker ya tomó el clip |
+| POST | `/clips/:id/calibration` | Entrenador | Puntos y líneas de la cancha que marcó el entrenador, y los trazos de sus imágenes de referencia (abajo); 409 cuando el worker ya tomó el clip |
+| PUT | `/clips/:id/references/:n` | Entrenador | Una imagen de referencia de la cancha: JPEG crudo de hasta 2 MB, `n` de 1 a 6; 400 si no es JPEG, 413 si pasa el tope, 409 cuando el worker ya tomó el clip |
 | PUT | `/clips/:id/chunks/:n/video?offset=<bytes>` | Entrenador | Una parte cruda (`application/octet-stream`) de hasta `MAX_PART_BYTES` → `{number, received_bytes}` |
 | PUT | `/clips/:id/chunks/:n` | Entrenador | Multipart `yaml` + `sha256`, sin video: cierra el chunk → `{number, sha256, size_bytes}` |
 | POST | `/clips/:id/complete` | Entrenador | Multipart `index` (`chunks.yaml`) → como `POST /clips` + `job_id` |
@@ -52,8 +53,8 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/clips/:id/analysis` | Entrenador | `{clip_id, job_id, segmenter, analyst, created_at, result}` o 404 `{error: "analysis not found", status}` |
 | POST | `/consent` | Entrenador | `{action: accept\|withdraw, version, at, app_version}` → `{id, action, version, at}` |
 | GET | `/consent` | Entrenador | `{consent_version, current: none\|accepted\|withdrawn\|outdated, events: [...]}` |
-| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files}, options: {pitch_mode}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
-| GET | `/internal/clips/:id/files/:name` | Worker | Solo `chunks.yaml` y `video_part_NNN.(mp4\|yaml)`; 404 si no |
+| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files, references}, options: {pitch_mode}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
+| GET | `/internal/clips/:id/files/:name` | Worker | Solo `chunks.yaml`, `video_part_NNN.(mp4\|yaml)` y `reference_N.jpg`; 404 si no |
 | POST | `/internal/jobs/:id/result` | Worker | JSON `{status: done\|failed, error}` o multipart con el archivo `analysis` (JSON) |
 
 ### `POST /clips`
@@ -81,10 +82,14 @@ Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode
 
 ```json
 {"pitch": {"size": 7, "length_m": 60, "width_m": 40},
- "frames": [{"t_ms": 1200, "points": [{"name": "corner_far_left", "x": 0.12, "y": 0.31}, …]}]}
+ "frames": [{"t_ms": 1200,
+             "points": [{"name": "corner_far_left", "x": 0.12, "y": 0.31}, …],
+             "lines": [{"name": "touch_near", "points": [{"x": 0.1, "y": 0.8}, …]}, {"name": null, "points": […]}]}],
+ "references": [{"n": 1, "source": "photo", "strokes": [{"points": [{"x": 0.2, "y": 0.6}, …]}]},
+                {"n": 2, "source": "frame", "t_ms": 4000, "strokes": []}]}
 ```
 
-`size` 11 o 7; `length_m` 20..130 y `width_m` 15..100 opcionales; de 1 a 20 cuadros, cada uno con `t_ms` o `frame` y de 4 a 40 puntos con nombres de la plantilla (`[a-z0-9_]`, sin repetir) y `x`, `y` en 0..1. 400 `{error: "invalid calibration", detail}` si no. Se puede reemplazar mientras el clip está en `registered`, `uploading` o `queued`; después, 409. El worker lo recibe tal cual en `calibration`.
+`size` 11 o 7; `length_m` 20..130 y `width_m` 15..100 opcionales. De 0 a 20 cuadros, cada uno con `t_ms` o `frame`, de 0 a 40 puntos con nombres de la plantilla (`[a-z0-9_]`, sin repetir) y de 0 a 20 líneas pintadas (al menos un punto o una línea). Una línea es el trazo del dedo sobre una línea de la cancha: de 2 a 64 puntos y el nombre de la línea de la plantilla (`touch_near`, `halfway`, `box_left`…) o `null` cuando el entrenador solo dice "esto es una línea". De 0 a 6 imágenes de referencia (`n` distinto, `source` `photo` o `frame`, `t_ms` opcional) con 0 a 20 trazos; la imagen va aparte en `PUT /clips/:id/references/:n`. Hace falta al menos un cuadro o una referencia, y en total hasta 3000 puntos de trazos. `x`, `y` en 0..1. 400 `{error: "invalid calibration", detail}` si no. Se puede reemplazar mientras el clip está en `registered`, `uploading` o `queued`; después, 409. El worker lo recibe tal cual en `calibration`.
 
 ### Subida en partes
 

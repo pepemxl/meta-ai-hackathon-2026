@@ -75,15 +75,15 @@ final class Request
         return str_starts_with(strtolower($this->header('content-type')), 'multipart/form-data');
     }
 
-    /** El cuerpo JSON (máx. 64 KB) como arreglo; [] si viene vacío. */
-    public function json(): array
+    /** El cuerpo JSON (máx. 64 KB, o $limit) como arreglo; [] si viene vacío. */
+    public function json(int $limit = self::JSON_LIMIT): array
     {
         $in = fopen($this->input, 'rb');
-        $body = $in ? (string) stream_get_contents($in, self::JSON_LIMIT + 1) : '';
+        $body = $in ? (string) stream_get_contents($in, $limit + 1) : '';
         if ($in) {
             fclose($in);
         }
-        if (strlen($body) > self::JSON_LIMIT) {
+        if (strlen($body) > $limit) {
             throw new HttpError(413, 'body too large');
         }
         if (trim($body) === '') {

@@ -472,7 +472,7 @@ test('calibration: validated, only the owner, 409 once the worker took the clip'
     { ...CAL, pitch: { size: 11, length_m: 500 } },
     { ...CAL, frames: [] },
     { ...CAL, frames: [{ points: pts }] },
-    { ...CAL, frames: [{ t_ms: 0, points: pts.slice(0, 3) }] },
+    { ...CAL, frames: [{ t_ms: 0, points: [] }] },
     { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { ...pts[0] }] }] },
     { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { name: 'x', x: 1.5, y: 0 }] }] },
     { ...CAL, frames: [{ t_ms: 0, points: [...pts.slice(0, 4), { name: 'Bad Name', x: 0, y: 0 }] }] },
@@ -484,7 +484,7 @@ test('calibration: validated, only the owner, 409 once the worker took the clip'
   }
   assert.equal((await post(CAL, h.COACH2)).status, 404);
   const ok = await post({ ...CAL, frames: [{ frame: 12, points: pts }] });
-  assert.deepEqual(ok.body, { clip_id: id, frames: 1, points: 5 });
+  assert.deepEqual(ok.body, { clip_id: id, frames: 1, points: 5, lines: 0, references: 0 });
   let next;
   do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
   assert.equal(next.body.calibration.frames[0].frame, 12);
@@ -492,4 +492,59 @@ test('calibration: validated, only the owner, 409 once the worker took the clip'
   const late = await post(CAL);
   assert.equal(late.status, 409);
   assert.equal(late.body.status, 'segmenting');
+});
+
+const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 7)]);
+const STROKE = [{ x: 0.1, y: 0.8 }, { x: 0.5, y: 0.79 }, { x: 0.9, y: 0.8 }];
+
+test('painted lines and reference pictures: validated, stored and given to the worker', async () => {
+  const { app } = h.makeApp();
+  const { id } = await readyClip(app);
+  const post = (body) => request(app).post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(body);
+  const pts = CAL.frames[0].points.slice(0, 3);
+  const body = {
+    pitch: { size: 7 },
+    frames: [{ t_ms: 1000, points: pts, lines: [{ name: 'touch_near', points: STROKE }, { name: null, points: STROKE }] }],
+    references: [{ n: 1, source: 'photo', strokes: [{ points: STROKE }] }, { n: 2, source: 'frame', t_ms: 4000, strokes: [] }],
+  };
+  const bad = [
+    { ...body, frames: [{ t_ms: 0, lines: [{ name: 'touch_near', points: STROKE.slice(0, 1) }] }] },
+    { ...body, frames: [{ t_ms: 0, lines: [{ name: 'Touch Near', points: STROKE }] }] },
+    { ...body, frames: [{ t_ms: 0, lines: [{ points: [{ x: 2, y: 0 }, { x: 0, y: 0 }] }] }] },
+    { ...body, references: [{ n: 7, source: 'photo', strokes: [] }] },
+    { ...body, references: [{ n: 1, source: 'photo', strokes: [] }, { n: 1, source: 'frame', strokes: [] }] },
+    { ...body, references: [{ n: 1, source: 'drawing', strokes: [] }] },
+    { pitch: { size: 7 }, frames: [], references: [] },
+    { ...body, frames: Array.from({ length: 20 }, (_, i) => ({ t_ms: i, lines: Array.from({ length: 3 }, () => ({ name: null, points: Array(60).fill(STROKE[0]) })) })) },
+  ];
+  for (const c of bad) {
+    const r = await post(c);
+    assert.equal(r.status, 400, JSON.stringify(c).slice(0, 120));
+  }
+  const ok = await post(body);
+  assert.deepEqual(ok.body, { clip_id: id, frames: 1, points: 3, lines: 2, references: 2 });
+  assert.equal((await post({ pitch: { size: 7 }, references: [{ n: 1, source: 'photo', strokes: [{ points: STROKE }] }] })).status, 200, 'references alone');
+  assert.equal((await post(body)).status, 200);
+
+  const put = (n, buf, auth = h.COACH1) => request(app).put(`/clips/${id}/references/${n}`).set('Authorization', auth).set('Content-Type', 'image/jpeg').send(buf);
+  assert.equal((await put(1, Buffer.from('not a jpeg'))).status, 400);
+  assert.equal((await put(7, JPEG)).status, 404);
+  assert.equal((await put(1, JPEG, h.COACH2)).status, 404);
+  assert.equal((await put(1, Buffer.concat([JPEG, Buffer.alloc(2 * MB)]))).status, 413);
+  assert.deepEqual((await put(1, JPEG)).body, { clip_id: id, n: 1, bytes: JPEG.length });
+
+  let next;
+  do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
+  assert.deepEqual(next.body.calibration, body);
+  assert.deepEqual(next.body.clip.references, ['reference_1.jpg']);
+  const img = await request(app).get(`/internal/clips/${id}/files/reference_1.jpg`).set('Authorization', h.WORKER).buffer(true).parse((res, cb) => {
+    const parts = [];
+    res.on('data', (d) => parts.push(d));
+    res.on('end', () => cb(null, Buffer.concat(parts)));
+  });
+  assert.equal(img.status, 200);
+  assert.match(img.headers['content-type'], /image\/jpeg/);
+  assert.ok(img.body.equals(JPEG));
+  const late = await put(2, JPEG);
+  assert.equal(late.status, 409);
 });

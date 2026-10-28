@@ -6,12 +6,13 @@ const path = require('path');
 
 // Files of a clip on disk (docs/12-videos-largos-chunks.md#archivos).
 const INDEX = 'chunks.yaml';
-const FILE_PATTERN = /^(video_part_\d{3}\.(mp4|yaml)|chunks\.yaml)$/;
+const FILE_PATTERN = /^(video_part_\d{3}\.(mp4|yaml)|chunks\.yaml|reference_\d\.jpg)$/;
 
 const pad = (n, width) => String(n).padStart(width, '0');
 const mp4Name = (n) => `video_part_${pad(n, 3)}.mp4`;
 const yamlName = (n) => `video_part_${pad(n, 3)}.yaml`;
 const partialName = (n) => `${mp4Name(n)}.partial`;
+const referenceName = (n) => `reference_${n}.jpg`;
 const clipDirName = (clipId) => `clip_${pad(clipId, 6)}`;
 const clipDir = (storageDir, clipId) => path.join(storageDir, clipDirName(clipId));
 
@@ -56,6 +57,15 @@ function partials(storageDir, clipId) {
     .map((number) => ({ number, received_bytes: partialSize(storageDir, clipId, number) }));
 }
 
+/** The reference pictures of a clip on disk: [names], sorted. */
+function references(storageDir, clipId) {
+  try {
+    return fs.readdirSync(clipDir(storageDir, clipId)).filter((name) => /^reference_\d\.jpg$/.test(name)).sort();
+  } catch (e) {
+    return [];
+  }
+}
+
 /** Drop every chunk, YAML, partial and index of a clip (its profile changed). */
 function wipeClip(storageDir, clipId) {
   fs.rmSync(clipDir(storageDir, clipId), { recursive: true, force: true });
@@ -74,6 +84,6 @@ function moveInto(src, dest) {
 }
 
 module.exports = {
-  INDEX, FILE_PATTERN, mp4Name, yamlName, partialName, clipDir, sha256File, declaredSha,
-  partialSize, partials, wipeClip, moveInto,
+  INDEX, FILE_PATTERN, mp4Name, yamlName, partialName, referenceName, clipDir, sha256File, declaredSha,
+  partialSize, partials, references, wipeClip, moveInto,
 };

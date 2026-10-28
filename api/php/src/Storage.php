@@ -7,7 +7,7 @@ namespace PpCoachTracker;
 final class Storage
 {
     public const INDEX = 'chunks.yaml';
-    public const FILE_PATTERN = '/^(video_part_\d{3}\.(mp4|yaml)|chunks\.yaml)$/';
+    public const FILE_PATTERN = '/^(video_part_\d{3}\.(mp4|yaml)|chunks\.yaml|reference_\d\.jpg)$/';
 
     public function __construct(private readonly string $dir)
     {
@@ -21,6 +21,20 @@ final class Storage
     public static function yamlName(int $n): string
     {
         return sprintf('video_part_%03d.yaml', $n);
+    }
+
+    public static function referenceName(int $n): string
+    {
+        return "reference_$n.jpg";
+    }
+
+    /** Las imágenes de referencia de un clip en disco, ordenadas. @return list<string> */
+    public function references(int $clipId): array
+    {
+        $out = array_map('basename', glob($this->clipDir($clipId) . '/reference_*.jpg') ?: []);
+        $out = array_values(array_filter($out, fn($n) => preg_match('/^reference_\d\.jpg$/', $n) === 1));
+        sort($out);
+        return $out;
     }
 
     public static function partialName(int $n): string

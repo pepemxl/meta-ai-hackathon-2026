@@ -22,6 +22,8 @@ final class App
     private const UPLOAD_BLOCKED = ['queued', 'segmenting'];
     /** Los puntos de la cancha se pueden cambiar hasta que el worker toma el clip. */
     private const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
+    // Una imagen de la cancha que tomó el entrenador (o un cuadro), comprimida por la app.
+    private const MAX_REFERENCE_BYTES = 2 * 1024 * 1024;
 
     private Router $router;
     private ?Repo $repo = null;
@@ -150,6 +152,7 @@ final class App
         $r->add('POST', '/auth/login', fn(Request $q) => $this->login($q));
         $r->add('POST', '/clips', fn(Request $q) => $this->registerClip($q));
         $r->add('POST', '/clips/:id/calibration', fn(Request $q) => $this->postCalibration($q));
+        $r->add('PUT', '/clips/:id/references/:n', fn(Request $q) => $this->putReference($q));
         $r->add('PUT', '/clips/:id/chunks/:n/video', fn(Request $q) => $this->putPart($q));
         $r->add('PUT', '/clips/:id/chunks/:n', fn(Request $q) => $this->finishChunk($q));
         $r->add('POST', '/clips/:id/complete', fn(Request $q) => $this->complete($q));
@@ -276,7 +279,7 @@ final class App
         if (!in_array($clip['status'], self::CALIBRATION_OPEN, true)) {
             throw new HttpError(409, 'clip already taken by the worker', ['status' => $clip['status']]);
         }
-        $cal = Calibration::parse($req->json());
+        $cal = Calibration::parse($req->json(256 * 1024));
         if (isset($cal['error'])) {
             throw new HttpError(400, 'invalid calibration', ['detail' => $cal['error']]);
         }
@@ -285,7 +288,44 @@ final class App
             'clip_id' => $clip['id'],
             'frames' => count($cal['value']['frames']),
             'points' => array_sum(array_map(fn($f) => count($f['points']), $cal['value']['frames'])),
+            'lines' => array_sum(array_map(fn($f) => count($f['lines'] ?? []), $cal['value']['frames'])),
+            'references' => count($cal['value']['references'] ?? []),
         ]);
+    }
+
+    /** Una imagen de referencia de la cancha (JPEG que comprime la app), n = 1..6. */
+    private function putReference(Request $req): Response
+    {
+        $coach = $this->coach($req);
+        $clip = $this->ownClip($req, $coach);
+        $nRaw = $req->params['n'] ?? '';
+        if (!ctype_digit($nRaw) || (int) $nRaw < 1 || (int) $nRaw > Calibration::MAX_REFERENCES) {
+            throw new HttpError(404, 'reference not found');
+        }
+        $n = (int) $nRaw;
+        if (!in_array($clip['status'], self::CALIBRATION_OPEN, true)) {
+            throw new HttpError(409, 'clip already taken by the worker', ['status' => $clip['status']]);
+        }
+        $declared = $req->header('content-length');
+        if ($declared !== '' && (int) $declared > self::MAX_REFERENCE_BYTES) {
+            throw new HttpError(413, 'reference too large', ['max_reference_bytes' => self::MAX_REFERENCE_BYTES]);
+        }
+        $in = $req->inputStream();
+        $body = $in ? (string) stream_get_contents($in, self::MAX_REFERENCE_BYTES + 1) : '';
+        if ($in) {
+            fclose($in);
+        }
+        if (strlen($body) > self::MAX_REFERENCE_BYTES) {
+            throw new HttpError(413, 'reference too large', ['max_reference_bytes' => self::MAX_REFERENCE_BYTES]);
+        }
+        if (strlen($body) < 4 || substr($body, 0, 3) !== "\xFF\xD8\xFF") {
+            throw new HttpError(400, 'reference must be a JPEG');
+        }
+        $dir = $this->storage->ensureClipDir($clip['id']);
+        $tmp = (string) tempnam($dir, 'ref');
+        file_put_contents($tmp, $body);
+        rename($tmp, $dir . '/' . Storage::referenceName($n));
+        return Response::json(['clip_id' => $clip['id'], 'n' => $n, 'bytes' => strlen($body)]);
     }
 
     private function putPart(Request $req): Response
@@ -507,6 +547,7 @@ final class App
                 'id' => $clip['id'], 'title' => $clip['title'], 'duration_ms' => $clip['duration_ms'], 'chunk_count' => $clip['chunk_count'],
                 'chunk_seconds' => $clip['chunk_seconds'], 'overlap_ms' => $clip['overlap_ms'],
                 'dir' => Storage::clipDirName($clip['id']), 'index' => Storage::INDEX, 'files' => $files,
+                'references' => $this->storage->references($clip['id']),
             ],
             'options' => ['pitch_mode' => $clip['pitch_mode'] ?? null],
             'calibration' => empty($clip['calibration']) ? null : json_decode($clip['calibration']),
@@ -529,7 +570,8 @@ final class App
         if (!is_file($file)) {
             throw new HttpError(404, 'file not found');
         }
-        return Response::file($file, str_ends_with($name, '.mp4') ? 'video/mp4' : 'text/yaml; charset=utf-8');
+        $type = str_ends_with($name, '.mp4') ? 'video/mp4' : (str_ends_with($name, '.jpg') ? 'image/jpeg' : 'text/yaml; charset=utf-8');
+        return Response::file($file, $type);
     }
 
     private function jobResult(Request $req): Response

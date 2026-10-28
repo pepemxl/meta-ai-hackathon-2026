@@ -7,7 +7,7 @@ const multer = require('multer');
 const storage = require('./storage');
 const { verifyPassword, signToken, verifyToken, matchStaticToken, safeEqual } = require('./auth');
 const { CONSENT_VERSION, parseClipConsent, parseConsentEvent, currentState, iso } = require('./consent');
-const { parsePitchMode, parseCalibration } = require('./calibration');
+const { MAX_REFERENCES, parsePitchMode, parseCalibration } = require('./calibration');
 
 const VERSION = require('../package.json').version;
 
@@ -25,6 +25,8 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const UPLOAD_BLOCKED = ['queued', 'segmenting'];
 // The coach's points can change until the worker takes the clip.
 const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
+// A picture of the pitch the coach took (or a frame), compressed by the app.
+const MAX_REFERENCE_BYTES = 2 * 1024 * 1024;
 
 /**
  * The pp-coach-tracker API (contract in api/README.md):
@@ -33,7 +35,8 @@ const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
  *   POST /auth/login                       email + password → JWT (30 days)
  *   POST /clips                            register (idempotent), needs consent → what is already here;
  *                                          analysis.pitch_mode: whether to compute the pitch
- *   POST /clips/:id/calibration            the coach's points on the pitch; 409 once the worker took the clip
+ *   POST /clips/:id/calibration            the coach's points and painted lines on the pitch; 409 once the worker took the clip
+ *   PUT  /clips/:id/references/:n          a reference picture of the pitch (JPEG, n = 1..6); 409 once the worker took the clip
  *   PUT  /clips/:id/chunks/:n/video        one raw part of a chunk at ?offset=
  *   PUT  /clips/:id/chunks/:n              close a chunk: yaml + sha256, checked on the assembled video
  *   POST /clips/:id/complete               chunks.yaml; all chunks there → analysis job queued
@@ -41,7 +44,7 @@ const CALIBRATION_OPEN = ['registered', 'uploading', 'queued'];
  *   GET  /clips/:id/analysis               the analysis the worker produced
  *   POST /consent, GET /consent            consent events and history
  *   GET  /internal/jobs/next               worker: claim the oldest queued job
- *   GET  /internal/clips/:id/files/:name   worker: download a chunk, its YAML or chunks.yaml
+ *   GET  /internal/clips/:id/files/:name   worker: download a chunk, its YAML, chunks.yaml or a reference picture
  *   POST /internal/jobs/:id/result         worker: done (with the analysis) or failed
  */
 function createApp({
@@ -231,14 +234,33 @@ function createApp({
     res.json(await clipState(clip));
   }));
 
-  app.post('/clips/:id/calibration', auth, json, wrap(async (req, res) => {
+  app.post('/clips/:id/calibration', auth, express.json({ limit: '256kb' }), wrap(async (req, res) => {
     const clip = await ownClip(req, res);
     if (!clip) return;
     if (!CALIBRATION_OPEN.includes(clip.status)) return fail(res, 409, 'clip already taken by the worker', { status: clip.status });
     const cal = parseCalibration(req.body);
     if (cal.error) return fail(res, 400, 'invalid calibration', { detail: cal.error });
     await repo.updateClip(clip.id, { calibration: JSON.stringify(cal.value) });
-    res.json({ clip_id: clip.id, frames: cal.value.frames.length, points: cal.value.frames.reduce((n, f) => n + f.points.length, 0) });
+    res.json({
+      clip_id: clip.id, frames: cal.value.frames.length, points: cal.value.frames.reduce((n, f) => n + f.points.length, 0),
+      lines: cal.value.frames.reduce((n, f) => n + (f.lines || []).length, 0), references: (cal.value.references || []).length,
+    });
+  }));
+
+  app.put('/clips/:id/references/:n', auth, express.raw({ type: () => true, limit: MAX_REFERENCE_BYTES }), wrap(async (req, res) => {
+    const clip = await ownClip(req, res);
+    if (!clip) return;
+    const n = Number(req.params.n);
+    if (!/^\d+$/.test(req.params.n) || n < 1 || n > MAX_REFERENCES) return fail(res, 404, 'reference not found');
+    if (!CALIBRATION_OPEN.includes(clip.status)) return fail(res, 409, 'clip already taken by the worker', { status: clip.status });
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (body.length < 4 || body[0] !== 0xff || body[1] !== 0xd8 || body[2] !== 0xff) return fail(res, 400, 'reference must be a JPEG');
+    const dir = storage.clipDir(storageDir, clip.id);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(tmpDir, `ref_${clip.id}_${n}_${process.pid}_${Date.now()}`);
+    fs.writeFileSync(tmp, body);
+    storage.moveInto(tmp, path.join(dir, storage.referenceName(n)));
+    res.json({ clip_id: clip.id, n, bytes: body.length });
   }));
 
   app.put('/clips/:id/chunks/:n/video', auth, express.raw({ type: () => true, limit: maxPartBytes }), wrap(async (req, res) => {
@@ -363,13 +385,14 @@ function createApp({
     const { job, clip, match } = claimed;
     const files = [storage.INDEX];
     for (let i = 1; i <= clip.chunk_count; i++) files.push(storage.mp4Name(i), storage.yamlName(i));
+    const references = storage.references(storageDir, clip.id);
     res.json({
       job_id: job.id,
       type: job.type,
       clip: {
         id: clip.id, title: clip.title, duration_ms: clip.duration_ms, chunk_count: clip.chunk_count,
         chunk_seconds: clip.chunk_seconds, overlap_ms: clip.overlap_ms,
-        dir: path.basename(storage.clipDir(storageDir, clip.id)), index: storage.INDEX, files,
+        dir: path.basename(storage.clipDir(storageDir, clip.id)), index: storage.INDEX, files, references,
       },
       options: { pitch_mode: clip.pitch_mode ?? null },
       calibration: clip.calibration ? JSON.parse(clip.calibration) : null,
@@ -383,7 +406,8 @@ function createApp({
     if (!storage.FILE_PATTERN.test(name) || !Number.isInteger(id)) return fail(res, 404, 'file not found');
     const file = path.join(storage.clipDir(storageDir, id), name);
     if (!fs.existsSync(file)) return fail(res, 404, 'file not found');
-    res.type(name.endsWith('.mp4') ? 'video/mp4' : 'text/yaml').sendFile(path.resolve(file));
+    const type = name.endsWith('.mp4') ? 'video/mp4' : name.endsWith('.jpg') ? 'image/jpeg' : 'text/yaml';
+    res.type(type).sendFile(path.resolve(file));
   }));
 
   app.post('/internal/jobs/:id/result', workerAuth, (req, res, next) => {
@@ -438,6 +462,9 @@ function createApp({
   app.use((req, res) => fail(res, 404, 'not found'));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
+    if (err.type === 'entity.too.large' && /^\/clips\/\d+\/references\//.test(req.path)) {
+      return fail(res, 413, 'reference too large', { max_reference_bytes: MAX_REFERENCE_BYTES });
+    }
     if (err.type === 'entity.too.large' || err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FIELD_VALUE') {
       return fail(res, 413, 'part too large', { max_part_bytes: maxPartBytes });
     }
