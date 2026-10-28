@@ -11,3 +11,11 @@ Capturas del build debug en el emulador (Android 16, API 36), en claro y en oscu
 | Ajustes | ![](ajustes-claro.png) | ![](ajustes-oscuro.png) |
 
 Flujo probado en el emulador: crear partido, grabar dos clips con la cámara virtual (MP4 H.264 720p), cerrar y reabrir con los datos intactos, iniciar sesión contra la API PHP local, aceptar el consentimiento, preparar el chunk de 10 fps, subirlo en partes, el worker lo analiza y el clip pasa a "Listo" con su análisis.
+
+## Etapa 13: la cancha en metros
+
+Con el video sintético propio de una cancha de 7 (cámara fija, jugadores a velocidades conocidas), 6 puntos marcados en el emulador:
+
+| Puntos de la cancha | En la cancha, en metros |
+|---|---|
+| ![](puntos-cancha-claro.png) | ![](cancha-metros-claro.png) |

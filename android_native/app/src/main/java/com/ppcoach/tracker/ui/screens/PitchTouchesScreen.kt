@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,9 @@ import com.ppcoach.tracker.ui.components.pitchLines
 import com.ppcoach.tracker.ui.i18n.LocalStrings
 import com.ppcoach.tracker.ui.theme.PpTheme
 import com.ppcoach.tracker.ui.theme.SparkColors
+
+private val DIAGRAM_MARGIN = 20.dp
+private const val MARGIN_M = 3.0 // roughly what the margin adds, to keep the drawing's proportions
 
 /**
  * The coach's points: a bar picks the frame; tap a point of the image, then
@@ -135,10 +139,13 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
 
             // The drawing of the pitch: tap which mark the pending point is.
             PpCard {
-                Canvas(Modifier.fillMaxWidth().aspectRatio((length / width).toFloat()).clip(RoundedCornerShape(8.dp)).background(c.surfaceHigh).pointerInput(touches.size, pending) {
-                    detectTapGestures { o ->
+                Canvas(Modifier.fillMaxWidth().aspectRatio(((length + 2 * MARGIN_M) / (width + 2 * MARGIN_M)).toFloat()).clip(RoundedCornerShape(8.dp)).background(c.surfaceHigh).pointerInput(touches.size, pending) {
+                    detectTapGestures { tap ->
                         val p = pending ?: return@detectTapGestures
-                        val td = TopDown(length, width, androidx.compose.ui.geometry.Size(size.width.toFloat(), size.height.toFloat()))
+                        // The marks on the outer lines sit inside a margin, so their whole tap area is on the drawing.
+                        val m = DIAGRAM_MARGIN.toPx()
+                        val o = tap - Offset(m, m)
+                        val td = TopDown(length, width, androidx.compose.ui.geometry.Size(size.width - 2 * m, size.height - 2 * m))
                         val nearest = template.minByOrNull { (_, xy) -> (td.map(xy.first, xy.second) - o).getDistance() }
                         if (nearest != null && (td.map(nearest.value.first, nearest.value.second) - o).getDistance() < 32.dp.toPx()) {
                             touches = touches.with(Touch(nearest.key, p.first, p.second))
@@ -146,12 +153,14 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                         }
                     }
                 }) {
-                    pitchLines(touches.size, length, width, c.textSecondary, 1.5.dp.toPx())
-                    val td = TopDown(length, width, size)
-                    val used = touches.points.map { it.name }.toSet()
-                    for ((name, xy) in template) {
-                        val o = td.map(xy.first, xy.second)
-                        drawCircle(if (name in used) c.accent else c.textPrimary, (if (name in used) 6 else 4).dp.toPx(), o)
+                    inset(DIAGRAM_MARGIN.toPx()) {
+                        pitchLines(touches.size, length, width, c.textSecondary, 1.5.dp.toPx())
+                        val td = TopDown(length, width, size)
+                        val used = touches.points.map { it.name }.toSet()
+                        for ((name, xy) in template) {
+                            val o = td.map(xy.first, xy.second)
+                            drawCircle(if (name in used) c.accent else c.textPrimary, (if (name in used) 6 else 4).dp.toPx(), o)
+                        }
                     }
                 }
             }

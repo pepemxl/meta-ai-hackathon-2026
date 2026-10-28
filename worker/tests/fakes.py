@@ -158,6 +158,8 @@ class FakeMeta:
     """SAM streams per (chunk sha256, concept), Muse answers in order, planned failures."""
 
     streams: dict[tuple[str, str], str] = field(default_factory=dict)
+    # Answers for any file, by concept (a chunk re-encoded by the phone has another sha256).
+    by_concept: dict[str, str] = field(default_factory=dict)
     muse: list[str] = field(default_factory=list)
     failures: list[tuple[int, dict]] = field(default_factory=list)  # (status, headers) before normal answers
     simulator: bool = False
@@ -210,7 +212,7 @@ class FakeMeta:
                 content = body["input"][0]["content"]
                 concept = next(c["text"] for c in content if c["type"] == "input_text")
                 fid = next(c["file_id"] for c in content if c["type"] == "input_video")
-                text = fake.streams.get((fake.files.get(fid, ""), concept), "")
+                text = fake.streams.get((fake.files.get(fid, ""), concept), fake.by_concept.get(concept, ""))
                 cut = fake.cut_next > 0
                 if cut:
                     fake.cut_next -= 1
