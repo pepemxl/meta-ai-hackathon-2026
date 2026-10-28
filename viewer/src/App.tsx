@@ -128,6 +128,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
   const [showBall, setShowBall] = useState(true);
   const [showIds, setShowIds] = useState(true);
   const [showPitch, setShowPitch] = useState(true);
+  const [showMask, setShowMask] = useState(true);
   const chunk = tracks.chunks[chunkIdx];
   const timeOf = useMemo(() => new Map(tracks.frames), [tracks]);
 
@@ -169,6 +170,27 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
             ctx.stroke();
           }
         }
+        // The pitch mask: the polygon where boxes count (dashed); a frame without it is discarded.
+        const poly = g === null || !showMask ? undefined : tracks.masks.get(g);
+        if (poly && poly.length >= 6) {
+          ctx.save();
+          ctx.setLineDash([6 * devicePixelRatio, 4 * devicePixelRatio]);
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+          ctx.lineWidth = 1.5 * devicePixelRatio;
+          ctx.beginPath();
+          for (let k = 0; k < poly.length; k += 2) {
+            const px = ox + poly[k] * vw * scale;
+            const py = oy + poly[k + 1] * vh * scale;
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        } else if (poly) {
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.fillRect(ox, oy, vw * scale, vh * scale);
+        }
         const boxes = g === null ? [] : tracks.byFrame.get(g) || [];
         ctx.lineWidth = 2 * devicePixelRatio;
         ctx.font = `${12 * devicePixelRatio}px Roboto, sans-serif`;
@@ -189,7 +211,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [chunk, tracks, showBall, showIds, showPitch, colors]);
+  }, [chunk, tracks, showBall, showIds, showPitch, showMask, colors]);
 
   const t0 = result.timeline[0]?.t_ms ?? 0;
   const t1 = (result.timeline[result.timeline.length - 1]?.t_ms ?? t0) + 1000;
@@ -226,6 +248,11 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
         <button className={showIds ? 'on' : ''} onClick={() => setShowIds(!showIds)}>
           IDs
         </button>
+        {tracks.masks.size > 0 && (
+          <button className={showMask ? 'on' : ''} onClick={() => setShowMask(!showMask)}>
+            Máscara
+          </button>
+        )}
         {tracks.pitch && (
           <button className={showPitch ? 'on' : ''} onClick={() => setShowPitch(!showPitch)}>
             Líneas calculadas
@@ -245,6 +272,9 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
             <div key={n} className="seg" style={{ left: `${((s.t_ms - t0) / (t1 - t0)) * 100}%`, width: `${(1000 / (t1 - t0)) * 100}%`, background: colors[s.owner] }} />
           ) : null,
         )}
+        {(result.video.discarded || []).map(([a, b], n) => (
+          <div key={`d${n}`} className="seg discarded" style={{ left: `${((a - t0) / (t1 - t0)) * 100}%`, width: `${((b - a) / (t1 - t0)) * 100}%` }} />
+        ))}
         {nowMs !== null && <div className="head" style={{ left: `${((nowMs - t0) / (t1 - t0)) * 100}%` }} />}
       </div>
       <div className="legend muted">
@@ -256,7 +286,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
           <span className="dot" style={{ background: colors.B }} />
           {result.match.away || 'Visitante'}
         </span>
-        <span>Posesión por segundo, como la cuenta el worker (toca para saltar)</span>
+        <span>Posesión por segundo, como la cuenta el worker; en gris, lo descartado sin cancha (toca para saltar)</span>
       </div>
     </div>
   );

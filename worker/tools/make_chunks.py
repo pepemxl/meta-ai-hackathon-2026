@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ppcoachtracker_worker.chunks import chunk_yaml, index_yaml, plan_cuts  # noqa: E402
+from ppcoachtracker_worker.pitch import GRID_H, GRID_W, METHOD, measure  # noqa: E402
 
 PROFILES = {"dev": (60, 2000), "demo": (300, 3000)}
 FPS = 10
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--height", type=int, default=720)
     p.add_argument("--clip-id", type=int, default=1)
     p.add_argument("--fourcc", default="mp4v")
+    p.add_argument("--pitch", action="store_true", help="write the pitch section (method hsv_v1) as the app does")
     a = p.parse_args(argv)
 
     chunk_seconds, overlap_ms = PROFILES[a.profile]
@@ -71,14 +73,19 @@ def main(argv: list[str] | None = None) -> int:
         name = f"video_part_{n:03d}.mp4"
         writer = cv2.VideoWriter(str(a.out / name), cv2.VideoWriter_fourcc(*a.fourcc), FPS, (a.width, a.height))
         fmap = []
+        pitch_rows = []
         for k, t in enumerate(times):
             src_frame = min(src_frames - 1, round((begin + t) * src_fps / 1000))
             cap.set(cv2.CAP_PROP_POS_FRAMES, src_frame)
             ok, img = cap.read()
             if not ok:
                 break
-            writer.write(cv2.resize(img, (a.width, a.height)))
+            frame = cv2.resize(img, (a.width, a.height))
+            writer.write(frame)
             fmap.append((k, src_frame, begin + t))
+            if a.pitch:
+                m = measure(frame)
+                pitch_rows.append([k, m.fraction, list(m.polygon)])
         writer.release()
         overlap_frames = 0
         if n > 1:
@@ -95,6 +102,7 @@ def main(argv: list[str] | None = None) -> int:
             fmap=fmap,
             overlap_frames=overlap_frames,
             sha256=sha,
+            pitch={"method": METHOD, "grid": [GRID_W, GRID_H], "with_pitch": sum(1 for r in pitch_rows if r[2]), "frames": pitch_rows} if a.pitch else None,
         )
         (a.out / f"video_part_{n:03d}.yaml").write_text(yaml_text, encoding="utf-8")
         index_rows.append({"number": n, "file": name, "start_ms": begin + start, "end_ms": begin + cut_end, "frames": len(fmap)})

@@ -25,7 +25,7 @@ def run_name(clip_id: int | None, job_id: int | None) -> str:
     return f"{stamp}_clip{clip_id or 0}_job{job_id or 0}"
 
 
-def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str | None = None, calibration=None) -> Path:
+def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str | None = None, calibration=None, masks=None) -> Path:
     run = root / (name or run_name(result.get("clip_id"), result.get("job_id")))
     (run / "chunks").mkdir(parents=True, exist_ok=True)
     (run / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -58,6 +58,8 @@ def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str
             "length_m": t.length,
             "width_m": t.width,
         }
-    data = {"columns": TRACK_COLUMNS, "rows": rows, "frames": frames, "chunks": chunks, "pitch": pitch}
+    # The pitch mask of each frame: [frame, grass fraction, polygon] (empty polygon = no pitch).
+    pitch_masks = [[i, m.fraction, list(m.polygon)] for i, m in enumerate(masks or []) if m is not None]
+    data = {"columns": TRACK_COLUMNS, "rows": rows, "frames": frames, "chunks": chunks, "pitch": pitch, "pitch_masks": pitch_masks}
     (run / "tracks.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     return run

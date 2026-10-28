@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
             result, trackset = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw", pitch_mode=args.pitch_mode, calibration=touches)
             debug_dir = args.debug_dir or cfg.debug_dir
             if debug_dir is not None:
-                print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset, calibration=analyze.last_calibration)}")
+                print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks)}")
         except Exception as e:  # noqa: BLE001
             print(error_message(e), file=sys.stderr)
             return 1

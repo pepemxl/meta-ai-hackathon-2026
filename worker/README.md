@@ -17,7 +17,7 @@ wsl -e docker compose --profile worker run --rm worker analyze /worker/.local/mi
 #   --debug-dir /worker/.local/runs               guarda la corrida para el visor
 
 # Herramientas
-python tools/make_chunks.py video.mp4 .local/mi_clip --profile dev            # corta un video como la app
+python tools/make_chunks.py video.mp4 .local/mi_clip --profile dev --pitch    # corta un video como la app (con la máscara)
 PP_COACH_TRACKER_TOKEN=… python tools/submit_clip.py .local/mi_clip --api http://localhost:8097/pp-coach-tracker
 python tools/overlay.py .local/mi_clip --frame 590                             # cajas y equipos de un cuadro
 ```
@@ -58,13 +58,14 @@ Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (
 3. **SAM 3.1** por chunk: `POST /files` y un `POST /responses` con stream por concepto (`player in <color> jersey` por equipo y `soccer ball`; `soccer player` si los colores no distinguen a los equipos). Los streams crudos quedan en `raw/` y todas las cajas en `raw/tracks.json`.
 4. Une los tracks entre chunks por IoU en los cuadros del traslape: misma identidad si IoU > 0.5 en al menos la mitad de los cuadros de traslape donde aparecen los dos, y en 5 o más. El traslape se conserva una vez.
 5. Equipos: del concepto; el color del torso (mediana Lab, sin pasto) decide solo si un track aparece en los dos conceptos o con `soccer player`. Muy lejos de los dos colores (árbitro, porteros) queda sin equipo.
-6. Métricas en coordenadas de **pantalla**, siempre. Y, si el entrenador marcó puntos y no contestó "No calcular la cancha" (`options.pitch_mode` distinto de `off`), **la cancha en metros** (`calibration/`):
+6. **Máscara de la cancha** (`pitch.py`, `shots.py`): la sección `pitch` del YAML de cada chunk (la escribe la app) y, donde no viene o no se puede leer, medida del video con el mismo método (rejilla de 160×90 en HSV, la mancha de pasto más grande y su contorno convexo de hasta 12 puntos; menos de 70 % de pasto dentro no es cancha). Los cuadros sin cancha se descartan (`video.discarded`, `video.frames_used`) y un jugador cuenta si sus pies caen en el polígono ampliado 0.02. Si menos de la mitad de los cuadros tiene cancha, no se usa la máscara. `notes` dice cuántos cuadros vinieron de la app y cuántos se midieron.
+7. Métricas en coordenadas de **pantalla**, siempre. Y, si el entrenador marcó puntos y no contestó "No calcular la cancha" (`options.pitch_mode` distinto de `off`), **la cancha en metros** (`calibration/`):
    - la homografía del cuadro tocado con 5 o más puntos que coincidan (con 4 cualquier nombre encaja; RANSAC quita los mal nombrados), si la mediana del error no pasa de 1.5 % del alto;
    - propagada por su toma con KLT sobre el pasto y `findHomography` (una cámara que no se mueve queda fija); la cadena se corta en un corte de cámara, con menos de 30 % (o de 30) puntos que coinciden, o donde menos del 90 % de los pies cae en la cancha con 5 m de margen;
    - cada jugador gana `mx`, `my`; las métricas en metros (`pitch`) salen solo de los cuadros con homografía y solo con 10 s o más, con velocidades entre las posiciones medias de cada segundo (un paso de más de 11 m/s es un cambio de track y no cuenta).
    - Las líneas con SAM (paso 5 de la etapa 13) no están hechas: no hay nada automático sin puntos.
-7. **Muse Spark** con salida estructurada (`json_schema` estricto); una reparación si no valida; si tampoco, falla.
-8. `POST /internal/jobs/:id/result` (multipart, el análisis como archivo `analysis`).
+8. **Muse Spark** con salida estructurada (`json_schema` estricto); una reparación si no valida; si tampoco, falla.
+9. `POST /internal/jobs/:id/result` (multipart, el análisis como archivo `analysis`).
 
 Errores: `RetryableError` (429, 5xx, timeout, stream cortado) se reintenta 3 veces con backoff exponencial y respeta `Retry-After`; `MetaError` (401/403, modelo inexistente, salida ilegible) falla el trabajo con `meta_sam: …` o `muse_spark: …`; `InputError` (clip inválido o demasiados cuadros) con `input: …`, antes de gastar créditos. La key nunca aparece en los mensajes.
 

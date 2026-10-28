@@ -32,6 +32,8 @@ def test_a_full_job_against_a_fake_api(meta, tmp_path, config_for):
     assert a["backends"]["usage"]["frames_sent"] > 0
     assert a["video"]["chunks"] == 2 and a["video"]["chunk_seconds"] == 7 and a["video"]["overlap_ms"] == 2000
     assert a["coordinates"] == "screen"
+    assert a["video"]["frames_used"] == a["video"]["frames"] and a["video"]["discarded"] == []
+    assert any("Máscara de la cancha" in n for n in a["notes"])
     assert a["teams"]["A"]["tracks"] == 3 and a["teams"]["B"]["tracks"] == 3
     assert a["insights"][0]["source"] == "muse_spark" and a["insights"][0]["players"] == []
     assert a["match"] == {k: MATCH[k] for k in ("home", "away", "home_color", "away_color")}

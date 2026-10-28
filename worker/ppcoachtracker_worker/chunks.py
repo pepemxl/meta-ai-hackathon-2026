@@ -126,6 +126,22 @@ class Clip:
                 out.append(FrameInfo(len(out), c.time_of(i), c.source_of(i)))
         return out
 
+    def pitch_masks(self) -> list:
+        """The app's pitch mask of every frame (overlaps skipped), or None where it did not come or cannot be trusted."""
+        from .pitch import from_yaml_row
+
+        out = []
+        for c in self.chunks:
+            first = c.overlap_frames if c.number > 1 else 0
+            rows = {}
+            if c.pitch and isinstance(c.pitch.get("frames"), list):
+                method = c.pitch.get("method")
+                for row in c.pitch["frames"]:
+                    if isinstance(row, list) and row and isinstance(row[0], int):
+                        rows[row[0]] = from_yaml_row(row, method)
+            out.extend(rows.get(i) for i in range(first, c.frame_count))
+        return out
+
     def global_index(self, chunk: Chunk, local: int) -> int | None:
         """Global frame of a chunk frame; None inside the overlap of chunks after the first."""
         base = 0

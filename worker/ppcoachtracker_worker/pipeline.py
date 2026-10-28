@@ -18,7 +18,9 @@ from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
 from .debug import save_run
+from . import pitch as pitch_mod, shots as shots_mod
 from .calibration import calibrate
+from .chunks import iter_frames
 from .insights import MuseSpark, warnings_of
 from .meta_api import MetaClient, ResponseCache, Usage
 from .sam import SamSegmenter
@@ -43,6 +45,22 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
 
     trackset = segmenter.track(clip, home_color, away_color)
 
+    # The pitch mask: the app's where it came, measured from the video elsewhere.
+    masks = clip.pitch_masks()
+    from_app = sum(1 for m in masks if m is not None)
+    missing = {i for i, m in enumerate(masks) if m is None}
+    if missing:
+        source = frames if frames is not None else ((fi.frame, img) for fi, _, _, img in iter_frames(clip))
+        for g, img in source:
+            if g in missing:
+                masks[g] = pitch_mod.measure(img)
+        frames = None  # a test iterator is consumed here
+    shots = shots_mod.apply(trackset, masks)
+    mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
+    if not shots.used_mask:
+        mask_notes.append(f"Solo {shots.with_pitch} de {len(trackset.frames)} cuadros tienen cancha: no se usó la máscara y se analizó todo el video.")
+    trackset = shots.trackset
+
     # The pitch in meters: only from the coach's points, never guessed.
     cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames)
     pitch = None
@@ -52,18 +70,22 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             m_xy = cal.to_meters(r.frame, r.foot) if r.label == "player" else None
             rows.append(r.with_(mx=m_xy[0], my=m_xy[1]) if m_xy else r)
         trackset = TrackSet(rows=rows, frames=trackset.frames)
-        pitch = metrics_mod.pitch_metrics(trackset, set(cal.homographies), cal.template.length, cal.template.width, cal.template.approximate, clip.fps)
+        counted_h = set(cal.homographies) & {f.frame for f in shots.counted}
+        pitch = metrics_mod.pitch_metrics(TrackSet(rows=trackset.rows, frames=shots.counted), counted_h, cal.template.length, cal.template.width, cal.template.approximate, clip.fps)
         if pitch is None:
             cal_notes.append("Menos de 10 s del video tienen la cancha calculada: no se dan métricas en metros.")
     analyze.last_calibration = cal  # for save_run (the viewer draws the pitch)
+    analyze.last_masks = masks
     if raw_dir is not None:
         save_tracks(trackset, raw_dir / "tracks.json")
-    m = metrics_mod.compute(trackset, clip.fps)
+    m = metrics_mod.compute(TrackSet(rows=trackset.rows, frames=shots.counted), clip.fps)
     start_ms = trackset.frames[0].t_ms if trackset.frames else 0
     analyst = MuseSpark(muse_client, cfg.muse_model, raw_dir, is_meta_url=cfg.muse_is_meta)
     ins = analyst.insights(m, match, start_ms, pitch=pitch)
 
-    notes = warnings_of(m) + cal_notes
+    notes = warnings_of(m) + mask_notes + cal_notes
+    if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
+        notes.append(f"Se descartaron {len(trackset.frames) - len(shots.counted)} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.")
     if pitch is not None:
         limitations = [f"Las métricas en metros salen del {round(100 * pitch['frames_with_homography'])} % del video (los cuadros con la cancha calculada); las de la imagen, de todo el video."]
         if pitch["approximate"]:
@@ -98,6 +120,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "chunks": len(clip.chunks),
             "chunk_seconds": clip.chunk_seconds,
             "overlap_ms": clip.overlap_ms,
+            "frames_used": len(shots.counted),
+            "discarded": shots.discarded,
         },
         "coordinates": "screen",
         "frames": m["frames"],
@@ -152,7 +176,7 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
                                    pitch_mode=(job.get("options") or {}).get("pitch_mode"), calibration=job.get("calibration"))
         if cfg.debug_dir is not None:
-            run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration)
+            run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks)
             log.info("job %s: run saved in %s", job_id, run)
         api.post_result(job_id, "done", analysis=result)
         log.info("job %s: done (%s, usage %s)", job_id, result["backends"]["segmenter"], result["backends"]["usage"])
