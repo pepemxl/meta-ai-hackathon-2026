@@ -48,6 +48,8 @@ class TrackRow:
     h: float
     conf: float = 1.0
     team: str = ""  # "A" (home) | "B" (away) | ""
+    mx: float | None = None  # meters on the pitch (None without a homography)
+    my: float | None = None
 
     @property
     def foot(self) -> tuple[float, float]:

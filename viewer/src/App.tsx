@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fmt, getJson, globalFrame, jersey, loadTracks, Result, RunSummary, SEVERITY, Tracks } from './data';
+import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, Result, RunSummary, SEVERITY, Tracks } from './data';
 
 export function App() {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
@@ -127,6 +127,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
   const [frame, setFrame] = useState<number | null>(null);
   const [showBall, setShowBall] = useState(true);
   const [showIds, setShowIds] = useState(true);
+  const [showPitch, setShowPitch] = useState(true);
   const chunk = tracks.chunks[chunkIdx];
   const timeOf = useMemo(() => new Map(tracks.frames), [tracks]);
 
@@ -149,6 +150,25 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
         const scale = Math.min(c.width / vw, c.height / vh);
         const ox = (c.width - vw * scale) / 2;
         const oy = (c.height - vh * scale) / 2;
+        // The computed pitch ("Líneas calculadas"), in violet from the Spark gradient.
+        const hom = g === null || !showPitch || !tracks.pitch ? undefined : tracks.pitch.homographies.get(g);
+        if (hom && tracks.pitch) {
+          const toPx = (p: [number, number] | null) => (p ? [ox + p[0] * vw * scale, oy + p[1] * vh * scale] : null);
+          ctx.strokeStyle = '#7B2FF7';
+          ctx.lineWidth = 1.5 * devicePixelRatio;
+          const segs: [number, number][][] = tracks.pitch.lines.map(([, a, b]) => [a, b]);
+          segs.push(tracks.pitch.circle);
+          for (const seg of segs) {
+            ctx.beginPath();
+            seg.forEach(([x, y], k) => {
+              const p = toPx(applyH(hom.h, x, y));
+              if (!p) return;
+              if (k === 0) ctx.moveTo(p[0], p[1]);
+              else ctx.lineTo(p[0], p[1]);
+            });
+            ctx.stroke();
+          }
+        }
         const boxes = g === null ? [] : tracks.byFrame.get(g) || [];
         ctx.lineWidth = 2 * devicePixelRatio;
         ctx.font = `${12 * devicePixelRatio}px Roboto, sans-serif`;
@@ -169,7 +189,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [chunk, tracks, showBall, showIds, colors]);
+  }, [chunk, tracks, showBall, showIds, showPitch, colors]);
 
   const t0 = result.timeline[0]?.t_ms ?? 0;
   const t1 = (result.timeline[result.timeline.length - 1]?.t_ms ?? t0) + 1000;
@@ -206,8 +226,14 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
         <button className={showIds ? 'on' : ''} onClick={() => setShowIds(!showIds)}>
           IDs
         </button>
+        {tracks.pitch && (
+          <button className={showPitch ? 'on' : ''} onClick={() => setShowPitch(!showPitch)}>
+            Líneas calculadas
+          </button>
+        )}
         <span className="muted tnum">
           cuadro {frame ?? '– (traslape)'} · {nowMs !== null ? fmt(nowMs) : '–'} · {frame !== null ? tracks.byFrame.get(frame)?.length ?? 0 : 0} objetos
+          {tracks.pitch && frame !== null ? ` · cancha: ${tracks.pitch.homographies.get(frame)?.source ?? 'sin calcular'}` : ''}
         </span>
       </div>
       <div className="timeline" onClick={(e) => {

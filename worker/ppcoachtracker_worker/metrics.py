@@ -211,3 +211,99 @@ def compute(trackset: TrackSet, fps: float = 10.0) -> dict:
         "events": events,
         "duration_ms": int(duration_ms),
     }
+
+
+# ── metrics in meters (docs/prompts/13-cancha-en-metros.md, step 4) ─────────
+
+MIN_PITCH_SECONDS = 10.0
+MAX_SPEED = 11.0  # m/s: a faster step is a track switch, not a sprint
+OUTSIDE_MARGIN_M = 2.0
+
+
+def pitch_metrics(trackset: TrackSet, frames_with_h: set[int], length: float, width: float, approximate: bool, fps: float = 10.0) -> dict | None:
+    """Metrics in meters, only on the frames with a homography and only with 10 s or more of them.
+
+    Speeds come from the MEAN POSITION OF EACH SECOND (frame to frame, the box
+    jitter adds meters nobody ran). Feet more than 2 m outside the lines do not count.
+    """
+    used = [f for f in trackset.frames if f.frame in frames_with_h]
+    seconds_total = len(used) / fps if fps else 0.0
+    if seconds_total < MIN_PITCH_SECONDS:
+        return None
+    t0 = trackset.frames[0].t_ms if trackset.frames else 0
+    hx, hy = length / 2, width / 2
+    rows = [r for r in trackset.rows if r.label == "player" and r.mx is not None and r.frame in frames_with_h
+            and abs(r.mx) <= hx + OUTSIDE_MARGIN_M and abs(r.my) <= hy + OUTSIDE_MARGIN_M]
+
+    per_second: dict[int, dict[int, list[tuple[float, float]]]] = defaultdict(lambda: defaultdict(list))
+    team_of: dict[int, str] = {}
+    for r in rows:
+        per_second[r.track_id][int((r.t_ms - t0) // 1000)].append((r.mx, r.my))
+        team_of.setdefault(r.track_id, r.team)
+
+    dropped = 0
+    tracks_out = []
+    speeds_by_team: dict[str, list[float]] = {"A": [], "B": []}
+    dist_by_team = {"A": 0.0, "B": 0.0}
+    secs_by_team = {"A": 0, "B": 0}
+    for tid, secs in sorted(per_second.items()):
+        means = {s: (float(np.mean([p[0] for p in pts])), float(np.mean([p[1] for p in pts]))) for s, pts in secs.items()}
+        dist, top = 0.0, 0.0
+        for s in sorted(means):
+            if s + 1 not in means:
+                continue
+            step = math.hypot(means[s + 1][0] - means[s][0], means[s + 1][1] - means[s][1])
+            if step > MAX_SPEED:
+                dropped += 1
+                continue
+            dist += step
+            top = max(top, step)
+            if team_of[tid] in speeds_by_team:
+                speeds_by_team[team_of[tid]].append(step)
+        team = team_of[tid]
+        if team in dist_by_team:
+            dist_by_team[team] += dist
+            secs_by_team[team] += len(means)
+        tracks_out.append({"id": tid, "team": team, "distance_m": round(dist, 2), "seconds": len(means), "top_speed": round(top, 2)})
+
+    by_frame: dict[int, list[TrackRow]] = defaultdict(list)
+    for r in rows:
+        by_frame[r.frame].append(r)
+    teams = {}
+    for team in ("A", "B"):
+        heat = np.zeros((HEATMAP[1], HEATMAP[0]))
+        shapes = []
+        for f in used:
+            ps = [r for r in by_frame.get(f.frame, []) if r.team == team]
+            for r in ps:
+                col = min(HEATMAP[0] - 1, max(0, int((r.mx + hx) / length * HEATMAP[0])))
+                row = min(HEATMAP[1] - 1, max(0, int((hy - r.my) / width * HEATMAP[1])))  # far band on top
+                heat[row, col] += 1
+            if len(ps) >= MIN_SHAPE_PLAYERS:
+                xs = [r.mx for r in ps]
+                ys = [r.my for r in ps]
+                shapes.append((np.mean(xs), np.mean(ys), max(xs) - min(xs), max(ys) - min(ys)))
+        total = heat.sum()
+        sp = speeds_by_team[team]
+        teams[team] = {
+            "player_seconds": secs_by_team[team],
+            "meters_per_minute": round(dist_by_team[team] / secs_by_team[team] * 60, 1) if secs_by_team[team] else None,
+            "speed_p95": round(float(np.percentile(sp, 95)), 2) if sp else None,
+            "shape": None if not shapes else {
+                "cx": round(float(np.mean([s[0] for s in shapes])), 2),
+                "cy": round(float(np.mean([s[1] for s in shapes])), 2),
+                "length": round(float(np.mean([s[2] for s in shapes])), 2),
+                "width": round(float(np.mean([s[3] for s in shapes])), 2),
+            },
+            "heatmap": {"cols": HEATMAP[0], "rows": HEATMAP[1], "values": (heat / total).round(4).tolist() if total else heat.tolist()},
+        }
+    return {
+        "length_m": length,
+        "width_m": width,
+        "approximate": approximate,
+        "seconds": round(seconds_total, 1),
+        "frames_with_homography": round(len(used) / max(1, len(trackset.frames)), 4),
+        "dropped_steps": dropped,
+        "teams": teams,
+        "tracks": tracks_out,
+    }

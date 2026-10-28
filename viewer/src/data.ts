@@ -14,7 +14,20 @@ export type ChunkInfo = { number: number; file: string; fps: number; frames: num
 
 export type Box = { frame: number; t_ms: number; track: number; label: string; team: string; x: number; y: number; w: number; h: number; conf: number };
 
-export type Tracks = { byFrame: Map<number, Box[]>; frames: [number, number][]; chunks: ChunkInfo[] };
+export type Pitch = {
+  homographies: Map<number, { source: string; h: number[] }>;
+  lines: [string, [number, number], [number, number]][];
+  circle: [number, number][];
+};
+
+export type Tracks = { byFrame: Map<number, Box[]>; frames: [number, number][]; chunks: ChunkInfo[]; pitch: Pitch | null };
+
+/** Pitch meters → normalized image (0..1) with a row-major 3×3 homography. */
+export function applyH(h: number[], x: number, y: number): [number, number] | null {
+  const w = h[6] * x + h[7] * y + h[8];
+  if (Math.abs(w) < 1e-9) return null;
+  return [(h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w];
+}
 
 export type Insight = { title: string; description: string; severity: string; t_start_ms: number; t_end_ms: number; recommendation: string };
 
@@ -50,7 +63,8 @@ export async function getJson<T>(url: string): Promise<T> {
 }
 
 export async function loadTracks(run: string): Promise<Tracks> {
-  const raw = await getJson<{ columns: string[]; rows: unknown[][]; frames: [number, number][]; chunks: ChunkInfo[] }>(`/api/runs/${run}/tracks.json`);
+  type RawPitch = { homographies: (number | string)[][]; lines: Pitch['lines']; circle: Pitch['circle'] };
+  const raw = await getJson<{ columns: string[]; rows: unknown[][]; frames: [number, number][]; chunks: ChunkInfo[]; pitch?: RawPitch | null }>(`/api/runs/${run}/tracks.json`);
   const idx = Object.fromEntries(raw.columns.map((c, i) => [c, i]));
   const byFrame = new Map<number, Box[]>();
   for (const r of raw.rows) {
@@ -62,7 +76,13 @@ export async function loadTracks(run: string): Promise<Tracks> {
     if (list) list.push(b);
     else byFrame.set(b.frame, [b]);
   }
-  return { byFrame, frames: raw.frames, chunks: raw.chunks };
+  let pitch: Pitch | null = null;
+  if (raw.pitch) {
+    const homographies = new Map<number, { source: string; h: number[] }>();
+    for (const row of raw.pitch.homographies) homographies.set(row[0] as number, { source: row[1] as string, h: row.slice(2) as number[] });
+    pitch = { homographies, lines: raw.pitch.lines, circle: raw.pitch.circle };
+  }
+  return { byFrame, frames: raw.frames, chunks: raw.chunks, pitch };
 }
 
 /** Global frame shown by chunk [c] at [seconds] of its video; null inside the overlap already shown. */

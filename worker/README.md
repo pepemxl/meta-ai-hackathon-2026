@@ -13,6 +13,8 @@ npm run worker:up                   # el worker junto a la API PHP local (consul
 
 # Sin la API, sobre una carpeta de chunks (sí llama a Meta o al simulador):
 wsl -e docker compose --profile worker run --rm worker analyze /worker/.local/mi_clip --home-color red --away-color blue
+#   --touches puntos.json --pitch-mode no_lines   los puntos de la cancha (como POST /clips/:id/calibration)
+#   --debug-dir /worker/.local/runs               guarda la corrida para el visor
 
 # Herramientas
 python tools/make_chunks.py video.mp4 .local/mi_clip --profile dev            # corta un video como la app
@@ -56,7 +58,11 @@ Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (
 3. **SAM 3.1** por chunk: `POST /files` y un `POST /responses` con stream por concepto (`player in <color> jersey` por equipo y `soccer ball`; `soccer player` si los colores no distinguen a los equipos). Los streams crudos quedan en `raw/` y todas las cajas en `raw/tracks.json`.
 4. Une los tracks entre chunks por IoU en los cuadros del traslape: misma identidad si IoU > 0.5 en al menos la mitad de los cuadros de traslape donde aparecen los dos, y en 5 o más. El traslape se conserva una vez.
 5. Equipos: del concepto; el color del torso (mediana Lab, sin pasto) decide solo si un track aparece en los dos conceptos o con `soccer player`. Muy lejos de los dos colores (árbitro, porteros) queda sin equipo.
-6. Métricas en coordenadas de **pantalla** (todavía no hay cancha en metros).
+6. Métricas en coordenadas de **pantalla**, siempre. Y, si el entrenador marcó puntos y no contestó "No calcular la cancha" (`options.pitch_mode` distinto de `off`), **la cancha en metros** (`calibration/`):
+   - la homografía del cuadro tocado con 5 o más puntos que coincidan (con 4 cualquier nombre encaja; RANSAC quita los mal nombrados), si la mediana del error no pasa de 1.5 % del alto;
+   - propagada por su toma con KLT sobre el pasto y `findHomography` (una cámara que no se mueve queda fija); la cadena se corta en un corte de cámara, con menos de 30 % (o de 30) puntos que coinciden, o donde menos del 90 % de los pies cae en la cancha con 5 m de margen;
+   - cada jugador gana `mx`, `my`; las métricas en metros (`pitch`) salen solo de los cuadros con homografía y solo con 10 s o más, con velocidades entre las posiciones medias de cada segundo (un paso de más de 11 m/s es un cambio de track y no cuenta).
+   - Las líneas con SAM (paso 5 de la etapa 13) no están hechas: no hay nada automático sin puntos.
 7. **Muse Spark** con salida estructurada (`json_schema` estricto); una reparación si no valida; si tampoco, falla.
 8. `POST /internal/jobs/:id/result` (multipart, el análisis como archivo `analysis`).
 

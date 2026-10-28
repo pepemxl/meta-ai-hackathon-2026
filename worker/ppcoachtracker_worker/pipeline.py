@@ -18,6 +18,7 @@ from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
 from .debug import save_run
+from .calibration import calibrate
 from .insights import MuseSpark, warnings_of
 from .meta_api import MetaClient, ResponseCache, Usage
 from .sam import SamSegmenter
@@ -26,7 +27,8 @@ from .types import InputError, MetaError, TrackSet
 log = logging.getLogger("ppcoachtracker_worker")
 
 
-def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep) -> tuple[dict, TrackSet]:
+def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep,
+            pitch_mode: str | None = None, calibration: dict | None = None, frames=None) -> tuple[dict, TrackSet]:
     started = time.monotonic()
     clip = load_clip(clip_dir)
     if clip.frames_sent_per_concept > cfg.max_frames_per_job:
@@ -40,18 +42,35 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     home_color, away_color = match.get("home_color") or "", match.get("away_color") or ""
 
     trackset = segmenter.track(clip, home_color, away_color)
+
+    # The pitch in meters: only from the coach's points, never guessed.
+    cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames)
+    pitch = None
+    if cal is not None:
+        rows = []
+        for r in trackset.rows:
+            m_xy = cal.to_meters(r.frame, r.foot) if r.label == "player" else None
+            rows.append(r.with_(mx=m_xy[0], my=m_xy[1]) if m_xy else r)
+        trackset = TrackSet(rows=rows, frames=trackset.frames)
+        pitch = metrics_mod.pitch_metrics(trackset, set(cal.homographies), cal.template.length, cal.template.width, cal.template.approximate, clip.fps)
+        if pitch is None:
+            cal_notes.append("Menos de 10 s del video tienen la cancha calculada: no se dan métricas en metros.")
+    analyze.last_calibration = cal  # for save_run (the viewer draws the pitch)
     if raw_dir is not None:
         save_tracks(trackset, raw_dir / "tracks.json")
     m = metrics_mod.compute(trackset, clip.fps)
     start_ms = trackset.frames[0].t_ms if trackset.frames else 0
     analyst = MuseSpark(muse_client, cfg.muse_model, raw_dir, is_meta_url=cfg.muse_is_meta)
-    ins = analyst.insights(m, match, start_ms)
+    ins = analyst.insights(m, match, start_ms, pitch=pitch)
 
-    notes = warnings_of(m)
-    limitations = [
-        "Coordenadas de pantalla: todavía no hay calibración de la cancha, así que las distancias y posiciones son fracciones de la imagen, no metros.",
-        "Los tracks son trayectorias detectadas por SAM 3.1: un jugador que sale de cuadro y vuelve puede contar como otro track.",
-    ]
+    notes = warnings_of(m) + cal_notes
+    if pitch is not None:
+        limitations = [f"Las métricas en metros salen del {round(100 * pitch['frames_with_homography'])} % del video (los cuadros con la cancha calculada); las de la imagen, de todo el video."]
+        if pitch["approximate"]:
+            limitations.append(f"Se usaron las medidas por omisión de la cancha ({pitch['length_m']:g}×{pitch['width_m']:g} m): las distancias son aproximadas.")
+    else:
+        limitations = ["Coordenadas de pantalla: sin la cancha calculada, las distancias y posiciones son fracciones de la imagen, no metros."]
+    limitations.append("Los tracks son trayectorias detectadas por SAM 3.1: un jugador que sale de cuadro y vuelve puede contar como otro track.")
     if segmenter.segmenter == "sam_simulator":
         limitations.insert(0, "Análisis de desarrollo: la segmentación viene del simulador local, no de SAM 3.1.")
 
@@ -90,6 +109,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
         "timeline": m["timeline"],
         "tracks": m["tracks"],
         "events": m["events"],
+        **({"calibration": cal.report} if cal is not None else {}),
+        **({"pitch": pitch} if pitch is not None else {}),
         "summary": ins["summary"],
         "insights": [{**i, "players": [], "source": "muse_spark"} for i in ins["insights"]],
         "notes": notes,
@@ -128,9 +149,11 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
                 api.download(int(clip["id"]), name, work / "clip" / name)
             except ApiError as e:
                 raise InputError(f"cannot download {name}: {e}") from None
-        result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep)
+        result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
+                                   pitch_mode=(job.get("options") or {}).get("pitch_mode"), calibration=job.get("calibration"))
         if cfg.debug_dir is not None:
-            log.info("job %s: run saved in %s", job_id, save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset))
+            run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration)
+            log.info("job %s: run saved in %s", job_id, run)
         api.post_result(job_id, "done", analysis=result)
         log.info("job %s: done (%s, usage %s)", job_id, result["backends"]["segmenter"], result["backends"]["usage"])
         shutil.rmtree(work, ignore_errors=True)

@@ -48,7 +48,7 @@ SYSTEM = """Eres el analista de video de PP-Coach-Tracker. Recibes métricas agr
 
 Reglas:
 - Di solo lo que los números sostienen. Si un dato no alcanza para concluir algo, no lo concluyas.
-- Las posiciones son coordenadas de pantalla (fracciones de la imagen), no de la cancha: di "en la imagen" y NUNCA uses metros ni distancias reales.
+- Las posiciones de "teams" son coordenadas de pantalla (fracciones de la imagen): di "en la imagen". Solo si viene "pitch_meters" puedes hablar de metros y km/h, solo con esos números y diciendo de qué parte del video salen; sin "pitch_meters" NUNCA uses metros ni distancias reales.
 - Los "tracks" son trayectorias detectadas, no personas: nunca digas "se siguieron N jugadores".
 - Si hay avisos (pocos jugadores a la vista, balón casi no detectado), dilos primero, en el resumen y como primer hallazgo.
 - Cada hallazgo apunta a un momento del video con t_start_ms y t_end_ms dentro del clip (milisegundos del video original).
@@ -102,7 +102,7 @@ def warnings_of(metrics: dict) -> list[str]:
     return out
 
 
-def facts_for(metrics: dict, match: dict, start_ms: int) -> dict:
+def facts_for(metrics: dict, match: dict, start_ms: int, pitch: dict | None = None) -> dict:
     """Only aggregated numbers (no heatmaps, no tracks, no names of players)."""
     teams = {}
     for t, label in (("A", match.get("home") or "Local"), ("B", match.get("away") or "Visitante")):
@@ -129,6 +129,28 @@ def facts_for(metrics: dict, match: dict, start_ms: int) -> dict:
         "possession_changes_per_minute": metrics["possession_changes_per_minute"],
         "possession_change_times_ms": [e["t_ms"] for e in metrics["events"][:40]],
         "warnings": warnings_of(metrics),
+        **({"pitch_meters": pitch_facts(pitch)} if pitch else {}),
+    }
+
+
+def pitch_facts(pitch: dict) -> dict:
+    """Aggregates in meters per team (no heatmaps, no tracks)."""
+    teams = {}
+    for t, m in pitch["teams"].items():
+        shape = m.get("shape") or {}
+        teams[t] = {
+            "meters_per_minute_per_player": m.get("meters_per_minute"),
+            "sprint_speed_p95_kmh": round(m["speed_p95"] * 3.6, 1) if m.get("speed_p95") is not None else None,
+            "team_length_m": shape.get("length"),
+            "team_width_m": shape.get("width"),
+            "player_seconds": m.get("player_seconds"),
+        }
+    return {
+        "seconds_measured": pitch["seconds"],
+        "share_of_video": pitch["frames_with_homography"],
+        "pitch_size_m": [pitch["length_m"], pitch["width_m"]],
+        "approximate_pitch_size": pitch["approximate"],
+        "teams": teams,
     }
 
 
@@ -153,8 +175,8 @@ class MuseSpark:
             (self.raw_dir / name).write_text(resp.raw, encoding="utf-8")
         return resp.text
 
-    def insights(self, metrics: dict, match: dict, start_ms: int) -> dict:
-        facts = facts_for(metrics, match, start_ms)
+    def insights(self, metrics: dict, match: dict, start_ms: int, pitch: dict | None = None) -> dict:
+        facts = facts_for(metrics, match, start_ms, pitch)
         end_ms = facts["clip"]["end_ms"]
         messages = [
             {"role": "system", "content": SYSTEM},

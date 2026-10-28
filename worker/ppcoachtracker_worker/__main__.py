@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--away-color", default="blue")
     a.add_argument("--out", type=Path, help="result JSON (default DIR/analysis.json)")
     a.add_argument("--debug-dir", type=Path, help="also save the run for the viewer (default DEBUG_DIR)")
+    a.add_argument("--touches", type=Path, help="the coach's points (JSON as POST /clips/:id/calibration), to test without the API")
+    a.add_argument("--pitch-mode", choices=["lines", "no_lines", "off"], help="as the coach answered (default: as lines)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -46,10 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "analyze":
         match = {"home": args.home, "away": args.away, "home_color": args.home_color, "away_color": args.away_color}
         try:
-            result, trackset = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw")
+            touches = json.loads(args.touches.read_text(encoding="utf-8")) if args.touches else None
+            result, trackset = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw", pitch_mode=args.pitch_mode, calibration=touches)
             debug_dir = args.debug_dir or cfg.debug_dir
             if debug_dir is not None:
-                print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset)}")
+                print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset, calibration=analyze.last_calibration)}")
         except Exception as e:  # noqa: BLE001
             print(error_message(e), file=sys.stderr)
             return 1
