@@ -46,7 +46,7 @@ Para el hackathon, el caso realista es la LFPDPPP. Diseñar pensando en el GDPR 
 
 ## Cambios al modelo de datos
 
-En [03-arquitectura.md](03-arquitectura.md):
+Cuando se agregue el plantel (etapa 2) y la API lo guarde:
 
 ```
 players(id, team_id, number, position,

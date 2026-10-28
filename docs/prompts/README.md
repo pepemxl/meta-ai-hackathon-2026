@@ -20,7 +20,7 @@ Tres decisiones atraviesan todas las etapas:
 
 **El estilo visual de la app** (tipo apps de Meta: colores, tipografía, componentes, navegación) está en [diseno.md](../diseno.md); todas las etapas de la app lo siguen y la 1 crea el tema.
 
-Los documentos marcados como **Antecedente** (arquitectura, mejoras, aprendizajes, planes) describen el prototipo previo, que sí tenía respaldo local. Sirven por los contratos, los umbrales medidos y las trampas que costó encontrar; donde contradigan a los prompts, mandan los prompts. Las capturas del prototipo están en [pantallas/](../pantallas/README.md); las de esta construcción van en `docs/versions/`.
+Los documentos marcados como **Antecedente** (mejoras, aprendizajes, planes) describen el prototipo previo, que sí tenía respaldo local. Sirven por los contratos, los umbrales medidos y las trampas que costó encontrar; donde contradigan a los prompts, mandan los prompts. Las capturas del prototipo están en [pantallas/](../pantallas/README.md); las de esta construcción van en `docs/versions/`.
 
 ## Etapas
 
@@ -119,4 +119,4 @@ API.
 - **App:** las pruebas JVM pasan y los flujos de [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) funcionan en el emulador contra la API local.
 - **Worker:** `npm run worker:test` pasa sin red. Con el simulador, un clip de chunks de 1 min termina en `ready` con `sam_simulator`. Con la key, el clip del demo en chunks de 5 min termina en `ready` con `backends.segmenter = "meta_sam"` y `backends.analyst = "muse_spark"`.
 - **Licencias:** `git grep -i -E "yolo|ultralytics|onnx"` no encuentra nada fuera de `docs/`, y `THIRD_PARTY.md` lista todas las dependencias.
-- **Documentación de arquitectura:** al terminar, actualizar [arquitectura/](../arquitectura/README.md) a lo que se construyó y quitarle el aviso de antecedente.
+- **Documentación de arquitectura:** [arquitectura/](../arquitectura/README.md) describe lo construido; al cerrar cada etapa, actualizarla (sobre todo la tabla de qué existe y qué falta).

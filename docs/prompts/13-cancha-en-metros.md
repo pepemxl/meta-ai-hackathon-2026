@@ -1,6 +1,6 @@
 # 13 · La cancha en metros (homografía)
 
-**Lee antes, completo:** [mejoras/04-homografia-por-cuadro.md](../mejoras/04-homografia-por-cuadro.md) (el diseño, cada fase con sus resultados y lo que cambió al construirla), [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de homografía y métricas en metros), [pantallas/0.3.8](../pantallas/0.3.8/README.md), [0.3.9](../pantallas/0.3.9/README.md) y [0.3.10](../pantallas/0.3.10/README.md) (las pantallas), [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 3 y 8) y [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md#la-cancha-según-la-respuesta-del-entrenador).
+**Lee antes, completo:** [mejoras/04-homografia-por-cuadro.md](../mejoras/04-homografia-por-cuadro.md) (el diseño, cada fase con sus resultados y lo que cambió al construirla), [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de homografía y métricas en metros), [pantallas/0.3.8](../pantallas/0.3.8/README.md), [0.3.9](../pantallas/0.3.9/README.md) y [0.3.10](../pantallas/0.3.10/README.md) (las pantallas), [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 3 y 5) y [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md#la-cancha-en-metros).
 
 Es la etapa más grande: hazla en este orden, con un commit (o PR) por paso y sus pruebas.
 

@@ -23,7 +23,7 @@
 
 ## Cloud Provider compartido, sin SSH
 
-- **Se despliega con la API de archivos (TUS) y un cron de una sola corrida** que ejecuta `install.php` y luego se borra. Detalle en [05-despliegue.md](../arquitectura/05-despliegue.md).
+- **Se despliega con la API de archivos (TUS) y un cron de una sola corrida** que ejecuta `install.php` y luego se borra. Detalle en [prompts/09-despliegue.md](../prompts/09-despliegue.md).
 - **Proteger primero la carpeta temporal:** subir un `.htaccess` que niega todo y comprobar el 403 antes de subir el instalador y el paquete.
 - **El paquete normal no lleva `.env`:** el servidor conserva el suyo. Los secretos nunca pasan por el repo.
 - **La migración tiene que ser idempotente** y correr en el instalador. Una columna nueva (`clips.pitch_mode`) se agrega en `Schema::migrate()`, que se puede correr dos veces sin efecto.

@@ -1,85 +1,86 @@
 # App Android: pp-coach-tracker
 
-> **Antecedente.** Este documento viene del diseño y del prototipo previos al hackathon, que tenían un respaldo local (detector YOLOv8n, tracker propio e insights por reglas). La versión que se construye **no tiene respaldo**: solo SAM 3.1 y Muse Spark, y solo dependencias con licencia permisiva. Donde este texto diga otra cosa, mandan [prompts/00-contexto.md](../prompts/00-contexto.md) y el prompt de cada etapa.
-
-Kotlin + Jetpack Compose, una sola actividad, sin base de datos: la biblioteca del entrenador es un `library.json` y los videos son archivos MP4. Código en `android_native/`.
+Kotlin + Jetpack Compose, una sola actividad, sin base de datos: la biblioteca del entrenador es un `library.json` y los videos son archivos MP4. El estilo sigue a las apps de Meta, en claro y oscuro ([diseno.md](../diseno.md)). Código en `android_native/`; id `com.ppcoach.tracker` (`.debug` en debug), versión 0.1.0.
 
 ## Capas
 
 ```mermaid
 flowchart TB
     subgraph ui["ui/ (Compose)"]
-        root["AppRoot<br/>pila de pantallas, snackbar,<br/>diálogo de consentimiento"]
-        screens["screens/<br/>Matches, MatchDetail, Record,<br/>ClipDetail, PitchTouches, ClipAnalysis,<br/>Roster, Stats, Settings"]
-        comps["components/ (PitchDialog, ConsentDialog…)<br/>i18n/Strings · theme/"]
+        root["AppRoot<br/>pila de pantallas, barra inferior,<br/>hoja Crear, mensajes, diálogos"]
+        screens["screens/<br/>Matches, MatchDetail, Record, ClipDetail,<br/>PitchTouches, PitchReferences, PaintReference,<br/>ClipAnalysis, Settings"]
+        comps["components/ (Components, ConsentDialog, Pitch)<br/>i18n/Strings · theme/Tokens, Theme"]
     end
 
     vm["CoachViewModel<br/>estado observable + acciones"]
+    graph["AppGraph<br/>una biblioteca por proceso (commit)"]
 
     subgraph data["data/ (Kotlin, casi todo sin Android)"]
-        models["Models · Stats · ClipAnalysis<br/>StartingLineup · PitchTouches · PitchMask<br/>Library, Match, Clip, Player"]
-        store["LibraryStore · LibraryCodec · Durable<br/>library.json y rutas"]
-        video["VideoFiles · StorageLocations<br/>RecordingSpec · Proxy · Chunks"]
-        net["ApiClient (OkHttp)"]
+        models["Models · LibraryCodec · Durable<br/>Library, Match, Clip"]
+        video["StorageLocations · Chunks · PitchMask"]
+        pitch["PitchTouches · PitchReferences<br/>plantilla, homografía, trazos"]
+        net["ApiClient (OkHttp) · ClipAnalysis"]
         sec["SettingsStore · SecretBox · Consent"]
     end
 
-    subgraph work["analysis/ (WorkManager)"]
+    subgraph work["analysis/"]
         chunk["ChunkWorker<br/>+ PitchSampler"]
         upload["UploadWorker"]
-        consent["ConsentWorker"]
+        consent["ConsentWorker (Work.kt)"]
+        refimg["ReferenceImages"]
     end
 
     camx["CameraX"]
-    media3["Media3 Transformer"]
+    media3["Media3 Transformer<br/>y MediaCodec"]
     ks["Android Keystore"]
-    apiext["API PP-Coach-Tracker"]
+    apiext["API pp-coach-tracker"]
 
     root --> screens --> vm
     comps -.-> screens
-    vm --> models
-    vm --> store
+    vm --> graph --> models
     vm --> video
+    vm --> pitch
     vm --> sec
-    vm -->|"login, estado y análisis del clip"| net
+    vm -->|"login, estado y análisis"| net
     vm -->|"encola"| work
+    vm --> refimg
     screens --> camx
     chunk --> media3
-    chunk --> video
     upload --> net
+    upload --> refimg
     consent --> net
-    upload --> sec
-    consent --> sec
+    upload --> graph
+    chunk --> graph
     sec --> ks
     net --> apiext
 ```
 
-- **Un solo ViewModel** (`CoachViewModel`) tiene la biblioteca, los ajustes, la pila de navegación y el progreso de los trabajos. Las pantallas leen su estado y llaman sus funciones.
-- **Toda escritura de la biblioteca pasa por `commit()`**: cambia el estado en memoria al instante y escribe `library.json` en un solo hilo, en orden, con escritura atómica (`Durable`).
-- **`data/` casi no depende de Android**, así que las pruebas JVM cubren chunks, estadísticas, el códec de la biblioteca, el cliente HTTP (con MockWebServer), el consentimiento, la máscara de la cancha, la plantilla y la homografía de los puntos marcados, y la lectura del análisis (también en metros).
+- **Un solo ViewModel** (`CoachViewModel`) tiene los ajustes, la pila de navegación, el progreso de los trabajos y los análisis cargados. Las pantallas leen su estado y llaman sus funciones.
+- **Una sola biblioteca por proceso** (`AppGraph`): el ViewModel y los workers de WorkManager la cambian con `commit()`, que actualiza la memoria al instante y escribe `library.json` en orden con escritura atómica (`Durable`). Así nunca se pisan.
+- **`data/` casi no depende de Android**, así que las pruebas JVM cubren chunks, el códec de la biblioteca, el cliente HTTP (con MockWebServer), el consentimiento, la máscara de la cancha, la plantilla y la homografía de los puntos y las líneas, el cuerpo de la calibración y la lectura del análisis. La plantilla de la cancha se compara contra el mismo fixture que usa el worker.
 
 ## Navegación
 
-No hay librería de navegación: `CoachViewModel` guarda una pila de `Screen` y `AppRoot` dibuja la de arriba. "Atrás" quita una. La pantalla principal tiene dos pestañas, Partidos y Estadísticas (`homeTab`). El filtro de estadísticas (`statsFilter`: todos, últimos N, rango de fechas o partidos elegidos) vive en el ViewModel y lo comparten la pestaña y la página de cada jugador.
+No hay librería de navegación: `CoachViewModel` guarda una pila de `Screen` y `AppRoot` dibuja la de arriba; "Atrás" quita una. Las pantallas raíz (Partidos y Ajustes) llevan la barra inferior con **Partidos**, **Crear** (hoja con grabar jugada, importar video o partido nuevo) y **Ajustes**.
 
 ```mermaid
 flowchart LR
-    M["Matches<br/>pestañas Partidos y Estadísticas"] --> MD["MatchDetail<br/>(clips del partido)"]
-    M -->|"pestaña Estadísticas<br/>(filtro + orden)"| PS
-    M --> R["Roster<br/>(plantel)"]
-    M --> S["Settings<br/>(ajustes)"]
+    M["Matches<br/>clips recientes y partidos"] --> MD["MatchDetail<br/>(clips del partido)"]
+    M -.->|"Crear"| SH{{"Hoja Crear<br/>grabar · importar · partido nuevo"}}
+    SH --> REC
     MD --> REC["Record<br/>(CameraX)"]
     MD --> CD["ClipDetail<br/>(ver, preparar, enviar)"]
-    MD --> MS["MatchStats<br/>(stats del partido)"]
-    MS --> SE["StatEditor<br/>(jugador × partido)"]
-    MS --> R
-    R --> PS["PlayerStats<br/>(historial del jugador)"]
-    PS --> SE
+    M --> S["Settings"]
     CD -.->|"primer envío"| CON{{"ConsentDialog"}}
     CD -.->|"al enviar, una vez por partido"| PD{{"PitchDialog<br/>¿calculamos la cancha?"}}
-    CD -->|"Marcar puntos de la cancha"| PT["PitchTouches<br/>(un cuadro, puntos con nombre)"]
-    CD -->|"análisis listo"| CA["ClipAnalysis<br/>(lo que encontró el worker,<br/>y en metros si hay cancha)"]
+    CD -->|"Marcar puntos de la cancha"| PT["PitchTouches<br/>(puntos y líneas pintadas)"]
+    CD -->|"Imágenes de referencia"| PR["PitchReferences<br/>(hasta 6 por partido)"]
+    PR --> PA["PaintReference<br/>(pintar las líneas)"]
+    CD -->|"análisis listo"| CA["ClipAnalysis"]
+    CA -->|"ver en el video"| CD
 ```
+
+**Ajustes:** idioma (español o inglés), apariencia (sistema, claro, oscuro), sistema de análisis (servidor, iniciar y cerrar sesión), privacidad y consentimiento (enlaces legales, retirar), ubicación de los videos (con "Mover N clips aquí"), vista técnica, alta resolución (1080p) y perfil de chunks (`dev` o `demo`).
 
 ## Dónde guarda cada cosa
 
@@ -91,8 +92,9 @@ flowchart LR
     subgraph int["Interna privada<br/>files/"]
         lib["library.json"]
         an["analyses/clip_7_145.json<br/>(copia del análisis)"]
-        v2["Movies/match_0001/clip_0002.mp4<br/>(si se eligió esta ubicación)"]
-        prefs["shared_prefs/settings.xml<br/>(token cifrado)"]
+        refs["references/match_0001/<br/>reference_001.jpg"]
+        v2["Movies/…<br/>(si se eligió esta ubicación)"]
+        prefs["shared_prefs/<br/>(token cifrado)"]
     end
     subgraph sd["Tarjeta SD (si hay)"]
         v3["match_0002/clip_0003.mp4"]
@@ -104,12 +106,13 @@ flowchart LR
 
 | Dato | Formato | Notas |
 |---|---|---|
-| Partidos, clips, plantel, estadísticas | `library.json` | Tolerante a campos desconocidos; si no se puede leer se aparta como `library.json.bad` sin tocar los videos. Cada clip guarda también su respuesta sobre la cancha (`pitchMode`) y los puntos marcados (`touches`); el partido, la última respuesta |
-| Videos originales | MP4 (H.264/AAC, 1080p o 720p, 30 fps) | Cada clip recuerda su ubicación; "Mover N clips aquí" los pasa de una a otra |
-| Versión para análisis | Chunks MP4 de 10 fps, máx. 720p (1080p con "Alta resolución" en Ajustes), sin audio, 1 min con 1 s de traslape, más un YAML por chunk (con la máscara de la cancha de cada cuadro) y `chunks.yaml` | En la caché: se regenera si Android la borra |
-| Análisis de cada clip | JSON tal como lo devuelve la API | Copia para verlo sin conexión; se reemplaza cada vez que se abre con red |
-| Ajustes | SharedPreferences | Idioma, ubicación, vista técnica, servidor, correo, consentimiento |
-| Sesión (JWT) | Cifrada con AES-256-GCM, llave en el Keystore (`SecretBox`) | Nunca va en los datos de entrada de WorkManager |
+| Partidos y clips | `library.json` | Tolerante a campos desconocidos. Cada clip guarda su respuesta sobre la cancha (`pitchMode`), sus puntos y líneas pintadas (`touches`) y qué parte de sus cuadros tiene cancha (`pitchShare`); el partido, la última respuesta y sus imágenes de referencia con sus trazos |
+| Videos originales | MP4 (H.264/AAC, 1080p o 720p, 30 fps) | Cada clip recuerda su ubicación. El tipo de clip (jugada, medio tiempo, partido) se propone por la duración |
+| Versión para análisis | Chunks MP4 de 10 fps, máx. 720p (1080p con "Alta resolución"), sin audio, más un YAML por chunk (con la máscara de la cancha de cada cuadro) y `chunks.yaml` | Perfil `dev`: 1 min con 2 s de traslape; `demo`: 5 min con 3 s. En la caché: se regenera si Android la borra |
+| Imágenes de referencia | JPEG enderezado según el EXIF, lado mayor de 1600 px | De la cámara del teléfono (FileProvider) o de un cuadro del clip. Hasta 6 por partido; sirven para todos sus videos |
+| Análisis de cada clip | JSON tal como lo devuelve la API | Copia para verlo sin conexión; se reemplaza cada vez que se abre con red; se borra con el clip |
+| Ajustes | SharedPreferences | Idioma, tema, ubicación, vista técnica, alta resolución, perfil, servidor, correo, consentimiento |
+| Sesión (JWT) | AES-256-GCM, llave en el Keystore (`SecretBox`) | Nunca va en los datos de entrada de WorkManager, que se guardan en claro |
 
 ## Trabajos en segundo plano
 
@@ -123,10 +126,8 @@ flowchart LR
     q -->|sí| pm{"¿Respuesta sobre<br/>la cancha?"}
     pm -->|"no (primer video del partido)"| pdlg["PitchDialog"] --> send2(["envía"])
     pm -->|sí| send2
-    send2 --> has{"¿Ya hay chunks?"}
-    has -->|no| cw["ChunkWorker<br/>Media3 Transformer"] --> uw["UploadWorker"]
-    has -->|sí| uw
-    uw -->|"POST /clips (con pitch_mode)<br/>POST calibration (si hay puntos)<br/>PUT chunks<br/>POST complete"| api[("API")]
+    send2 --> cw["ChunkWorker<br/>(se salta los chunks ya hechos)"] --> uw["UploadWorker"]
+    uw -->|"POST /clips (con pitch_mode)<br/>POST calibration y PUT references (si hay)<br/>PUT partes de 8 MB + cierre de cada chunk<br/>POST complete"| api[("API")]
     acc -->|"POST /consent"| api
     wd(["Retirar consentimiento"]) --> wdw["ConsentWorker<br/>withdraw"] -->|"POST /consent"| api
     wd -.->|"cancela"| uw
@@ -134,8 +135,8 @@ flowchart LR
 
 | Worker | Qué hace | Reintentos |
 |---|---|---|
-| `ChunkWorker` | Corta el original en chunks de 1 min (1 s de traslape), los convierte a 10 fps/720p (o 1080p, según Ajustes) sin audio, lee el tiempo de cada frame y escribe el YAML con el mapa al original y el `sha256`. Con `PitchSampler` decodifica cada chunk y mide la cancha en cada cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, sigue en el chunk que faltaba | Lo relanza la cadena |
-| `UploadWorker` | Registra el clip (con el consentimiento y `pitch_mode`), manda los puntos marcados a `POST /clips/:id/calibration` (si el servidor los rechaza, el video se envía igual, sin metros), sube solo los chunks que el servidor no tiene con el mismo `sha256` y completa. Lee la sesión cifrada al correr | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `400` y `428` |
+| `ChunkWorker` | Corta el original en chunks con traslape, los convierte con Media3 Transformer a 10 fps y máx. 720p (o 1080p) sin audio, mide el tiempo real de cada cuadro y escribe el YAML con el mapa al original y el `sha256`. `PitchSampler` decodifica cada chunk con MediaCodec y mide la cancha por cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, conserva los chunks con YAML válido y sigue | Lo relanza la cadena |
+| `UploadWorker` | Registra el clip (consentimiento y `pitch_mode`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
 | `ConsentWorker` | Manda cada aceptación o retiro a `POST /consent` | Con red; espera también a que haya sesión (`401`); hasta 20 intentos |
 
 ## Estados de un clip
@@ -143,41 +144,34 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
     [*] --> local: grabar o importar
-    local --> local: preparar chunks (ChunkWorker)
-    local --> uploading: UploadWorker sube chunks
-    uploading --> queued: POST /complete
-    queued --> segmenting: el worker toma el trabajo
-    segmenting --> analyzing: planeado
+    local --> preparing: ChunkWorker
+    preparing --> local: chunks listos
+    local --> uploading: UploadWorker
+    uploading --> uploaded: POST /complete (queued en la API)
+    uploaded --> segmenting: el worker toma el trabajo
     segmenting --> ready: resultado done
-    analyzing --> ready
     segmenting --> failed: resultado failed
+    uploading --> failed: sesión, consentimiento o tamaño
+    failed --> uploading: volver a enviar
     ready --> [*]
-    failed --> queued: volver a enviar
 ```
 
-- La app guarda el estado en `Clip.status` y el id del servidor en `Clip.remoteId`.
-- Al abrir un clip enviado consulta `GET /clips/:id` y actualiza el estado.
-- Con el estado `ready`, "Ver análisis" abre `ClipAnalysis`: resumen, posesión, hallazgos, los dos equipos lado a lado y dónde estuvo cada uno; si el resultado trae metros, la sección "En la cancha, en metros" con la cancha vista desde arriba. La pantalla muestra al instante la copia guardada en `files/analyses/clip_<id local>_<id del servidor>.json` y pide `GET /clips/:id/analysis` para tenerla al día. Sin conexión se queda la copia; solo si no hay copia dice por qué no se pudo (todavía no está, sin conexión, sesión vencida). Borrar el clip o el partido borra la copia.
-- La vista simple lo muestra como "En cola para el análisis", "Analizando…", "Análisis listo" o "El análisis falló".
+- La app guarda el estado en `Clip.status` y el id del servidor en `Clip.remoteId`; `ClipStatus.fromRemote` traduce los estados de la API.
+- Al abrir un clip enviado consulta `GET /clips/:id` y actualiza el estado; si falla, se queda el último conocido.
+- Con `ready`, "Ver análisis" abre `ClipAnalysis`: resumen, posesión, hallazgos de Muse Spark con "ver en el video" (salta al momento en el clip), los dos equipos lado a lado con sus mapas de calor y, si el resultado trae metros, la cancha vista desde arriba. Muestra al instante la copia guardada y pide `GET /clips/:id/analysis` para tenerla al día; sin copia dice por qué no se pudo (todavía no está, sin conexión, sesión vencida).
+- La etiqueta del clip dice "En el teléfono", "Preparando", "Enviando", "Subido", "Analizando…", "Listo" o "Falló"; la vista técnica agrega los chunks, el tamaño y el costo estimado en SAM.
 
-## Estadísticas de jugadores
+## La cancha en la app
 
-```mermaid
-flowchart LR
-    rep["Reporte de análisis (JSON)<br/>samples/analysis-report.example.json"] -->|"Importar reporte"| parser["AnalysisReportParser"]
-    parser --> pms["PlayerMatchStats.analysis"]
-    coach(["Entrenador"]) -->|"StatEditor"| pmsc["PlayerMatchStats.coach"]
-    pms --> val["valor = coach ?: analysis"]
-    pmsc --> val
-    val --> tot["StatsCalc<br/>totales, por 90 min, ratios"]
-```
-
-- Las estadísticas que puede dar el video (`Stat.fromAnalysis`) se desbloquean cuando el partido tiene reporte; las demás (goles, tarjetas) las captura el entrenador.
-- Lo que escribe el entrenador gana sobre lo del análisis, y borrarlo regresa al valor del análisis. Detalle en [11-stats-jugadores.md](../11-stats-jugadores.md).
-- Hoy el reporte se importa como archivo. Cuando exista el worker vendrá de la API.
+- **"Calcular la cancha"** es un interruptor por video. Al enviar el primer video de un partido, `PitchDialog` pregunta si las líneas se ven bien (`lines`), se ven poco o no hay (`no_lines`) o no calcular (`off`); la respuesta vale para los demás videos del partido.
+- **Puntos:** en `PitchTouchesScreen` se elige un cuadro con la barra, se toca un punto de la imagen y luego cuál es en el dibujo de la cancha (11 o 7).
+- **Líneas pintadas:** en el modo "Pintar líneas" el dedo pasa sobre una línea tenue o borrada y luego se toca cuál es en el dibujo, o "No sé cuál, solo es una línea". Una línea con nombre cuenta como marca; una sin nombre solo le enseña a SAM cómo se ve una línea.
+- Con 4 marcas o más, `Homography.fitPointsAndLines` dibuja la cancha calculada en violeta sobre el cuadro; con 4 exactas pide una quinta, porque con 4 cualquier nombre encaja.
+- **Imágenes de referencia:** hasta 6 por partido, con "Tomar foto" o "Usar este cuadro", y en cada una se pintan las líneas (`PaintReferenceScreen`). Viajan con cada video del partido.
+- Los nombres de los puntos y de las líneas son los mismos que los de `worker/…/calibration/template.py`, y una prueba lo verifica con el fixture `worker/tests/fixtures/pitch_template_lines.json`.
 
 ## Seguridad en el teléfono
 
-- **Sesión cifrada** con una llave del Keystore; en 0.3.0 el token se guardaba en claro, y 0.3.1 lo migra y borra los registros viejos de WorkManager.
+- **Sesión cifrada** con una llave del Keystore; `UploadWorker` y `ConsentWorker` la leen al correr.
 - **HTTP en claro solo en debug** (`src/debug/res/xml/network_security_config.xml`) para llegar a la API local en `10.0.2.2`; el release exige HTTPS.
-- **Permisos:** cámara, micrófono (el audio del original; la versión para análisis no lleva), internet y estado de la red.
+- **Permisos:** cámara, micrófono (el audio del original; la versión para análisis no lleva), internet y estado de la red. Las fotos de referencia usan la app de cámara del sistema con un `FileProvider`, sin permisos extra.

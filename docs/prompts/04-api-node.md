@@ -1,6 +1,6 @@
 # 04 · API Node + MySQL
 
-**Lee antes:** [arquitectura/03-api.md](../arquitectura/03-api.md) y [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 1, 3, 4 y 5), [12-videos-largos-chunks.md](../12-videos-largos-chunks.md#cómo-los-usan-la-api-y-el-worker).
+**Lee antes:** [arquitectura/03-api.md](../arquitectura/03-api.md) y [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 1, 3, 4 y 6), [12-videos-largos-chunks.md](../12-videos-largos-chunks.md#cómo-los-usan-la-api-y-el-worker).
 
 ```text
 Crea la API de pp-coach-tracker en api/: Node.js >= 20, Express, multer, mysql2,

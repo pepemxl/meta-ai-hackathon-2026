@@ -1,6 +1,6 @@
 # 05 · App: login, sesión cifrada y subida reanudable (v0.3.0–v0.3.1)
 
-**Lee antes:** [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 1, 3 y 6), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md), el contrato de [04-api-node.md](04-api-node.md).
+**Lee antes:** [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 1, 3 y 7), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md), el contrato de [04-api-node.md](04-api-node.md).
 
 ```text
 Conecta pp-coach-tracker con la API (contrato en api/README.md).

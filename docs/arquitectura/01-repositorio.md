@@ -6,10 +6,9 @@ flowchart TB
     root --> android["android_native/<br/>app pp-coach-tracker"]
     root --> api["api/<br/>API Node + MySQL"]
     api --> php["api/php/<br/>API PHP (producción)"]
-    root --> docs["docs/<br/>planes, diseño, legal, versiones"]
     root --> worker["worker/<br/>análisis (Python)"]
     root --> viewer["viewer/<br/>visor de corridas (local)"]
-    root --> exp["experiments/<br/>scripts de prueba"]
+    root --> docs["docs/<br/>prompts, diseño, legal, versiones"]
     android -->|"HTTPS (contrato en api/README.md)"| php
     android -.->|"en desarrollo"| api
     worker -->|"/internal/*"| php
@@ -22,59 +21,51 @@ flowchart TB
 
 | Ruta | Qué es |
 |---|---|
-| `.env.example` | Variables del proyecto: Meta API, la API local y los valores de producción (`PROD_*`, `Cloud Provider_*`). El `.env` real no se versiona |
-| `.gitignore` | Excluye `.env`, videos, `api/php/dist/`, builds y llaves |
-| `experiments/smoke_test.py` | Prueba de conexión con la Meta Model API (Muse Spark y SAM 3.1), solo con la biblioteca estándar |
-| `experiments/check_chunks.py` | Revisa una carpeta de chunks sacada del teléfono: YAML legible por PyYAML y OpenCV, mapas de frames y traslapes |
+| `README.md` | Qué es el proyecto y dónde empezar |
+| `THIRD_PARTY.md` | Cada dependencia con su versión y licencia (todas permisivas) |
+| `.env.example` | Nombres de las variables: Meta API, worker, simulador, API local y valores de producción (`PROD_*`). El `.env` real no se versiona |
+| `.gitignore` | Excluye `.env`, videos, `LOCAL_DATA/`, `/data/`, `.local/`, builds y llaves. `/data/` va anclado a la raíz: sin la barra dejaba fuera el paquete `data` de la app |
 
 ## `android_native/`: la app
 
 ```
 android_native/
 ├── app/
-│   ├── build.gradle.kts            versión (versionName/versionCode), dependencias, firma
+│   ├── build.gradle.kts            versión, dependencias, firma; perfil de chunks por omisión (debug dev, release demo)
 │   ├── src/main/
-│   │   ├── AndroidManifest.xml     permisos (cámara, micrófono, red)
+│   │   ├── AndroidManifest.xml     permisos (cámara, micrófono, red) y el FileProvider
 │   │   ├── java/com/ppcoach/tracker/
 │   │   │   ├── MainActivity.kt     entrada; monta AppRoot
-│   │   │   ├── analysis/           trabajos en segundo plano (WorkManager)
-│   │   │   │   ├── ChunkWorker.kt      genera la versión de 10 fps en chunks + YAML
-│   │   │   │   ├── PitchSampler.kt     decodifica cada chunk y mide la cancha por cuadro
-│   │   │   │   ├── UploadWorker.kt     sube los chunks (registro, puntos de la cancha, PUT por chunk, complete)
-│   │   │   │   └── ConsentWorker.kt    avisa aceptaciones y retiros a POST /consent
-│   │   │   ├── data/               modelos y lógica sin UI (casi todo Kotlin puro)
-│   │   │   │   ├── Models.kt           Match, Clip, Library, estados y colores
-│   │   │   │   ├── Stats.kt            Player, Stat, estadísticas y totales
-│   │   │   │   ├── StatsFilter.kt      qué partidos suman las estadísticas
-│   │   │   │   ├── StartingLineup.kt   formación y alineación inicial del partido
-│   │   │   │   ├── LibraryCodec.kt     library.json ↔ modelos
-│   │   │   │   ├── LibraryStore.kt     rutas de videos, library.json y chunks
-│   │   │   │   ├── Durable.kt          escrituras atómicas (sobreviven a un apagón)
+│   │   │   ├── AppGraph.kt         la biblioteca única del proceso (commit), ajustes y rutas
+│   │   │   ├── analysis/           trabajo en segundo plano y procesamiento de imagen
+│   │   │   │   ├── Work.kt             cadenas de WorkManager y ConsentWorker
+│   │   │   │   ├── ChunkWorker.kt      versión de 10 fps en chunks (Media3 Transformer) + YAML
+│   │   │   │   ├── PitchSampler.kt     decodifica cada chunk (MediaCodec) y mide la cancha por cuadro
+│   │   │   │   ├── UploadWorker.kt     registro, calibración, imágenes de referencia, partes de 8 MB, complete
+│   │   │   │   └── ReferenceImages.kt  fotos de la cancha: enderezar por EXIF, 1600 px, JPEG para subir
+│   │   │   ├── data/               modelos y lógica sin UI (casi todo Kotlin puro, con pruebas JVM)
+│   │   │   │   ├── Models.kt           Match, Clip, Library, estados, tipos de clip y colores
+│   │   │   │   ├── LibraryCodec.kt     library.json ↔ modelos (tolera campos desconocidos)
+│   │   │   │   ├── Durable.kt          escritura atómica y LibraryStore
 │   │   │   │   ├── StorageLocations.kt memoria del teléfono, interna privada, SD
-│   │   │   │   ├── VideoFiles.kt       metadatos, miniaturas, importar y exportar
-│   │   │   │   ├── RecordingSpec.kt    lo que se le pide a CameraX
-│   │   │   │   ├── Proxy.kt            especificación de 10 fps y costo en SAM
-│   │   │   │   ├── Chunks.kt           cortes, mapa de frames y YAML por chunk
-│   │   │   │   ├── PitchMask.kt        la máscara de la cancha de un cuadro (la misma que pitch.py)
-│   │   │   │   ├── PitchTouches.kt     puntos marcados, plantilla de la cancha y homografía de vista previa
-│   │   │   │   ├── ClipAnalysis.kt     el análisis del worker (GET /clips/:id/analysis), también en metros
-│   │   │   │   ├── AnalysisReportParser.kt  reporte de análisis en JSON
-│   │   │   │   ├── ApiClient.kt        cliente HTTP (OkHttp) de la API
-│   │   │   │   ├── SecretBox.kt        cifrado AES-GCM con el Keystore
-│   │   │   │   ├── SettingsStore.kt    ajustes en SharedPreferences
-│   │   │   │   └── Consent.kt          versión del consentimiento y enlaces legales
+│   │   │   │   ├── Chunks.kt           perfiles dev/demo, cortes, mapa de cuadros, YAML y rutas de la versión para análisis
+│   │   │   │   ├── PitchMask.kt        la máscara de la cancha de un cuadro (la misma regla que pitch.py)
+│   │   │   │   ├── PitchTouches.kt     respuesta de la cancha, plantilla de 11 y 7, puntos y líneas, homografía de vista previa
+│   │   │   │   ├── PitchReferences.kt  líneas pintadas, trazos, imágenes de referencia y el cuerpo de POST calibration
+│   │   │   │   ├── ClipAnalysis.kt     el análisis del worker (también en metros) y su copia local
+│   │   │   │   ├── ApiClient.kt        cliente HTTP (OkHttp) y el plan de partes que faltan
+│   │   │   │   ├── Consent.kt          versión del consentimiento, enlaces legales y motivos de rechazo
+│   │   │   │   └── SettingsStore.kt    ajustes en SharedPreferences y SecretBox (AES-GCM con el Keystore)
 │   │   │   └── ui/
-│   │   │       ├── AppRoot.kt          pila de pantallas, mensajes, diálogo de consentimiento
+│   │   │       ├── AppRoot.kt          pila de pantallas, barra inferior, mensajes y diálogos
 │   │   │       ├── CoachViewModel.kt   todo el estado y las acciones
-│   │   │       ├── components/         piezas compartidas (diálogos de consentimiento y de la cancha, alineación, estadísticas)
+│   │   │       ├── components/         Components (botones, tarjetas, chips, mapa de calor), ConsentDialog, Pitch (pregunta y cancha desde arriba)
 │   │   │       ├── i18n/Strings.kt     cada texto en español e inglés
-│   │   │       ├── screens/            una pantalla por archivo (también PitchTouchesScreen y ClipAnalysisScreen)
-│   │   │       └── theme/Theme.kt      colores y tipografía
-│   │   ├── res/                    ícono y recursos mínimos
+│   │   │       ├── screens/            una pantalla por archivo
+│   │   │       └── theme/              Tokens (colores tipo Meta, claro y oscuro) y Theme
+│   │   ├── res/                    ícono, colores, temas y file_paths.xml (videos y references/)
 │   │   └── src/debug/res/          permite HTTP a 10.0.2.2 solo en debug
-│   └── src/test/                   pruebas JVM (JUnit + MockWebServer)
-├── samples/analysis-report.example.json   reporte de ejemplo para importar
-├── keystore.properties.example     cómo configurar la firma de release
+│   └── src/test/                   pruebas JVM (JUnit, org.json, MockWebServer)
 └── make.bat, gradlew               compilar en Windows
 ```
 
@@ -82,28 +73,29 @@ android_native/
 
 ```
 api/
+├── README.md               contrato completo: rutas, cuerpos, errores y límites
 ├── db/schema.sql           esquema MySQL compartido por Node y PHP (CREATE TABLE IF NOT EXISTS)
-├── docker-compose.yml      MySQL 8 + PHP 8.3/Apache para desarrollo local
-├── package.json            scripts: test, test:php, php:up, php:migrate, user:add
+├── docker-compose.yml      mysql, php, worker (profile) y viewer (profile)
+├── package.json            scripts: test, db:up, php:up, php:migrate, test:php, worker:up, worker:test, viewer:up, user:add
 ├── src/                    API Node (Express)
-│   ├── server.js           arranque y configuración por variables de entorno
+│   ├── server.js, config.js   arranque y variables (.env de la raíz)
 │   ├── app.js              rutas y reglas del contrato
-│   ├── auth.js             scrypt, JWT HS256, comparación en tiempo constante
-│   ├── consent.js          versión del consentimiento y validación de eventos
-│   ├── calibration.js      validación de los puntos de la cancha
-│   ├── storage.js          nombres de archivos y carpetas por clip, sha256
+│   ├── auth.js             scrypt, JWT HS256, API_TOKENS
+│   ├── consent.js          versión vigente y validación de eventos
+│   ├── calibration.js      validación de puntos, líneas pintadas y referencias
+│   ├── storage.js          nombres de archivos por clip, .partial, sha256, imágenes de referencia
 │   ├── repo/memory.js      repositorio en memoria (pruebas)
 │   ├── repo/mysql.js       repositorio MySQL
 │   └── cli/add-user.js     crear cuentas
 ├── tests/
-│   ├── upload.test.js      contrato completo contra la API Node (memoria o MySQL)
-│   └── php/contract.test.js  el mismo contrato por HTTP contra la API PHP en Docker
-└── php/                    API PHP para Cloud Provider
-    ├── src/                App, Router, Request/Response, Multipart, Auth, Repo, Schema, Consent, Calibration…
-    ├── public/             entrada web: index.php, .htaccess, .user.ini y legal/
-    ├── bin/                CLI: migrate.php, user.php
-    ├── tools/              package.sh, install_cloud_provider.php, legal_pages.py
-    └── docker/Dockerfile   PHP 8.3 + Apache para imitar a Cloud Provider
+│   ├── api.test.js         contrato completo contra la API Node (memoria o MySQL)
+│   └── php/contract.test.js   el mismo contrato por HTTP contra la API PHP en Docker
+└── php/                    API PHP
+    ├── src/                App, Auth, Calibration, Config, Consent, Db, Repo, Schema, Storage y Http/ (Request, Response, Router, Multipart)
+    ├── public/             entrada web: index.php, .htaccess, .user.ini y legal/ (páginas generadas)
+    ├── bin/                migrate.php, user.php (solo terminal)
+    ├── tools/legal_pages.py   genera public/legal/ desde docs/legal/
+    └── docker/Dockerfile   PHP 8.3 + Apache, como el hosting
 ```
 
 ## `worker/`: el análisis
@@ -114,55 +106,55 @@ worker/
 │   ├── __main__.py         CLI: run (servicio), once, analyze DIR (sin API)
 │   ├── config.py           variables de entorno
 │   ├── api.py              cliente de /internal/* (urllib)
-│   ├── chunks.py           lee chunks.yaml y los YAML de la app; cuadros sin el traslape
-│   ├── types.py            TrackRow (con mx, my), TrackSet, FrameInfo, MatchInfo, JobOptions y los errores de la escalera
-│   ├── pipeline.py         escalera de respaldo, etapas y armado del resultado
-│   ├── segmenters/         meta_sam (SAM 3.1) y local_cv (YOLOv8n en mosaicos + tracker + equipos)
-│   ├── yolo.py, tracker.py, teams.py, colors.py   piezas del tracker local
+│   ├── meta_api.py         cliente de la Meta Model API: reintentos, SSE, caché de respuestas crudas, uso
+│   ├── sam.py              conceptos, lector del stream de SAM 3.1 y unión de tracks entre chunks
+│   ├── insights.py         Muse Spark: hechos sin nombres, salida estructurada y su validación
+│   ├── chunks.py           chunks.yaml y los YAML de la app; cuadros sin el traslape
+│   ├── types.py            TrackRow, TrackSet, FrameInfo y los errores (Retryable, Meta, Input)
+│   ├── pipeline.py         etapas de un trabajo y armado del resultado
+│   ├── teams.py, colors.py    equipo por concepto y color del torso
 │   ├── pitch.py            máscara de la cancha por cuadro (cuando la app no la manda)
 │   ├── cuts.py             cortes de cámara
-│   ├── shots.py            qué cuadros cuentan (fuera acercamientos y repeticiones)
-│   ├── ball.py             el balón entre cuadros
-│   ├── calibration/        la cancha en metros
-│   │   ├── template.py         plantilla de 11 y de 7 con puntos y líneas con nombre
-│   │   ├── solver.py           homografía desde puntos y rectas, RANSAC, modelo de cámara
-│   │   ├── propagate.py        movimiento de la cámara entre cuadros (KLT sobre el pasto)
-│   │   ├── lines.py            búsqueda de la cámara contra las líneas blancas (apagado)
-│   │   ├── sam_lines.py        las líneas con máscaras de SAM 3.1 (apagado, sin verificar)
-│   │   └── __init__.py         puntos del entrenador, propagación y reporte
+│   ├── shots.py            qué cuadros cuentan (fuera acercamientos y tomas sin cancha)
+│   ├── ball.py             trayectorias del balón
 │   ├── metrics.py          forma, heatmap, posesión, presión, timeline; y en metros
 │   ├── debug.py            guarda una corrida para el visor
-│   └── analysts/           muse_spark y rules
-├── tests/                  pytest (videos y canchas sintéticos, una API falsa)
+│   └── calibration/        la cancha en metros
+│       ├── template.py         plantillas de 11 y de 7 con puntos y líneas con nombre
+│       ├── solver.py           homografía desde puntos y rectas (DLT), RANSAC, modelo de cámara
+│       ├── propagate.py        movimiento de la cámara entre cuadros (KLT sobre el pasto)
+│       ├── sam_lines.py        líneas con SAM guiado por los trazos del entrenador (apagado)
+│       └── __init__.py         cuadros tocados, propagación y reporte
+├── tests/                  pytest: streams de SAM sintéticos, canchas sintéticas (pitchscene.py), una API falsa; fixtures compartidos con la app
 ├── tools/                  make_chunks.py, submit_clip.py, overlay.py, compare_runs.py, rescore.py
-├── models/                 yolov8n.onnx (no se versiona)
 ├── Dockerfile, requirements*.txt
-└── README.md               cómo correrlo y formato del resultado
+└── README.md               cómo correrlo, variables, formato de SAM y del resultado, costo
 ```
 
 ## `viewer/`: el visor de corridas
 
-Página local (Vite + React, en Docker con `npm run viewer:up` desde `api/`, solo en `127.0.0.1:8098`) para revisar a ojo una corrida del worker: las cajas sobre el video, la cancha calculada, la posesión y el resultado completo. Lee `worker/.local/runs/`, que no se versiona (viewer/README.md).
+Página local (Vite + React + TypeScript, servida por `server.mjs`) para revisar a ojo una corrida del worker: las cajas de SAM sobre el video, la posesión en una línea de tiempo, las métricas, los hallazgos y el `result.json`. Corre en Docker con `npm run viewer:up` desde `api/` en el puerto 8098 y lee `worker/.local/runs/`, que no se versiona. No se despliega.
 
 ## `docs/`
 
 | Ruta | Contenido |
 |---|---|
-| `01`–`12-*.md` | Evento, propuesta, diseño, planes, uso de video, privacidad, estadísticas y chunks |
+| `prompts/` | Las etapas de la construcción, con criterios de aceptación y trampas conocidas |
 | `arquitectura/` | Esta documentación |
-| `mejoras/` | Planes y resultados de las mejoras del análisis (cancha, acercamientos, homografía…) |
-| `learnings/` | Lo aprendido al medir y desplegar |
-| `prompts/` | Prompts para reconstruir el proyecto si hiciera falta |
+| `diseno.md` | Estilo visual de la app y del visor (colores tipo Meta) |
+| `01`–`13-*.md` | Evento, propuesta, planes, uso de video, privacidad, estadísticas, chunks y entorno de desarrollo |
+| `rules/` | Reglas oficiales del hackathon |
 | `legal/` | Aviso de privacidad, consentimiento y formato para jugadores; `legal/en/` en inglés |
-| `versions/<versión>/` | Capturas y notas de cada versión de la app |
+| `mejoras/`, `learnings/` | Mejoras medidas y lo aprendido en el prototipo previo (antecedente) |
+| `pantallas/` | Capturas del prototipo previo (antecedente) |
+| `versions/<versión>/` | Capturas y notas de cada versión de esta construcción |
 
 ## Lo que no se versiona
 
 | Qué | Dónde vive |
 |---|---|
-| `.env` con secretos de producción | Raíz del repo, en la máquina del desarrollador |
-| Videos de prueba y datasets | `LOCAL_DATA/`, `data/`, `worker/.local/` (corridas, scripts de medición; `*.mp4` está en `.gitignore`) |
-| Modelo del detector | `worker/models/yolov8n.onnx` (licencia AGPL) |
-| Paquete de despliegue | `api/php/dist/` (se genera con `tools/package.sh`) |
+| `.env` con secretos | Raíz del repo, en la máquina del desarrollador |
+| Videos de prueba y datasets | `LOCAL_DATA/`, `data/` (raíz), `worker/.local/` (trabajos, corridas, caché de Meta); `*.mp4` está en `.gitignore` |
+| Chunks e imágenes recibidos | `api/storage/` en local, `STORAGE_DIR` en el servidor |
+| Simulador de SAM | Fuera del repo (`PP_DEV_SAM_SIM_DIR`) |
 | Llave de firma de release | `android_native/keystore.properties` y el `.jks` |
-| Chunks recibidos | `storage/` del servidor |

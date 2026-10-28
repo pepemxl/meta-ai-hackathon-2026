@@ -1,19 +1,17 @@
-# Arquitectura de PP-Coach-Tracker
+# Arquitectura de pp-coach-tracker
 
-> **Antecedente.** Este documento viene del diseño y del prototipo previos al hackathon, que tenían un respaldo local (detector YOLOv8n, tracker propio e insights por reglas). La versión que se construye **no tiene respaldo**: solo SAM 3.1 y Muse Spark, y solo dependencias con licencia permisiva. Donde este texto diga otra cosa, mandan [prompts/00-contexto.md](../prompts/00-contexto.md) y el prompt de cada etapa.
+Cómo está construido pp-coach-tracker durante el hackathon (app 0.1.0, API 0.1.0, worker 0.1.0) y qué falta. Describe lo que **existe en el código**; lo que todavía no, va marcado como *pendiente*. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
 
-Cómo está construido PP-Coach-Tracker hoy (app 0.3.10, API 0.3.9 en producción, worker en local) y cómo encajan las piezas que faltan. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
-
-> [03-arquitectura.md](../03-arquitectura.md) es el diseño original del hackathon. Esta carpeta documenta lo que **existe en el código**, y marca como *planeado* lo que todavía no.
+Las reglas de la construcción (sin respaldo local, solo licencias permisivas, un commit por función) están en [prompts/00-contexto.md](../prompts/00-contexto.md), y el detalle de cada pieza, en el prompt de su etapa.
 
 | Documento | Contenido |
 |---|---|
-| [01-repositorio.md](01-repositorio.md) | Estructura completa del repo: qué hay en cada carpeta y archivo |
-| [02-app-android.md](02-app-android.md) | pp-coach-tracker: capas, navegación, almacenamiento, workers y estados del clip |
-| [03-api.md](03-api.md) | API (Node y PHP): rutas, ciclo de una petición, autenticación, modelo de datos y disco |
-| [04-flujos.md](04-flujos.md) | Diagramas de secuencia: login, grabar y enviar, marcar la cancha, consentimiento, cola de análisis y ver el análisis |
-| [05-despliegue.md](05-despliegue.md) | Entornos (local con Docker y Cloud Provider), configuración, secretos y cómo se despliega |
-| [06-pipeline-analisis.md](06-pipeline-analisis.md) | El worker de análisis: escalera SAM 3.1 / tracker local, cuadros que cuentan, balón, cancha en metros, métricas, insights y lo que falta |
+| [01-repositorio.md](01-repositorio.md) | Qué hay en cada carpeta y archivo del repo |
+| [02-app-android.md](02-app-android.md) | La app: capas, navegación, dónde guarda cada cosa, trabajos en segundo plano y estados del clip |
+| [03-api.md](03-api.md) | La API (Node y PHP): rutas, ciclo de una petición, autenticación, modelo de datos, archivos y límites |
+| [04-flujos.md](04-flujos.md) | Diagramas de secuencia: login, grabar y preparar, enviar, consentimiento, marcar la cancha, cola de análisis y ver el análisis |
+| [05-despliegue.md](05-despliegue.md) | Entorno local con Docker, pruebas, configuración y secretos, y el despliegue pendiente |
+| [06-pipeline-analisis.md](06-pipeline-analisis.md) | El worker: SAM 3.1, cuadros que cuentan, balón, posesión, cancha en metros, Muse Spark, lo que recibe Meta y el costo |
 
 ## Vista general
 
@@ -23,66 +21,67 @@ flowchart LR
 
     subgraph phone["Teléfono Android"]
         app["pp-coach-tracker<br/>Kotlin + Compose"]
-        files[("Videos y library.json")]
+        files[("Videos, library.json<br/>e imágenes de referencia")]
     end
 
-    subgraph Cloud Provider["Cloud Provider (ppcoachtracker.pepemxl.com)"]
+    subgraph server["API (https://ppcoachtracker.pepemxl.com, pendiente de desplegar)"]
         api["API PHP 8.3<br/>sin Composer"]
         db[("MySQL / MariaDB")]
-        disk[("storage/<br/>chunks por clip")]
+        disk[("storage/<br/>chunks e imágenes por clip")]
         legal["/legal/<br/>textos legales"]
     end
 
-    subgraph ia["Análisis (worker, aún sin desplegar)"]
-        worker["Worker Python"]
+    subgraph ia["Análisis (worker, en local)"]
+        worker["Worker Python<br/>OpenCV + numpy"]
         meta["Meta Model API<br/>SAM 3.1 + Muse Spark"]
-        local["Tracker local<br/>YOLOv8n + OpenCV (respaldo)"]
     end
+
+    viewer["Visor de corridas<br/>(solo local)"]
 
     coach -->|"graba, marca la cancha,<br/>revisa el análisis"| app
     app <--> files
-    app -->|"HTTPS: login, chunks con la máscara<br/>de la cancha, puntos de la cancha,<br/>consentimiento, análisis"| api
+    app -->|"HTTPS: login, chunks en partes de 8 MB,<br/>puntos y líneas de la cancha, imágenes<br/>de referencia, consentimiento, análisis"| api
     app -.->|abre en el navegador| legal
     api <--> db
     api <--> disk
-    worker -->|"GET /internal/jobs/next<br/>descarga chunks"| api
-    worker -->|"POST /internal/jobs/:id/result<br/>(análisis)"| api
-    worker -.->|"sin verificar"| meta
-    worker --> local
+    worker -->|"GET /internal/jobs/next<br/>descarga chunks e imágenes"| api
+    worker -->|"POST /internal/jobs/:id/result"| api
+    worker -.->|"sin verificar (falta la key)"| meta
+    worker -.->|"corridas guardadas"| viewer
 ```
 
-El worker funciona con el tracker local y está probado contra la API en Docker, pero no está desplegado. La línea punteada es la Meta API: sus backends están escritos y sin verificar, porque no hay `MODEL_API_KEY`.
+**No hay respaldo local:** si la Meta Model API falla después de los reintentos, el trabajo termina en `failed` con un mensaje claro. Mientras no haya `MODEL_API_KEY`, el worker se prueba con streams sintéticos (pruebas) o contra el simulador local de SAM, que vive fuera de este repo ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)); sus resultados se marcan `sam_simulator` y la API de producción los rechaza.
 
 ## Qué existe y qué falta
 
-| Pieza | Estado | Dónde |
+| Pieza | Estado | Dónde (etapa) |
 |---|---|---|
-| App: grabar, importar, organizar partidos y clips | Listo (0.1) | `android_native/` |
-| App: plantel y estadísticas por jugador, importar reporte JSON | Listo (0.2) | `data/Stats.kt`, `AnalysisReportParser.kt` |
-| App: versión de 10 fps en chunks de 1 min con YAML | Listo (0.2.2) | `analysis/ChunkWorker.kt`, `data/Chunks.kt` |
-| App: login, subida reanudable, estado del análisis | Listo (0.3.0–0.3.1) | `analysis/UploadWorker.kt`, `data/ApiClient.kt` |
-| App: consentimiento con historial, textos en dos idiomas | Listo (0.3.2–0.3.4) | `data/Consent.kt`, `analysis/ConsentWorker.kt` |
-| App: ver el análisis (resumen, posesión, hallazgos, mapas de calor) | Listo (0.3.6); la sección en metros, 0.3.10 | `ui/screens/ClipAnalysisScreen.kt`, `data/ClipAnalysis.kt` |
-| App y API: "Calcular la cancha" por video, con la pregunta de las líneas al enviar (`clips.pitch_mode`) | Listo (0.3.8); el worker la respeta (`off`, `no_lines`) | `ui/components/PitchDialog.kt`, `api/` |
-| App: máscara de la cancha medida al preparar el video, en el YAML de cada chunk | Listo (0.3.9) | `analysis/PitchSampler.kt`, `data/PitchMask.kt` |
-| App y API: marcar puntos de la cancha en un cuadro (`POST /clips/:id/calibration`) | Listo (0.3.9), desplegado | `ui/screens/PitchTouchesScreen.kt`, `data/PitchTouches.kt`, `api/` |
-| API Node (desarrollo y pruebas) | Listo | `api/src/` |
-| API PHP (producción en Cloud Provider) | Listo y desplegado (0.3.9) | `api/php/` |
-| API: resultado del análisis (`GET /clips/:id/analysis`) | Listo y desplegado | `api/`, `api/php/` |
-| Worker: tracker local, equipos por color, métricas, insights por reglas | Listo en local, sin desplegar | `worker/` |
-| Worker: cortes de cámara, cuadros que cuentan, balón | Listo | `cuts.py`, `shots.py`, `ball.py` |
-| Worker: cancha en metros con los puntos del entrenador, propagada por la toma; métricas en metros | Listo; sin probar con un video de tripié | `calibration/`, `metrics.py` ([mejora 04](../mejoras/04-homografia-por-cuadro.md)) |
-| Worker: líneas de la cancha (locales y con SAM 3.1) en las tomas sin puntos | Escrito, **apagado** (`PP_PITCH_LINES`, `PP_PITCH_SAM`): todavía deja pasar cuadros malos en una transmisión, y SAM sin verificar | `calibration/lines.py`, `calibration/sam_lines.py` |
-| Worker con SAM 3.1 y Muse Spark | Escrito, **sin verificar** (falta `MODEL_API_KEY`) | `segmenters/meta_sam.py`, `analysts/muse_spark.py` |
-| Visor de corridas del worker (cajas y cancha sobre el video, posesión), solo local | Listo | `viewer/` |
-| Tracks sobre el video y post-tagging en la app | **Planeado** (v0.4) | [07-plan-android.md](../07-plan-android.md) |
-| Retención: borrar chunks después del análisis | **Planeado** | [legal/README.md](../legal/README.md) |
+| App: partidos, grabar, importar, clips, ubicaciones de los videos, español e inglés, tema claro y oscuro | Listo | `android_native/` (1) |
+| App: versión de 10 fps en chunks con YAML (perfiles `dev` de 1 min y `demo` de 5 min), vista simple y técnica | Listo | `analysis/ChunkWorker.kt`, `data/Chunks.kt` (3) |
+| App: login, sesión cifrada, subida en partes de 8 MB que se reanuda, estado del análisis | Listo | `analysis/UploadWorker.kt`, `data/ApiClient.kt` (5) |
+| App: consentimiento con historial; páginas públicas de los textos legales | Listo | `data/Consent.kt`, `ui/components/ConsentDialog.kt`, `api/php/public/legal/` (7) |
+| App: ver el análisis (resumen, posesión, hallazgos, mapas de calor, sección en metros) | Listo | `ui/screens/ClipAnalysisScreen.kt`, `data/ClipAnalysis.kt` (10, en parte) |
+| App: máscara de la cancha medida al preparar, en el YAML de cada chunk | Listo | `analysis/PitchSampler.kt`, `data/PitchMask.kt` (12) |
+| App: "Calcular la cancha", la pregunta de las líneas, los puntos marcados y la vista previa | Listo | `ui/components/Pitch.kt`, `ui/screens/PitchTouchesScreen.kt`, `data/PitchTouches.kt` (13) |
+| App: líneas pintadas e imágenes de referencia de la cancha | Listo | `ui/screens/PitchReferencesScreen.kt`, `data/PitchReferences.kt`, `analysis/ReferenceImages.kt` (14) |
+| API Node (desarrollo y pruebas) y API PHP (producción), mismo contrato | Listo; la PHP **sin desplegar** | `api/src/`, `api/php/` (4, 6) |
+| Worker: SAM 3.1 por concepto, equipos, métricas en la imagen, Muse Spark con salida estructurada, caché y costo | Escrito; **sin verificar con Meta** (falta la key) | `worker/` (8) |
+| Worker: corridas guardadas, cortes, cuadros que cuentan, balón, posesión, árbitro | Listo; los conceptos de SAM, sin medir con la key | `cuts.py`, `shots.py`, `ball.py`, `metrics.py` (11) |
+| Worker: máscara de la cancha (de la app o medida) | Listo | `pitch.py` (12) |
+| Worker: cancha en metros con los puntos y las líneas del entrenador, propagada por la toma; métricas en metros | Listo; sin probar con un video de tripié propio | `calibration/` (13, 14) |
+| Worker: líneas de la cancha con SAM guiado por los trazos del entrenador | Escrito, **apagado** (`PP_PITCH_SAM`) y sin verificar | `calibration/sam_lines.py` (14) |
+| Visor de corridas (cajas, posesión, métricas, hallazgos) | Listo; no dibuja las líneas pintadas ni las máscaras de SAM | `viewer/` (11) |
+| Plantel y estadísticas por jugador, alineación inicial | **Pendiente** | etapas 2 y 10 |
+| Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
+| API en producción y worker desplegado | **Pendiente** | etapa 9 |
+| Retención: borrar los chunks después del análisis | **Pendiente** | [legal/README.md](../legal/README.md) |
 
 ## Decisiones que dan forma a todo
 
-1. **El teléfono hace el trabajo pesado de video.** La app genera una copia de 10 fps, máximo 720p y sin audio, partida en chunks de 1 minuto, y mide ahí mismo dónde está la cancha. Así se sube un tercio de los frames, la subida se reanuda por chunk y el servidor compartido no necesita ffmpeg ([12-videos-largos-chunks.md](../12-videos-largos-chunks.md)).
-2. **Hosting compartido para la API, cómputo aparte para la IA.** Cloud Provider sirve bien PHP + MySQL, pero no procesos largos. El análisis va en un worker que pide trabajos a la API ([03-arquitectura.md](../03-arquitectura.md#por-qué-un-worker-separado)).
+1. **El teléfono hace el trabajo pesado de video.** La app genera una copia de 10 fps, máximo 720p (1080p opcional) y sin audio, partida en chunks, y ahí mismo mide dónde está la cancha. Así se sube un tercio de los cuadros, la subida se reanuda por partes y el servidor compartido no necesita ffmpeg ([12-videos-largos-chunks.md](../12-videos-largos-chunks.md)).
+2. **Hosting compartido para la API, cómputo aparte para la IA.** El hosting sirve bien PHP + MySQL, pero no procesos largos. El worker **pide** trabajos a la API, así que la API nunca tiene que llamar a nadie.
 3. **Un solo contrato, dos implementaciones.** La API Node sirve para desarrollar y probar rápido; la PHP corre en producción. Las dos pasan las mismas pruebas de contrato y comparten `api/db/schema.sql`.
-4. **IDs en lugar de nombres.** El pipeline y la Meta API solo ven `player_id` y dorsal; los nombres se quedan en la cuenta del entrenador ([10-privacidad-jugadores.md](../10-privacidad-jugadores.md)).
-5. **Sin video sin consentimiento.** Cada clip va ligado a una aceptación registrada, y el servidor guarda el historial de aceptaciones y retiros ([legal/](../legal/README.md)).
-6. **Mejor sin metros que con metros falsos.** La cancha sale de los puntos que marca el entrenador; lo automático (líneas, SAM) queda apagado hasta probarlo. Las métricas de la imagen siempre están, y las de metros van aparte y dicen de qué parte del video salen ([mejora 04](../mejoras/04-homografia-por-cuadro.md)).
+4. **Solo Meta para la IA.** SAM 3.1 sigue a jugadores y balón y Muse Spark escribe los hallazgos; no hay detector, tracker ni reglas locales. Las dependencias son solo de licencia permisiva ([THIRD_PARTY.md](../../THIRD_PARTY.md)).
+5. **IDs en lugar de nombres.** El pipeline y la Meta API solo ven ids de track y equipos; los nombres no salen del teléfono ([10-privacidad-jugadores.md](../10-privacidad-jugadores.md)).
+6. **Sin video sin consentimiento.** Cada clip va ligado a una aceptación registrada, y el servidor guarda el historial de aceptaciones y retiros ([legal/](../legal/README.md)).
+7. **Mejor sin metros que con metros falsos.** La cancha sale de lo que marca el entrenador (puntos y líneas pintadas); SAM solo confirma o corrige a partir de ahí, y está apagado hasta probarlo. Las métricas de la imagen siempre están, y las de metros van aparte y dicen de qué parte del video salen ([mejora 04](../mejoras/04-homografia-por-cuadro.md)).

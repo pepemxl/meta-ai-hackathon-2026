@@ -10,6 +10,7 @@ La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugado
 
 | Documento | Contenido |
 |---|---|
+| [arquitectura/](arquitectura/README.md) | Cómo está construido con diagramas: estructura del repo, app, API y modelo de datos, flujos de punta a punta, entornos y el pipeline de análisis; qué existe y qué falta |
 | [prompts/](prompts/README.md) | Prompts por etapa para que un agente de IA construya la app, la API, el worker y el despliegue, con criterios de aceptación y trampas conocidas |
 | [rules/](rules/README.md) | Reglas Oficiales del hackathon (copia textual en inglés), resumen en español y lo que implican: evaluación, premios, propiedad intelectual, licencias y anti-proyectos |
 | [legal/](legal/README.md) | Textos legales (es/en): consentimiento de uso de video al subirlo, aviso de privacidad y formato de consentimiento para jugadores y tutores |
@@ -30,15 +31,12 @@ Describen el prototipo hecho antes del kickoff, que tenía un respaldo local. Si
 |---|---|
 | [01-evento.md](01-evento.md) | De qué trata el evento, quién lo organiza, fechas, tracks, premios y reglas |
 | [02-propuesta.md](02-propuesta.md) | Texto de la aplicación (problema, solución, alcance) |
-| [03-arquitectura.md](03-arquitectura.md) | Diseño inicial: app Android, API en Cloud Provider, worker de IA, modelo de datos y flujo |
-| [arquitectura/](arquitectura/README.md) | Arquitectura del prototipo con diagramas: estructura del repo, app, API y modelo de datos, flujos de punta a punta, despliegue y el pipeline de análisis |
 | [04-plan-aprendizaje-meta.md](04-plan-aprendizaje-meta.md) | Cómo aprender SAM 3.1, Muse Spark y la Meta Model API |
 | [07-plan-android.md](07-plan-android.md) | Plan de la app Android pp-coach-tracker por versiones |
 | [09-dataset-quantigo.md](09-dataset-quantigo.md) | Dataset de Quantigo: para qué sirve (evaluar el tracking, no la demo) y plan de evaluación |
 | [mejoras/](mejoras/README.md) | Mejoras del análisis medidas en el prototipo: máscara de la cancha en el teléfono, descartar acercamientos, homografía de cada cuadro y otras (balón, árbitro, tracks) |
 | [learnings/](learnings/README.md) | Lo aprendido: análisis de video, cómo medir los cambios y el entorno de desarrollo y despliegue |
 | [pantallas/](pantallas/README.md) | Capturas y notas del prototipo, versión por versión (0.1.0 a 0.3.10) |
-| [planeacion-previa.md](planeacion-previa.md) | Notas de la planeación inicial (parciales) |
 
 Las versiones nuevas de la app, con sus capturas, van en `versions/` ([prompts/09-despliegue.md](prompts/09-despliegue.md#publicar-una-versión-de-la-app)).
 
