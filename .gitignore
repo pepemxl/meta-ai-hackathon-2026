@@ -1,0 +1,59 @@
+.env
+node_modules/
+api/storage/
+api/php/dist/
+worker/.local/
+LOCAL_DATA/
+data/
+*.mp4
+android_native/keystore.properties
+*.jks
+.gradle/
+build/
+local.properties
+outputs/
+# Python (worker)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.modal/
+
+# Node / PHP (api)
+node_modules/
+api/storage/
+vendor/
+storage/logs/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android_native/.gradle/
+android_native/.kotlin/
+android_native/build/
+android_native/app/build/
+android_native/dist/
+
+# Tracker local C++ (docs/06-plan-fallback.md)
+local/build/
+local/vcpkg_installed/
+local/models/
+*.apk
+*.aab
+*.jks
+*.keystore
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Editores y sistema
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+api/php/dist/
