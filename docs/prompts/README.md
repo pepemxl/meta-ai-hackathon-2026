@@ -41,6 +41,7 @@ Los documentos marcados como **Antecedente** (arquitectura, mejoras, aprendizaje
 | 11 | [11-worker-calidad.md](11-worker-calidad.md) | Worker: corridas guardadas y visor, conceptos de SAM, cuadros que cuentan, cortes, balón, posesión, árbitro | 8 |
 | 12 | [12-mascara-cancha.md](12-mascara-cancha.md) | Máscara de la cancha en el worker y en la app (en el YAML de cada chunk) | 3, 11 |
 | 13 | [13-cancha-en-metros.md](13-cancha-en-metros.md) | La pregunta de la cancha, los puntos del entrenador, la homografía propagada, las métricas en metros; líneas con SAM (opcional) | 6, 10, 12 |
+| 14 | [14-referencias-y-lineas-pintadas.md](14-referencias-y-lineas-pintadas.md) | Líneas pintadas por el entrenador en el cuadro tocado, imágenes de referencia de la cancha y SAM guiado por esos trazos (apagado por omisión) | 13 |
 
 Las etapas 1–3 (app) y 4 (API) se pueden hacer en paralelo con dos agentes; también la 8 y las 10–12 una vez que existe lo que piden.
 
