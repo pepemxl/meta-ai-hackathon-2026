@@ -38,3 +38,9 @@ La imagen base es `python:3.12-slim` (PSF y licencias de Debian). No hay modelos
 | JUnit | 4.13.2 | EPL-1.0 | Pruebas (solo desarrollo, no se distribuye) |
 | org.json | 20240303 | Public Domain | Pruebas JVM del códec (en el teléfono es el de Android) |
 | Gradle wrapper | 8.11.1 | Apache-2.0 | Compilar |
+
+## Herramientas
+
+| Nombre | Versión | Licencia | Para qué |
+|---|---|---|---|
+| Python-Markdown | 3.7 | BSD-3-Clause | `api/php/tools/legal_pages.py`: páginas públicas de los textos legales (no se despliega, solo su HTML) |
