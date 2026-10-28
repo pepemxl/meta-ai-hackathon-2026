@@ -1,0 +1,28 @@
+{
+  "name": "pp-coach-tracker-api",
+  "version": "0.1.0",
+  "description": "API de pp-coach-tracker: recibe los chunks de 10 fps que sube la app y coordina el worker",
+  "main": "src/server.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "user:add": "node src/cli/add-user.js",
+    "db:up": "wsl -e docker compose up -d mysql",
+    "db:down": "wsl -e docker compose down"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6"
+  },
+  "devDependencies": {
+    "supertest": "^7.3.1"
+  }
+}

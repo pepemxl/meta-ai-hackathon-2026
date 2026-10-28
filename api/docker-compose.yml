@@ -1,0 +1,39 @@
+# Local services for pp-coach-tracker (Docker runs in WSL):
+#   npm run db:up      MySQL 8 on localhost:13306 (database and user ppcoachtracker)
+# Port 13306 so it does not clash with a MySQL installed on Windows (3306).
+# The schema is loaded on the first start; `npm run db:down` keeps the data
+# volume, `wsl -e docker compose down -v` wipes it.
+# Local development passwords only: production uses its own .env.
+name: ppcoachtracker
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ppcoachtracker-root
+      MYSQL_DATABASE: ppcoachtracker
+      MYSQL_USER: ppcoachtracker
+      MYSQL_PASSWORD: ppcoachtracker-dev
+    ports:
+      # Not 127.0.0.1: WSL2 only forwards to Windows the ports bound to all
+      # interfaces inside the VM (the VM itself is behind NAT, not on the LAN).
+      # Hyper-V may reserve 13306 on Windows (netsh interface ipv4 show
+      # excludedportrange protocol=tcp); then use DB_HOST_PORT=23306 and DB_PORT=23306.
+      - "${DB_HOST_PORT:-13306}:3306"
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ppcoachtracker-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uppcoachtracker", "-pppcoachtracker-dev"]
+      interval: 5s
+      retries: 20
+    networks: [default, ppcoachtracker-dev]
+
+volumes:
+  ppcoachtracker-mysql:
+
+networks:
+  # Shared with the SAM simulator (docs/13-entorno-desarrollo.md):
+  #   wsl -e docker network create ppcoachtracker-dev
+  ppcoachtracker-dev:
+    external: true
