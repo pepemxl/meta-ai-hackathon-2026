@@ -110,3 +110,27 @@ def test_a_run_is_saved_for_the_viewer(meta, tmp_path, config_for):
     assert len(data["frames"]) == result["frames"]
     assert sorted(p.name for p in (run / "chunks").iterdir()) == ["video_part_001.mp4", "video_part_001.yaml", "video_part_002.mp4", "video_part_002.yaml"]
     assert json.loads((run / "result.json").read_text())["backends"]["segmenter"] == "meta_sam"
+
+
+def test_compare_runs_and_rescore_read_a_saved_run(meta, tmp_path, config_for, capsys):
+    import sys as _sys
+    from pathlib import Path as _P
+
+    _sys.path.insert(0, str(_P(__file__).resolve().parents[1] / "tools"))
+    import compare_runs
+    import rescore
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.debug import save_run
+
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS)
+    result, ts = analyze(clip_dir, MATCH, config_for(meta.url))
+    run = save_run(tmp_path / "runs", load_clip(clip_dir), result, ts, name="r1", masks=analyze.last_masks, raw=analyze.last_raw)
+    assert compare_runs.main([str(run)]) == 0
+    assert "players/frame" in capsys.readouterr().out
+    assert rescore.main([str(run)]) == 0
+    out = capsys.readouterr().out
+    # The same inputs give the same numbers.
+    line = next(l for l in out.splitlines() if l.startswith("| frames used"))
+    _, _, a, b, _ = line.split("|")
+    assert a.strip() == b.strip()

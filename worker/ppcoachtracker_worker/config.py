@@ -43,6 +43,9 @@ class Config:
     meta_reference_url: str = DEFAULT_META_URL
     # Saved runs for the viewer (debug.py); None = do not save.
     debug_dir: Path | None = None
+    # SAM concepts (measured with tools/compare_runs.py; worker/README.md).
+    player_concept: str = "player in {color} jersey"
+    ball_concept: str = "soccer ball"
 
     @property
     def sam_is_meta(self) -> bool:
@@ -85,4 +88,6 @@ def from_env(env: dict[str, str] | None = None) -> Config:
         cache_dir=Path(e.get("META_CACHE_DIR") or ".local/meta_cache"),
         work_dir=Path(e.get("WORK_DIR") or ".local/jobs"),
         debug_dir=Path(e["DEBUG_DIR"]) if e.get("DEBUG_DIR") else None,
+        player_concept=e.get("SAM_PLAYER_CONCEPT") or "player in {color} jersey",
+        ball_concept=e.get("SAM_BALL_CONCEPT") or "soccer ball",
     )

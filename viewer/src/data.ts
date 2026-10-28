@@ -12,7 +12,7 @@ export type RunSummary = {
 
 export type ChunkInfo = { number: number; file: string; fps: number; frames: number; skip: number; base: number; start_ms: number; end_ms: number };
 
-export type Box = { frame: number; t_ms: number; track: number; label: string; team: string; x: number; y: number; w: number; h: number; conf: number };
+export type Box = { frame: number; t_ms: number; track: number; label: string; team: string; x: number; y: number; w: number; h: number; conf: number; interp: boolean };
 
 export type Pitch = {
   homographies: Map<number, { source: string; h: number[] }>;
@@ -70,7 +70,7 @@ export async function loadTracks(run: string): Promise<Tracks> {
   for (const r of raw.rows) {
     const b: Box = {
       frame: r[idx.frame] as number, t_ms: r[idx.t_ms] as number, track: r[idx.track] as number, label: r[idx.label] as string,
-      team: r[idx.team] as string, x: r[idx.x] as number, y: r[idx.y] as number, w: r[idx.w] as number, h: r[idx.h] as number, conf: r[idx.conf] as number,
+      team: r[idx.team] as string, x: r[idx.x] as number, y: r[idx.y] as number, w: r[idx.w] as number, h: r[idx.h] as number, conf: r[idx.conf] as number, interp: idx.interp !== undefined && r[idx.interp] === 1,
     };
     const list = byFrame.get(b.frame);
     if (list) list.push(b);

@@ -1,9 +1,10 @@
 """Team metrics in SCREEN coordinates (no pitch calibration yet).
 
-Foot point = bottom center of the box. Possession: the owner is the player
-closest to the ball within OWNER_DISTANCE; runs shorter than MIN_RUN frames
-are noise (between two runs of the same team they count for that team,
-otherwise for nobody).
+Foot point = bottom center of the box. Possession with hysteresis (gained at
+0.06, released when nobody of the team is within 0.09, kept up to 2 s without
+seeing the ball); runs with fewer than MIN_RUN frames with ball are noise
+(between two runs of the same team they count for that team, otherwise for
+nobody); nothing joins across a break (cut or discarded stretch).
 """
 
 from __future__ import annotations
@@ -35,44 +36,93 @@ def ball_per_frame(trackset: TrackSet) -> dict[int, TrackRow]:
     return best
 
 
-def raw_owner(players: list[TrackRow], ball: TrackRow | None) -> tuple[str, int] | None:
-    """(team, track id) of the player closest to the ball within OWNER_DISTANCE."""
-    if ball is None:
-        return None
+RELEASE_DISTANCE = 0.09
+MAX_UNSEEN_MS = 2000
+
+
+def _team_distance(players: list[TrackRow], team: str, ball: TrackRow) -> float:
     bc = ball.center
-    near = [(min(_dist(p.foot, bc), _dist(p.center, bc)), p) for p in players if p.team]
-    near = [t for t in near if t[0] <= OWNER_DISTANCE]
-    if not near:
-        return None
-    _, p = min(near, key=lambda t: t[0])
-    return p.team, p.track_id
+    d = [min(_dist(p.foot, bc), _dist(p.center, bc)) for p in players if p.team == team]
+    return min(d) if d else math.inf
 
 
-def smooth_owner(raw: list[str | None]) -> list[str | None]:
-    """Runs shorter than MIN_RUN: the surrounding team if both sides agree, else nobody."""
-    runs: list[list] = []  # [team, start, length]
-    for i, t in enumerate(raw):
-        if runs and runs[-1][0] == t:
-            runs[-1][2] += 1
-        else:
-            runs.append([t, i, 1])
-    out = list(raw)
-    for k, (team, start, length) in enumerate(runs):
-        if team is None or length >= MIN_RUN:
+def raw_owner(frames: list[FrameInfo], players_of: dict[int, list[TrackRow]], balls: dict[int, TrackRow], breaks: set[int] | None = None) -> list[str | None]:
+    """Team in possession per frame, with hysteresis.
+
+    A team gains the ball when one of its players is within OWNER_DISTANCE
+    (closer than the other team) and keeps it until nobody of the team is
+    within RELEASE_DISTANCE. Without seeing the ball the possession lasts up to
+    2 s. A break (cut, discarded stretch) resets it.
+    """
+    breaks = breaks or set()
+    out: list[str | None] = []
+    state: str | None = None
+    last_seen: int | None = None
+    for f in frames:
+        if f.frame in breaks:
+            state, last_seen = None, None
+        ball = balls.get(f.frame)
+        if ball is None:
+            if state is not None and last_seen is not None and f.t_ms - last_seen > MAX_UNSEEN_MS:
+                state = None
+            out.append(state)
             continue
-        before = next((runs[j][0] for j in range(k - 1, -1, -1) if runs[j][0] is not None and runs[j][2] >= MIN_RUN), None)
-        after = next((runs[j][0] for j in range(k + 1, len(runs)) if runs[j][0] is not None and runs[j][2] >= MIN_RUN), None)
-        fill = before if before is not None and before == after else None
-        for i in range(start, start + length):
+        last_seen = f.t_ms
+        players = players_of.get(f.frame, [])
+        d = {t: _team_distance(players, t, ball) for t in ("A", "B")}
+        if state is not None:
+            other = "B" if state == "A" else "A"
+            if d[other] <= OWNER_DISTANCE and d[other] < d[state]:
+                state = other
+            elif d[state] > RELEASE_DISTANCE:
+                state = None
+        if state is None:
+            best = min(("A", "B"), key=lambda t: d[t])
+            if d[best] <= OWNER_DISTANCE:
+                state = best
+        out.append(state)
+    return out
+
+
+def smooth_owner(raw: list[str | None], has_ball: list[bool] | None = None, breaks_at: set[int] | None = None) -> list[str | None]:
+    """Runs with fewer than MIN_RUN frames WITH ball are noise: the surrounding team if both
+    sides agree, else nobody. Nothing joins across a break (indices in [breaks_at])."""
+    n = len(raw)
+    has_ball = has_ball if has_ball is not None else [True] * n
+    breaks_at = breaks_at or set()
+    runs: list[list] = []  # [team, start, end)
+    for i, t in enumerate(raw):
+        if runs and runs[-1][0] == t and i not in breaks_at:
+            runs[-1][2] = i + 1
+        else:
+            runs.append([t, i, i + 1])
+
+    def long_run(k):
+        t, a, b = runs[k]
+        return t is not None and sum(has_ball[a:b]) >= MIN_RUN
+
+    def crosses_break(a, b):
+        return any(a < i <= b for i in breaks_at)
+
+    out = list(raw)
+    for k, (team, a, b) in enumerate(runs):
+        if team is None or long_run(k):
+            continue
+        before = next((j for j in range(k - 1, -1, -1) if long_run(j)), None)
+        after = next((j for j in range(k + 1, len(runs)) if long_run(j)), None)
+        fill = None
+        if before is not None and after is not None and runs[before][0] == runs[after][0] and not crosses_break(runs[before][2] - 1, runs[after][1]):
+            fill = runs[before][0]
+        for i in range(a, b):
             out[i] = fill
-    # Gaps (no owner) between two long runs of the same team, shorter than MIN_RUN, keep that team.
+    # Short gaps (no owner) between two runs of the same team keep that team, never across a break.
     i = 0
-    while i < len(out):
+    while i < n:
         if out[i] is None:
             j = i
-            while j < len(out) and out[j] is None:
+            while j < n and out[j] is None:
                 j += 1
-            if 0 < i and j < len(out) and j - i < MIN_RUN and out[i - 1] == out[j]:
+            if 0 < i and j < n and j - i < MIN_RUN and out[i - 1] == out[j] and not crosses_break(i - 1, j):
                 for k in range(i, j):
                     out[k] = out[j]
             i = j
@@ -81,7 +131,7 @@ def smooth_owner(raw: list[str | None]) -> list[str | None]:
     return out
 
 
-def compute(trackset: TrackSet, fps: float = 10.0) -> dict:
+def compute(trackset: TrackSet, fps: float = 10.0, breaks: set[int] | None = None) -> dict:
     frames: list[FrameInfo] = trackset.frames
     n = len(frames)
     frame_ms = 1000.0 / fps if fps else 100.0
@@ -118,18 +168,17 @@ def compute(trackset: TrackSet, fps: float = 10.0) -> dict:
             "heatmap": {"cols": HEATMAP[0], "rows": HEATMAP[1], "values": (heat / total).round(4).tolist() if total else heat.tolist()},
         }
 
-    raw = []
-    for f in frames:
-        o = raw_owner(players_of[f.frame], balls.get(f.frame))
-        raw.append(o[0] if o else None)
-    owner = smooth_owner(raw)
+    breaks = breaks or set()
+    raw = raw_owner(frames, players_of, balls, breaks)
+    breaks_at = {i for i, f in enumerate(frames) if f.frame in breaks}
+    owner = smooth_owner(raw, [f.frame in balls for f in frames], breaks_at)
 
     owned = {t: sum(1 for o in owner if o == t) for t in ("A", "B")}
     total_owned = owned["A"] + owned["B"]
     longest = {"A": 0, "B": 0}
     run_team, run_len = None, 0
-    for o in owner + [None]:
-        if o == run_team and o is not None:
+    for i, o in enumerate(owner + [None]):
+        if o == run_team and o is not None and i not in breaks_at:
             run_len += 1
         else:
             if run_team in longest:
@@ -138,6 +187,8 @@ def compute(trackset: TrackSet, fps: float = 10.0) -> dict:
     events = []
     last_team, last_idx = None, None
     for i, o in enumerate(owner):
+        if i in breaks_at:
+            last_team = None  # no possession change across a break
         if o is None:
             continue
         if last_team is not None and o != last_team:

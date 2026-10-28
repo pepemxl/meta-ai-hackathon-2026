@@ -50,6 +50,7 @@ class TrackRow:
     team: str = ""  # "A" (home) | "B" (away) | ""
     mx: float | None = None  # meters on the pitch (None without a homography)
     my: float | None = None
+    interp: bool = False  # filled inside a ball trajectory, not detected
 
     @property
     def foot(self) -> tuple[float, float]:

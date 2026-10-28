@@ -200,7 +200,10 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
           const x = ox + b.x * vw * scale;
           const y = oy + b.y * vh * scale;
           ctx.strokeStyle = color;
+          // A ball filled inside its trajectory (not detected) is dashed.
+          ctx.setLineDash(b.interp ? [3 * devicePixelRatio, 3 * devicePixelRatio] : []);
           ctx.strokeRect(x, y, b.w * vw * scale, b.h * vh * scale);
+          ctx.setLineDash([]);
           if (showIds) {
             ctx.fillStyle = color;
             ctx.fillText(`${b.track}${b.team}`, x, Math.max(12 * devicePixelRatio, y - 3 * devicePixelRatio));

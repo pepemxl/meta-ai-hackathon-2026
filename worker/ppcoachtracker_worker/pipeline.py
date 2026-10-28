@@ -18,7 +18,7 @@ from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
 from .debug import save_run
-from . import pitch as pitch_mod, shots as shots_mod
+from . import ball as ball_mod, cuts as cuts_mod, pitch as pitch_mod, shots as shots_mod
 from .calibration import calibrate
 from .chunks import iter_frames
 from .insights import MuseSpark, warnings_of
@@ -40,26 +40,42 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     cache = ResponseCache(cfg.cache_dir)
     sam_client = MetaClient(cfg.sam_base_url, cfg.api_key, "meta_sam", usage, cache, sleep=sleep)
     muse_client = MetaClient(cfg.meta_base_url, cfg.api_key, "muse_spark", usage, cache, sleep=sleep)
-    segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta)
+    segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta, player_concept=cfg.player_concept, ball_concept=cfg.ball_concept)
     home_color, away_color = match.get("home_color") or "", match.get("away_color") or ""
 
     trackset = segmenter.track(clip, home_color, away_color)
 
     # The pitch mask: the app's where it came, measured from the video elsewhere.
+    # One pass over the video: the masks that did not come from the app, the
+    # histograms for the cuts and the grass around each ball candidate.
     masks = clip.pitch_masks()
     from_app = sum(1 for m in masks if m is not None)
     missing = {i for i, m in enumerate(masks) if m is None}
-    if missing:
-        source = frames if frames is not None else ((fi.frame, img) for fi, _, _, img in iter_frames(clip))
-        for g, img in source:
-            if g in missing:
-                masks[g] = pitch_mod.measure(img)
-        frames = None  # a test iterator is consumed here
-    shots = shots_mod.apply(trackset, masks)
+    histograms: list = [None] * len(masks)
+    ball_grass: dict[tuple[int, int], float] = {}
+    balls_by_frame: dict[int, list] = {}
+    for r in trackset.rows:
+        if r.label == "ball":
+            balls_by_frame.setdefault(r.frame, []).append(r)
+    source = frames if frames is not None else ((fi.frame, img) for fi, _, _, img in iter_frames(clip))
+    for g, img in source:
+        if g >= len(masks):
+            continue
+        if g in missing:
+            masks[g] = pitch_mod.measure(img)
+        histograms[g] = cuts_mod.histogram(img)
+        for b in balls_by_frame.get(g, []):
+            ball_grass[(b.frame, b.track_id)] = grass_around_box(img, b)
+    frames = None  # a test iterator is consumed here
+    cut_frames = cuts_mod.cut_frames(histograms)
+    analyze.last_raw = (trackset, sorted(cut_frames), ball_grass)
+    shots, trackset, ball_report = post_sam(trackset, masks, cut_frames, ball_grass)
     mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
     if not shots.used_mask:
         mask_notes.append(f"Solo {shots.with_pitch} de {len(trackset.frames)} cuadros tienen cancha: no se usó la máscara y se analizó todo el video.")
-    trackset = shots.trackset
+    if len(shots.counted) / clip.fps < shots_mod.MIN_COUNTED_SECONDS:
+        mask_notes.append(f"Solo {len(shots.counted) / clip.fps:.0f} s del video cuentan (sin acercamientos ni tramos sin cancha): las métricas son de poco tiempo.")
+
 
     # The pitch in meters: only from the coach's points, never guessed.
     cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames)
@@ -78,7 +94,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     analyze.last_masks = masks
     if raw_dir is not None:
         save_tracks(trackset, raw_dir / "tracks.json")
-    m = metrics_mod.compute(TrackSet(rows=trackset.rows, frames=shots.counted), clip.fps)
+    m = metrics_mod.compute(TrackSet(rows=trackset.rows, frames=shots.counted), clip.fps, breaks=shots.breaks)
     start_ms = trackset.frames[0].t_ms if trackset.frames else 0
     analyst = MuseSpark(muse_client, cfg.muse_model, raw_dir, is_meta_url=cfg.muse_is_meta)
     ins = analyst.insights(m, match, start_ms, pitch=pitch)
@@ -122,12 +138,14 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "overlap_ms": clip.overlap_ms,
             "frames_used": len(shots.counted),
             "discarded": shots.discarded,
+            "cuts": len(cut_frames),
+            "closeups": shots.closeups,
         },
         "coordinates": "screen",
         "frames": m["frames"],
         "teams": m["teams"],
         "unassigned_per_frame": m["unassigned_per_frame"],
-        "ball": m["ball"],
+        "ball": {**m["ball"], **ball_report},
         "possession_changes": m["possession_changes"],
         "possession_changes_per_minute": m["possession_changes_per_minute"],
         "timeline": m["timeline"],
@@ -153,6 +171,29 @@ def save_tracks(trackset: TrackSet, path: Path) -> None:
     path.write_text(json.dumps({"columns": TRACK_COLUMNS, "rows": rows}, separators=(",", ":")), encoding="utf-8")
 
 
+def post_sam(trackset: TrackSet, masks: list, cut_frames: set[int], ball_grass: dict) -> tuple:
+    """What happens to SAM's boxes before measuring (also tools/rescore.py, without calling SAM):
+    the frames that count and the ball. Returns (shots, trackset, ball report)."""
+    shots = shots_mod.apply(trackset, masks, cut_frames)
+    # The ball: one trajectory per candidate, the one that lasts and passes by the feet.
+    players_rows = [r for r in shots.trackset.rows if r.label == "player"]
+    ball_rows, ball_report = ball_mod.select([r for r in shots.trackset.rows if r.label == "ball"], players_rows, shots.counted, shots.breaks, ball_grass)
+    return shots, TrackSet(rows=players_rows + ball_rows, frames=trackset.frames), ball_report
+
+
+def grass_around_box(image_bgr, row) -> float:
+    """Grass fraction in a square 4 times the ball's size around it (balls on an advert have none)."""
+    h, w = image_bgr.shape[:2]
+    cx, cy = row.center
+    side = 4 * max(row.w * w, row.h * h, 4)
+    x1, x2 = int(max(0, cx * w - side / 2)), int(min(w, cx * w + side / 2))
+    y1, y2 = int(max(0, cy * h - side / 2)), int(min(h, cy * h + side / 2))
+    crop = image_bgr[y1:y2, x1:x2]
+    if crop.size == 0:
+        return 1.0
+    return float(pitch_mod.grass_cells(crop[..., ::-1].astype("int64")).mean())
+
+
 def error_message(e: BaseException) -> str:
     if isinstance(e, InputError):
         return f"input: {e}"
@@ -176,7 +217,7 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
                                    pitch_mode=(job.get("options") or {}).get("pitch_mode"), calibration=job.get("calibration"))
         if cfg.debug_dir is not None:
-            run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks)
+            run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)
             log.info("job %s: run saved in %s", job_id, run)
         api.post_result(job_id, "done", analysis=result)
         log.info("job %s: done (%s, usage %s)", job_id, result["backends"]["segmenter"], result["backends"]["usage"])

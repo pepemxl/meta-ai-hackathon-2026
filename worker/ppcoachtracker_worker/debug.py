@@ -25,11 +25,11 @@ def run_name(clip_id: int | None, job_id: int | None) -> str:
     return f"{stamp}_clip{clip_id or 0}_job{job_id or 0}"
 
 
-def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str | None = None, calibration=None, masks=None) -> Path:
+def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str | None = None, calibration=None, masks=None, raw=None) -> Path:
     run = root / (name or run_name(result.get("clip_id"), result.get("job_id")))
     (run / "chunks").mkdir(parents=True, exist_ok=True)
     (run / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-    rows = [[r.frame, r.t_ms, r.track_id, r.label, r.team, round(r.x, 4), round(r.y, 4), round(r.w, 4), round(r.h, 4), round(r.conf, 3), 0,
+    rows = [[r.frame, r.t_ms, r.track_id, r.label, r.team, round(r.x, 4), round(r.y, 4), round(r.w, 4), round(r.h, 4), round(r.conf, 3), int(r.interp),
              None if r.mx is None else round(r.mx, 2), None if r.my is None else round(r.my, 2)] for r in trackset.rows]
     # Per chunk: where its frames start in the global numbering, to sync the video.
     chunks = []
@@ -62,4 +62,12 @@ def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str
     pitch_masks = [[i, m.fraction, list(m.polygon)] for i, m in enumerate(masks or []) if m is not None]
     data = {"columns": TRACK_COLUMNS, "rows": rows, "frames": frames, "chunks": chunks, "pitch": pitch, "pitch_masks": pitch_masks}
     (run / "tracks.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    if raw is not None:
+        # SAM's boxes before shots and ball, the cuts and the grass around each ball: tools/rescore.py.
+        raw_ts, cut_frames, ball_grass = raw
+        raw_rows = [[r.frame, r.t_ms, r.source_frame, r.track_id, r.label, r.x, r.y, r.w, r.h, r.conf, r.team] for r in raw_ts.rows]
+        (run / "raw_tracks.json").write_text(json.dumps({
+            "rows": raw_rows, "frames": [[f.frame, f.t_ms, f.source_frame] for f in raw_ts.frames], "cuts": list(cut_frames),
+            "ball_grass": [[f, t, round(g, 4)] for (f, t), g in ball_grass.items()],
+        }, separators=(",", ":")), encoding="utf-8")
     return run

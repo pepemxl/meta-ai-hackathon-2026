@@ -69,3 +69,24 @@ def vote(labs: list[np.ndarray | None], home_color: str, away_color: str) -> str
     if not good:
         return ""
     return team_for_color(np.median(np.stack(good), axis=0), home_color, away_color)
+
+
+THIRD_GROUP_MAX_SHARE = 0.25
+
+
+def far_from_both(lab: np.ndarray | None, home_color: str, away_color: str) -> bool:
+    """A torso color farther than MAX_DISTANCE from both declared colors."""
+    if lab is None:
+        return False
+    dists = [float(np.linalg.norm(lab - c)) for c in (jersey_lab(home_color), jersey_lab(away_color)) if c is not None]
+    return bool(dists) and min(dists) > MAX_DISTANCE
+
+
+def third_group(labs: dict, home_color: str, away_color: str) -> set:
+    """Tracks of a small third color group, far from both teams (the referee, a goalkeeper):
+    they stay without a team even if a team concept found them. If the group is big
+    (more than a quarter of the tracks), the declared colors are wrong, not the tracks."""
+    far = {k for k, lab in labs.items() if far_from_both(lab, home_color, away_color)}
+    if not labs or len(far) > max(2, THIRD_GROUP_MAX_SHARE * len(labs)):
+        return set()
+    return far

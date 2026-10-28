@@ -51,13 +51,13 @@ class Concept:
     team: str  # "A" | "B" | "" (decided by color)
 
 
-def concepts_for(home_color: str, away_color: str) -> list[Concept]:
+def concepts_for(home_color: str, away_color: str, player_concept: str = "player in {color} jersey", ball_concept: str = "soccer ball") -> list[Concept]:
     home, away = normalize(home_color), normalize(away_color)
     if is_known(home) and is_known(away) and home != away:
-        players = [Concept(f"player in {home} jersey", "player", "A"), Concept(f"player in {away} jersey", "player", "B")]
+        players = [Concept(player_concept.format(color=home), "player", "A"), Concept(player_concept.format(color=away), "player", "B")]
     else:
         players = [Concept("soccer player", "player", "")]
-    return players + [Concept("soccer ball", "ball", "")]
+    return players + [Concept(ball_concept, "ball", "")]
 
 
 def parse_stream(text: str, width: int, height: int) -> dict[int, list[tuple[int, tuple[float, float, float, float], float]]]:
@@ -154,7 +154,10 @@ def _slug(text: str) -> str:
 
 
 class SamSegmenter:
-    def __init__(self, client: MetaClient, model: str, raw_dir: Path | None = None, is_meta_url: bool = True):
+    def __init__(self, client: MetaClient, model: str, raw_dir: Path | None = None, is_meta_url: bool = True,
+                 player_concept: str = "player in {color} jersey", ball_concept: str = "soccer ball"):
+        self.player_concept = player_concept
+        self.ball_concept = ball_concept
         self.client = client
         self.model = model
         self.raw_dir = raw_dir
@@ -220,16 +223,23 @@ class SamSegmenter:
                         keep, drop = (ka, kb) if len(tracks[ka]) >= len(tracks[kb]) else (kb, ka)
                         dropped.add(drop)
                         undecided.add(keep)
-        decided = self._color_teams(chunk, {k: tracks[k] for k in undecided}, home, away) if undecided else {}
+        players = {k: rs for k, rs in tracks.items() if concepts[k[0]].label == "player" and k not in dropped}
+        labs = self._color_labs(chunk, players)
+        decided = {k: teams.team_for_color(labs.get(k), home, away) for k in undecided}
+        # A small third color group (the referee) stays without a team, even under a team concept.
+        no_team = teams.third_group(labs, home, away)
         out = []
         for key, rs in tracks.items():
             if key in dropped:
                 continue
             team = decided.get(key, rs[0].team) if key in undecided else rs[0].team
+            if key in no_team:
+                team = ""
             out.extend(LocalRow(r.local, r.key, r.label, team, r.box, r.conf) for r in rs)
         return out
 
-    def _color_teams(self, chunk: Chunk, tracks: dict[tuple[int, int], list[LocalRow]], home: str, away: str) -> dict[tuple[int, int], str]:
+    def _color_labs(self, chunk: Chunk, tracks: dict[tuple[int, int], list[LocalRow]]) -> dict[tuple[int, int], object]:
+        """Median torso Lab of each track over a few of its frames (None if it cannot be read)."""
         samples: dict[tuple[int, int], list[LocalRow]] = {}
         wanted: set[int] = set()
         for key, rs in tracks.items():
@@ -237,21 +247,20 @@ class SamSegmenter:
             idx = np.linspace(0, len(rs) - 1, min(COLOR_SAMPLES, len(rs))).round().astype(int)
             samples[key] = [rs[i] for i in sorted(set(idx.tolist()))]
             wanted.update(r.local for r in samples[key])
-        images = {}
         try:
-            images = dict(read_frames(chunk, wanted))
-        except Exception:  # noqa: BLE001 - without frames the color cannot decide: no team
+            images = dict(read_frames(chunk, wanted)) if wanted else {}
+        except Exception:  # noqa: BLE001 - without frames the color cannot decide
             images = {}
         out = {}
         for key, rs in samples.items():
-            labs = [teams.torso_lab(images[r.local], r.box) for r in rs if r.local in images]
-            out[key] = teams.vote(labs, home, away)
+            labs = [l for l in (teams.torso_lab(images[r.local], r.box) for r in rs if r.local in images) if l is not None]
+            out[key] = np.median(np.stack(labs), axis=0) if labs else None
         return out
 
     # ── whole clip ───────────────────────────────────────────────────────────
 
     def track(self, clip: Clip, home_color: str, away_color: str) -> TrackSet:
-        concepts = concepts_for(home_color, away_color)
+        concepts = concepts_for(home_color, away_color, self.player_concept, self.ball_concept)
         result = TrackSet(frames=clip.frame_infos())
         next_id = 1
         prev: list[tuple[int, int, str, tuple]] = []
