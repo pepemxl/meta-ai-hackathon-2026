@@ -22,3 +22,19 @@ Solo licencias permisivas (MIT, BSD, Apache-2.0, ISC) o las propias de la plataf
 | pytest | 8.3.3 | MIT | Pruebas (solo desarrollo) |
 
 La imagen base es `python:3.12-slim` (PSF y licencias de Debian). No hay modelos locales.
+
+## App Android (`android_native/`)
+
+| Nombre | Versión | Licencia | Para qué |
+|---|---|---|---|
+| Kotlin, kotlinx-coroutines | 2.0.21 | Apache-2.0 | Lenguaje y corrutinas |
+| AndroidX Core, Lifecycle, Activity | 1.15.0, 2.8.7, 1.9.3 | Apache-2.0 | Base de la app |
+| Jetpack Compose (BOM) + Material 3 | 2024.12.01 | Apache-2.0 | Interfaz |
+| Material Icons Extended (Material Symbols) | del BOM | Apache-2.0 | Íconos |
+| CameraX | 1.4.1 | Apache-2.0 | Grabar |
+| Media3 (ExoPlayer, UI, Transformer, Effect) | 1.5.1 | Apache-2.0 | Reproducir y generar los chunks de 10 fps |
+| WorkManager | 2.9.1 | Apache-2.0 | Chunks, subida y consentimiento en segundo plano |
+| OkHttp (+ MockWebServer en pruebas) | 4.12.0 | Apache-2.0 | HTTP con la API |
+| JUnit | 4.13.2 | EPL-1.0 | Pruebas (solo desarrollo, no se distribuye) |
+| org.json | 20240303 | Public Domain | Pruebas JVM del códec (en el teléfono es el de Android) |
+| Gradle wrapper | 8.11.1 | Apache-2.0 | Compilar |

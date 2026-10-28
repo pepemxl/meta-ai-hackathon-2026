@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- background token (docs/diseno.md); the launcher icon uses the Spark gradient stops. -->
+    <color name="window_background">#F0F2F5</color>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Every UI text lives in ui/i18n/Strings.kt (Spanish and English); only the launcher name is here. -->
+    <string name="app_name">pp-coach-tracker</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's own Spark gradient (blue → violet → rose), 135°. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="315"
+        android:startColor="#0866FF"
+        android:centerColor="#7B2FF7"
+        android:endColor="#C9356F"
+        android:type="linear" />
+</shape>
