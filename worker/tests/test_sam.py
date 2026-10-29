@@ -26,6 +26,19 @@ def test_parser_tolerates_missing_ordinals_and_cut_streams():
     assert frames[3][0][2] == 1.0  # no c → 1.0
 
 
+def test_parser_reads_the_documented_records_and_skips_the_masks():
+    # dev.meta.ai/docs/sam/reading-segmentation: id, box in pixels with w and h, mask; records split by ",".
+    # The base85 payloads hold what looks like a frame mark, an id and a box end.
+    text = ("<0f>0<|box;x1=211;y1=228;x2=270;y2=254;w=320;h=334;c=0.91|><|mask;x=0;y=0;c=0.9;data=27,60,!a<3f>b,4|>c|>"
+            ",2<|box;x1=155;y1=228;x2=202;y2=254;w=320;h=334|><|mask;x=0;y=0;data=27,48,!<7f>|>\n"
+            "<5f>2<|box;x1=150;y1=230;x2=200;y2=256;w=320;h=334|><|mask;x=0;y=0;data=27,51,!x<9f")
+    frames = parse_stream(text, 320, 334)
+    assert sorted(frames) == [0, 5]
+    assert [(o, c) for o, _, c in frames[0]] == [(0, 0.91), (2, 1.0)]
+    assert frames[0][0][1] == pytest.approx((211 / 320, 228 / 334, 59 / 320, 26 / 334))
+    assert [o for o, _, _ in frames[5]] == [2]  # the cut mask at the end is dropped
+
+
 @pytest.mark.parametrize("overlap", [20, 50])
 def test_stitch_joins_tracks_on_the_overlap(overlap):
     prev, cur = [], []

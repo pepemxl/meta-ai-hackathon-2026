@@ -48,7 +48,7 @@ class Config:
     ball_concept: str = "soccer ball"
     # The pitch lines with SAM on key frames (calibration/sam_lines.py); off by default.
     pitch_sam: bool = False
-    line_concept: str = "white line on a soccer field"
+    line_concept: str = "white line"
 
     @property
     def sam_is_meta(self) -> bool:
@@ -94,5 +94,5 @@ def from_env(env: dict[str, str] | None = None) -> Config:
         player_concept=e.get("SAM_PLAYER_CONCEPT") or "player in {color} jersey",
         ball_concept=e.get("SAM_BALL_CONCEPT") or "soccer ball",
         pitch_sam=(e.get("PP_PITCH_SAM") or "0").strip() == "1",
-        line_concept=e.get("SAM_LINE_CONCEPT") or "white line on a soccer field",
+        line_concept=e.get("SAM_LINE_CONCEPT") or "white line",
     )

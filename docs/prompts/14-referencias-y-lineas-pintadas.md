@@ -84,4 +84,5 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
 
 - [x] Pruebas: worker (83), API Node (23) y PHP (25), app JVM (48), sin llamar a Meta.
 - [x] En el emulador: puntos y líneas pintadas con vista previa, una foto con la cámara virtual y un cuadro del video con trazos; el clip enviado a la API PHP local guarda las líneas y las dos imágenes, y el worker calcula la cancha con esas marcas. Capturas en [versions/0.1.0](../versions/0.1.0/README.md).
+- [ ] Rediseñar los ejemplos: la documentación de SAM 3.1 dice que los puntos y cajas van como tokens en el texto y no se combinan con una frase ([arquitectura/06](../arquitectura/06-pipeline-analisis.md#la-meta-model-api)).
 - [ ] Con la key de SAM 3.1: verificar el formato de los ejemplos y de las máscaras (`sam_lines.exemplar_content`, `decode_mask`), y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige SAM y cuánto cuesta.

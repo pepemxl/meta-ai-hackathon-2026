@@ -51,7 +51,7 @@ Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (
 | `POLL_SECONDS` | Cada cuánto consulta la cola | 10 |
 | `WORK_DIR` | Carpeta de trabajo (`job_NNNNNN`; se borra si salió bien) | `.local/jobs` |
 | `PP_PITCH_SAM` | `1` = SAM busca las líneas de la cancha en cuadros clave (`calibration/sam_lines.py`) | `0` |
-| `SAM_LINE_CONCEPT` | Concepto de SAM para las líneas | `white line on a soccer field` |
+| `SAM_LINE_CONCEPT` | Concepto de SAM para las líneas | `white line` |
 
 ## Flujo de un trabajo
 

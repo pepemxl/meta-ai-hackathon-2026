@@ -16,7 +16,7 @@ GRID = [(x, y) for x in range(-30, 31, 10) for y in range(-20, 21, 10)]
 
 
 def lines_mask(cam: Camera = ps.CAM, width: int = 3) -> np.ndarray:
-    """What SAM would answer for "white line on a soccer field": the template drawn with the camera."""
+    """What SAM would answer for "white line": the template drawn with the camera."""
     img = np.zeros((ps.H, ps.W), np.uint8)
     Hm = cam.homography()
     for a, b in ps.TPL.lines.values():
@@ -77,6 +77,19 @@ def test_masks_are_read_in_every_tolerated_format():
     assert sam_lines.decode_mask("counts=;size=", None, ps.W, ps.H) is None
     masks, unreadable = sam_lines.parse_masks(stream(mask, [0, 3]) + "<4f> 1 <|box;x1=0;y1=0;x2=1;y2=1|><|mask;garbage|>", ps.W, ps.H)
     assert sorted(masks) == [0, 3] and unreadable == 1
+
+
+def test_the_documented_mask_is_the_objectʼs_box():
+    # dev.meta.ai/docs/sam/reading-segmentation: "data=H,W,<marker><base85>", H × W the box (end inclusive).
+    small = np.zeros((27, 60), bool)
+    small[5:20, 10:50] = True
+    payload = base64.b85encode(np.packbits(small.ravel()).tobytes()).decode()
+    text = f"<2f>0<|box;x1=211;y1=228;x2=270;y2=254;w={ps.W};h={ps.H};c=0.9|><|mask;x=0;y=0;c=0.9;data=27,60,!{payload}|>"
+    masks, unreadable = sam_lines.parse_masks(text, ps.W, ps.H)
+    assert unreadable == 0
+    expected = np.zeros((ps.H, ps.W), bool)
+    expected[228:255, 211:271] = small
+    assert np.array_equal(masks[2], expected)
 
 
 def test_exemplars_are_small_boxes_along_the_stroke_and_follow_the_letterbox():

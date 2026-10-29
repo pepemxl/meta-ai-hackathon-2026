@@ -19,10 +19,13 @@ key of the propagation; one with lines that contradict the propagated pitch
 cuts it. There is no local line detector: if SAM fails, the coach's points
 stay alone and a note says so.
 
-THE REQUEST AND MASK FORMATS ARE NOT VERIFIED against real SAM (no key yet):
-the exemplars go in one content item (exemplar_content) and the mask reader
-is tolerant (COCO RLE numeric or compressed, packed bits, PNG; the whole frame
-or the object's box). Every raw stream is kept.
+THE REQUEST AND MASK FORMATS ARE NOT VERIFIED against real SAM: the mask reader
+takes the documented "data=H,W,<marker><base85>" of the object's box (alphabet
+and packing guessed) and is tolerant of other shapes (COCO RLE, packed bits,
+PNG). The SAM docs say box and point prompts go as tokens inside the text and
+cannot be combined with a noun phrase, so exemplar_content (a separate content
+item next to the concept) does not match them and must be redesigned before
+PP_PITCH_SAM is turned on. Every raw stream is kept.
 """
 
 from __future__ import annotations
@@ -42,7 +45,8 @@ from ..types import MetaError
 from .solver import Camera, project
 from .template import Template, circle_polyline
 
-DEFAULT_CONCEPT = "white line on a soccer field"
+# A short noun phrase: the SAM docs say filler and spatial words degrade matching.
+DEFAULT_CONCEPT = "white line"
 # Exemplar boxes: the stroke is cut in pieces of this length (of the height), each box padded.
 EXEMPLAR_PIECE = 0.08
 EXEMPLAR_PAD = 0.008
@@ -57,7 +61,9 @@ EXPLAINED_PX = 3.0
 CONTRADICT_PX = 6.0
 TAUS = (30.0, 8.0, 2.0)
 
-_TOKEN = re.compile(r"<(?P<frame>\d+)f>|<\|(?P<kind>box|mask);(?P<body>.*?)\|>", re.S)
+# A token ends at the "|>" before the next token, record, frame or line end:
+# a base85 mask payload may hold "|>" itself.
+_TOKEN = re.compile(r"<(?P<frame>\d+)f>|<\|(?P<kind>box|mask);(?P<body>.*?)\|>(?=<\||,\s*\d+\s*<\||\s*<\d+f>|\s|$)", re.S)
 # Attributes split only at a ";" followed by a known "name=": a compressed COCO
 # string has ";", "=" and the letters a-o inside (";c=" can be part of it).
 _NAMES = r"(?:counts|rle|size|height|width|png|bits|data|format|score|id)"
@@ -171,6 +177,35 @@ def _from_counts(counts: list[int], h: int, w: int) -> np.ndarray:
     return flat.reshape(w, h).T
 
 
+def _sam_payload(h: int, w: int, marker: str, payload: str) -> np.ndarray | None:
+    """The documented SAM mask: base85 after "H,W," and a marker ("!" one bit,
+    "~" lossless). The base85 alphabet and the packing are not documented:
+    RFC 1924, Z85 and Ascii85 are tried, then packed bits or one byte a pixel,
+    row-major (zlib-compressed for "~", if it decompresses)."""
+    import zlib
+
+    decoders = [base64.b85decode, getattr(base64, "z85decode", None), base64.a85decode]
+    for dec in decoders:
+        if dec is None:
+            continue
+        try:
+            raw = dec(payload.encode("ascii"))
+        except (ValueError, TypeError):
+            continue
+        if marker == "~":
+            try:
+                raw = zlib.decompress(raw)
+            except zlib.error:
+                pass
+        data = np.frombuffer(raw, np.uint8)
+        if marker == "~" and data.size == h * w:
+            return data.reshape(h, w) > 0
+        bits = np.unpackbits(data)
+        if bits.size >= h * w and bits.size - h * w < 8:
+            return bits[: h * w].reshape(h, w).astype(bool)
+    return None
+
+
 def decode_mask(body: str, box: tuple[float, float, float, float] | None, width: int, height: int) -> np.ndarray | None:
     """One <|mask;...|> → bool mask of the whole frame, or None if unreadable.
 
@@ -194,6 +229,10 @@ def decode_mask(body: str, box: tuple[float, float, float, float] | None, width:
             data = base64.b64decode(attrs.get("png") or attrs.get("data", ""))
             img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE)
             mask = img > 127 if img is not None else None
+        elif (sam := re.fullmatch(r"(\d+),(\d+),([~!])(\S*)", attrs.get("data", ""), re.S)):
+            # dev.meta.ai/docs/sam/reading-segmentation: the mask of the object's box.
+            h, w = int(sam.group(1)), int(sam.group(2))
+            mask = _sam_payload(h, w, sam.group(3), sam.group(4))
         elif "bits" in attrs or "data" in attrs:
             data = np.frombuffer(base64.b64decode(attrs.get("bits") or attrs["data"]), np.uint8)
             if h and w:
@@ -232,8 +271,8 @@ def parse_masks(text: str, width: int, height: int) -> tuple[dict[int, np.ndarra
             kv = {k: float(v) for k, v in re.findall(r"(x1|y1|x2|y2)\s*=\s*(-?\d+(?:\.\d+)?)", m.group("body"))}
             if len(kv) == 4:
                 x1, y1, x2, y2 = kv["x1"], kv["y1"], kv["x2"], kv["y2"]
-                if max(x1, y1, x2, y2) > 1.5:
-                    x1, x2, y1, y2 = x1 / width, x2 / width, y1 / height, y2 / height
+                if max(x1, y1, x2, y2) > 1.5:  # source pixels, the end inclusive
+                    x1, x2, y1, y2 = x1 / width, (x2 + 1) / width, y1 / height, (y2 + 1) / height
                 box = (x1, y1, x2 - x1, y2 - y1)
             continue
         mask = decode_mask(m.group("body"), box, width, height)
@@ -437,7 +476,7 @@ class SamLines:
             self.simulator |= sim
             content = [{"type": "input_text", "text": self.concept}, {"type": "input_video", "file_id": file_id}]
             content += [exemplar_content(k, boxes) for k, boxes in exemplars if boxes]
-            body = {"model": self.model, "input": [{"role": "user", "content": content}],
+            body = {"model": self.model, "input": [{"type": "message", "role": "user", "content": content}],
                     "metadata": {"include_confidence": "true", "mask_encoding": "one_bit"}}
             resp = self.client.respond(body, key, {"model": self.model, "concept": self.concept, "video_sha256": sha, "exemplars": len(exemplars)})
             self.client.usage.frames_sent += frames

@@ -2,9 +2,12 @@
 
 Per chunk: POST /files (once) and one streamed POST /responses per concept
 ("player in <color> jersey" for each team and "soccer ball"; "soccer player"
-when the colors cannot tell the teams apart). The stream has a "<Nf>" mark
-per frame and, per object, its ordinal and "<|box;x1=..;y1=..;x2=..;y2=..;c=..|>"
-(normalized or in pixels). Every raw stream is kept for checking.
+when the colors cannot tell the teams apart): short noun phrases, one concept
+per request, as the SAM docs ask (dev.meta.ai/docs/sam/segmenting). The stream
+has one line per frame: "<Nf>" and comma-separated records, each the object id,
+"<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..;c=..|>" in source pixels and a
+"<|mask;...|>" (dev.meta.ai/docs/sam/reading-segmentation); the masks are not
+needed here and are dropped before reading. Every raw stream is kept.
 
 THE FORMAT IS THE DOCUMENTED ONE, NOT YET VERIFIED against a real SAM stream:
 the parser is tolerant, and it must be adjusted (with its tests) to the
@@ -41,6 +44,9 @@ SAME_OBJECT_IOU = 0.6
 COLOR_SAMPLES = 5
 
 _TOKEN = re.compile(r"<(?P<frame>\d+)f>|(?:(?P<ord>\d+)\s*[:.)\]-]?\s*)?<\|box;(?P<box>[^|>]*)\|>")
+# A mask record: its base85 payload may hold "<3f>" or digits, so it is cut out
+# whole (it ends at the "|>" before the next record, frame or line end).
+_MASK = re.compile(r"<\|mask;.*?\|>(?=,\s*\d+\s*<\||\s*<\d+f>|\s|$)", re.S)
 _KV = re.compile(r"(x1|y1|x2|y2|c)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE]-?\d+)?)")
 
 
@@ -70,6 +76,9 @@ def parse_stream(text: str, width: int, height: int) -> dict[int, list[tuple[int
     """
     out: dict[int, list[tuple[int, tuple[float, float, float, float], float]]] = defaultdict(list)
     frame: int | None = None
+    text = _MASK.sub("", text)
+    if (cut := text.find("<|mask;")) >= 0:  # an unfinished mask at the end of a cut stream
+        text = text[:cut]
     for m in _TOKEN.finditer(text):
         if m.group("frame") is not None:
             frame = int(m.group("frame"))
@@ -176,7 +185,7 @@ class SamSegmenter:
             self.simulator |= sim
             body = {
                 "model": self.model,
-                "input": [{"role": "user", "content": [
+                "input": [{"type": "message", "role": "user", "content": [
                     {"type": "input_text", "text": concept.text},
                     {"type": "input_video", "file_id": file_id},
                 ]}],
