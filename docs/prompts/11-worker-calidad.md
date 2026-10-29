@@ -1,6 +1,6 @@
 # 11 · Worker: medir mejor (visor, cuadros que cuentan, balón)
 
-**Lee antes, completos:** [mejoras/02-descartar-acercamientos.md](../mejoras/02-descartar-acercamientos.md), [mejoras/03-otras-mejoras.md](../mejoras/03-otras-mejoras.md), [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de detección a árbitro) y [learnings/02-como-medir.md](../learnings/02-como-medir.md). Tienen la regla de cada mejora, los umbrales y por qué quedaron así. Se midieron con el detector local de la primera construcción; aquí todo sale de SAM 3.1, así que los umbrales se vuelven a medir.
+**Lee antes, completos:** [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de detección a árbitro) y [learnings/02-como-medir.md](../learnings/02-como-medir.md). Tienen las reglas, los umbrales y por qué quedaron así. Se midieron con el detector local de la primera construcción; aquí todo sale de SAM 3.1, así que los umbrales se vuelven a medir.
 
 ```text
 Mejora el worker de la etapa 8 con lo que salió de revisar corridas reales.

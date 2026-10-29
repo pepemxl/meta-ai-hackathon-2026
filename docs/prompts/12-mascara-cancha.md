@@ -1,6 +1,6 @@
 # 12 · Máscara de la cancha (worker y app)
 
-**Lee antes, completo:** [mejoras/01-mascara-cancha.md](../mejoras/01-mascara-cancha.md): el formato de la sección `pitch` del YAML, los umbrales y lo que cambió respecto al plan al construirlo. Además, [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md#la-máscara-de-la-cancha) y [12-videos-largos-chunks.md](../12-videos-largos-chunks.md) (el YAML es contrato).
+**Lee antes, completos:** [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md#la-máscara-de-la-cancha) y [12-videos-largos-chunks.md](../12-videos-largos-chunks.md) (el YAML es contrato).
 
 ```text
 Calcula en cada cuadro qué parte de la imagen es cancha, primero en el

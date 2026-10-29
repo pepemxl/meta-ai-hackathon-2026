@@ -26,7 +26,6 @@ Describen el prototipo hecho antes del kickoff, que tenía un respaldo local. Si
 
 | Documento | Contenido |
 |---|---|
-| [mejoras/](mejoras/README.md) | Mejoras del análisis medidas en el prototipo: máscara de la cancha en el teléfono, descartar acercamientos, homografía de cada cuadro y otras (balón, árbitro, tracks) |
 | [learnings/](learnings/README.md) | Lo aprendido: análisis de video, cómo medir los cambios y el entorno de desarrollo y despliegue |
 
 Las versiones nuevas de la app, con sus capturas, van en `versions/` ([prompts/09-despliegue.md](prompts/09-despliegue.md#publicar-una-versión-de-la-app)).

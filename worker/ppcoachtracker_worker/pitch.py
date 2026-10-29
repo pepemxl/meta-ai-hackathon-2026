@@ -1,4 +1,4 @@
-"""Which part of each frame is the pitch (docs/mejoras/01-mascara-cancha.md).
+"""Which part of each frame is the pitch (docs/prompts/12-mascara-cancha.md).
 
 A 160×90 grid of points of the frame in HSV; grass is hue 35–85 (0..180 as
 OpenCV), saturation > 60 and value > 40. A 5×5 closing, the largest blob,

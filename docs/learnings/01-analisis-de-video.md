@@ -83,7 +83,7 @@ Lo aprendido con el worker local (YOLOv8n + tracker IoU) sobre 10 minutos de una
 ## La gente en la orilla
 
 - **El filtro de público mira el pasto bajo los pies.** Quien está pegado a los anuncios tiene los pies junto al pasto y pasa. Algunos reciben equipo y hasta se quedan con la posesión.
-- **La máscara de la cancha ([mejora 01](../mejoras/01-mascara-cancha.md)) no la quitó:** entre la banda y los anuncios también hay pasto, y ahí están parados. El pasto dice dónde hay cancha, no dónde termina; para eso hace falta la línea de banda (la homografía).
+- **La máscara de la cancha ([etapa 12](../prompts/12-mascara-cancha.md)) no la quitó:** entre la banda y los anuncios también hay pasto, y ahí están parados. El pasto dice dónde hay cancha, no dónde termina; para eso hace falta la línea de banda (la homografía).
 
 ## La máscara de la cancha
 

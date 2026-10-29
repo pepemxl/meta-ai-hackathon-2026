@@ -1,6 +1,6 @@
 # 13 · La cancha en metros (homografía)
 
-**Lee antes, completo:** [mejoras/04-homografia-por-cuadro.md](../mejoras/04-homografia-por-cuadro.md) (el diseño, cada fase con sus resultados y lo que cambió al construirla), [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de homografía y métricas en metros), [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 3 y 5) y [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md#la-cancha-en-metros).
+**Lee antes, completos:** [learnings/01-analisis-de-video.md](../learnings/01-analisis-de-video.md) (secciones de homografía y métricas en metros), [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) (flujos 3 y 5) y [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md#la-cancha-en-metros).
 
 Es la etapa más grande: hazla en este orden, con un commit (o PR) por paso y sus pruebas.
 

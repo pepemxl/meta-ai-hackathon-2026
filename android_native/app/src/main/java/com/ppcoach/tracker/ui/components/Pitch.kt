@@ -39,7 +39,7 @@ import com.ppcoach.tracker.ui.CoachViewModel
 import com.ppcoach.tracker.ui.i18n.LocalStrings
 import com.ppcoach.tracker.ui.theme.PpTheme
 
-/** "Do we compute the pitch?" (docs/mejoras/04-homografia-por-cuadro.md), asked once per match when sending. */
+/** "Do we compute the pitch?" (docs/prompts/13-cancha-en-metros.md), asked once per match when sending. */
 @Composable
 fun PitchDialog(vm: CoachViewModel, onDismiss: () -> Unit) {
     val s = LocalStrings.current

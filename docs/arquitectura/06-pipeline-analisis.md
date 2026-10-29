@@ -42,9 +42,9 @@ flowchart TB
 |---|---|---|
 | Unión de chunks | Mismo track si IoU > 0.5 en al menos la mitad de los cuadros del traslape donde aparecen los dos, y en 5 o más | `sam.py` |
 | Equipos | Del concepto; el color del torso decide solo si un track aparece en los dos conceptos. Un tercer grupo de color chico y lejos de los dos (el árbitro) queda sin equipo | `teams.py`, `colors.py` |
-| Máscara de la cancha | La de la app (YAML de cada chunk) o, donde no viene, medida con la misma regla. Los cuadros sin cancha no cuentan y un jugador cuenta si sus pies caen en la cancha | `pitch.py`, [mejora 01](../mejoras/01-mascara-cancha.md) |
-| Cortes y cuadros que cuentan | Un corte cuando el histograma de tono y saturación salta 0.44 o más (los tracks empiezan de nuevo). No cuentan los acercamientos (una persona de más de 1/3 del alto), por tomas | `cuts.py`, `shots.py`, [mejora 02](../mejoras/02-descartar-acercamientos.md) |
-| Balón | Una trayectoria por candidato, cada una con su Kalman; gana la que dura y pasa junto a los pies. Huecos de hasta 5 cuadros solo dentro de una trayectoria; un balón sin pasto alrededor se descarta | `ball.py`, [mejora 03](../mejoras/03-otras-mejoras.md) |
+| Máscara de la cancha | La de la app (YAML de cada chunk) o, donde no viene, medida con la misma regla. Los cuadros sin cancha no cuentan y un jugador cuenta si sus pies caen en la cancha | `pitch.py`, [etapa 12](../prompts/12-mascara-cancha.md) |
+| Cortes y cuadros que cuentan | Un corte cuando el histograma de tono y saturación salta 0.44 o más (los tracks empiezan de nuevo). No cuentan los acercamientos (una persona de más de 1/3 del alto), por tomas | `cuts.py`, `shots.py`, [etapa 11](../prompts/11-worker-calidad.md) |
+| Balón | Una trayectoria por candidato, cada una con su Kalman; gana la que dura y pasa junto a los pies. Huecos de hasta 5 cuadros solo dentro de una trayectoria; un balón sin pasto alrededor se descarta | `ball.py`, [etapa 11](../prompts/11-worker-calidad.md) |
 | Posesión | Se gana a 0.06 y se suelta cuando nadie del equipo está a 0.09; dura hasta 2 s sin ver el balón; la racha mínima se cuenta en cuadros con balón | `metrics.py` |
 
 Todos los tiempos del resultado (`t_ms`, `t_start_ms`…) son del video **original**, traducidos con el mapa de cada chunk: "ver en el video" usa el mismo reloj que el clip del teléfono.

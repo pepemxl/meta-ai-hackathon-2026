@@ -103,7 +103,7 @@ frames:
     - [1, 8904, 297100]
     - [2, 8907, 297200]
     # …
-pitch:                       # opcional: la máscara de la cancha (mejoras/01-mascara-cancha.md)
+pitch:                       # opcional: la máscara de la cancha (prompts/12-mascara-cancha.md)
   method: "hsv_v1"
   grid: [160, 90]
   hue: [35, 85]
@@ -155,7 +155,7 @@ Sirve para saber de un vistazo si el clip está listo para subir y qué falta re
 3. Para cada chunk que no esté completo:
    - Exportar con Media3 Transformer un recorte del original (`ClippingConfiguration`), a 10 fps, 720p (o 1080p según Ajustes), sin audio y con tasa de bits fija.
    - Abrir el `.mp4` con `MediaExtractor`, leer el tiempo de cada frame y escribir el `.yaml`.
-   - Decodificar el chunk y medir la cancha de cada frame ([mejora 01](mejoras/01-mascara-cancha.md)). Si falla, el `.yaml` sale sin `pitch` y el chunk sigue sirviendo.
+   - Decodificar el chunk y medir la cancha de cada frame ([etapa 12](prompts/12-mascara-cancha.md)). Si falla, el `.yaml` sale sin `pitch` y el chunk sigue sirviendo.
    - Calcular el `sha256`.
 4. Reescribir `chunks.yaml` después de cada chunk.
 

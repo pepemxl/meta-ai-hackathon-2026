@@ -20,7 +20,7 @@ Tres decisiones atraviesan todas las etapas:
 
 **El estilo visual de la app** (tipo apps de Meta: colores, tipografía, componentes, navegación) está en [diseno.md](../diseno.md); todas las etapas de la app lo siguen y la 1 crea el tema.
 
-Los documentos marcados como **Antecedente** (mejoras, aprendizajes, planes) describen el prototipo previo, que sí tenía respaldo local. Sirven por los contratos, los umbrales medidos y las trampas que costó encontrar; donde contradigan a los prompts, mandan los prompts. Las capturas de esta construcción van en `docs/versions/`.
+Los documentos marcados como **Antecedente** (aprendizajes) describen el prototipo previo, que sí tenía respaldo local. Sirven por los contratos, los umbrales medidos y las trampas que costó encontrar; donde contradigan a los prompts, mandan los prompts. Las capturas de esta construcción van en `docs/versions/`.
 
 ## Etapas
 
@@ -66,7 +66,7 @@ La evaluación pesa **impacto 30 %, uso de las herramientas de Meta 25 %, técni
 - **Sin key no hay análisis real.** El simulador permite construir y probar todo el flujo, pero no prueba que el worker entienda a SAM: eso solo se sabe con un stream real. Las pruebas automáticas no llaman ni a Meta ni al simulador: usan una API falsa con streams guardados.
 - **El simulador no es respaldo:** vive fuera del repo, no se despliega y sus resultados se marcan `sam_simulator` (la API de producción los rechaza).
 - **Si Meta se cae durante el demo, el análisis en vivo falla.** Hay que tener a la mano un análisis ya hecho (la app guarda una copia) y decirlo en el video.
-- **Los umbrales medidos en el prototipo** ([mejoras/](../mejoras/README.md), [learnings/](../learnings/README.md)) se midieron con otro detector: con las cajas de SAM se vuelven a medir.
+- **Los umbrales medidos en el prototipo** ([learnings/](../learnings/README.md)) se midieron con otro detector: con las cajas de SAM se vuelven a medir.
 
 ## Dependencias esperadas (todas permisivas)
 
@@ -91,8 +91,8 @@ Para el README del repo y el formulario. Ajustar las fechas y la lista al termin
 
 **Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and
 built a first prototype. From that work we kept only documentation: the
-design docs, improvement plans and lessons learned in `docs/`, the legal
-texts in `docs/legal/`, and the step-by-step build prompts in `docs/prompts/`.
+design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`,
+and the step-by-step build prompts in `docs/prompts/`.
 Commit <hash> is the starting point: docs only, no application code.
 
 **During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this

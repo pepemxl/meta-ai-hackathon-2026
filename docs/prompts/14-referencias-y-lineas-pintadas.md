@@ -1,6 +1,6 @@
 # 14 · Imágenes de referencia y líneas pintadas
 
-**Lee antes:** [13-cancha-en-metros.md](13-cancha-en-metros.md) (los puntos del entrenador, el solver, la propagación y el paso 5 de las líneas con SAM) y [mejoras/04-homografia-por-cuadro.md](../mejoras/04-homografia-por-cuadro.md) (fases 3 y 4: la búsqueda de la cámara contra los píxeles blancos).
+**Lee antes:** [13-cancha-en-metros.md](13-cancha-en-metros.md) (los puntos del entrenador, el solver, la propagación y el paso 5 de las líneas con SAM) y [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md#la-cancha-en-metros) (la búsqueda de la cámara contra los píxeles blancos).
 
 Cuando hay poca luz o las líneas de la cancha están borradas, los puntos no siempre se ven y SAM no sabe qué buscar. Esta etapa deja que el entrenador **muestre** las líneas: las pinta con el dedo sobre un cuadro del video o sobre fotos de la cancha. Un commit por pieza (worker, API, app), cada uno con sus pruebas.
 
