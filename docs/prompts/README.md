@@ -58,7 +58,7 @@ La evaluación pesa **impacto 30 %, uso de las herramientas de Meta 25 %, técni
 
 **Qué se puede recortar** sin perder el núcleo: el plantel y las estadísticas por jugador (2 y parte de la 10), la API Node (si se va directo a la PHP, a costa de pruebas más lentas), la opción de 1080p y el visor.
 
-> **Anti-proyectos:** la página del evento pide no construir *"Sports analyzers or coaches"*. Trabajamos con el supuesto de que este proyecto no cuenta como tal, por su enfoque de instrumento de medición ([reglas](../rules/README.md#lo-que-implica-para-pp-coach-tracker)); mientras llega la respuesta de los organizadores, las etapas propias del deporte (2 y parte de la 10) van al final.
+> **Anti-proyectos:** la página del evento pide no construir *"Sports analyzers or coaches"*. Los organizadores respondieron (28 oct) que este proyecto sí vale si el núcleo es el tracking con SAM 3.1 más la calibración métrica, y si la entrega explica en qué se diferencia de un analizador deportivo común ([reglas](../rules/README.md#lo-que-implica-para-pp-coach-tracker)). Por eso las etapas propias del deporte (2 y parte de la 10) van al final, y el README y el video empiezan por los diferenciadores.
 
 ## Lo que cuesta no tener respaldo
 
