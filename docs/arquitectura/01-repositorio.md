@@ -146,7 +146,6 @@ Página local (Vite + React + TypeScript, servida por `server.mjs`) para revisar
 | `rules/` | Reglas oficiales del hackathon |
 | `legal/` | Aviso de privacidad, consentimiento y formato para jugadores; `legal/en/` en inglés |
 | `mejoras/`, `learnings/` | Mejoras medidas y lo aprendido en el prototipo previo (antecedente) |
-| `pantallas/` | Capturas del prototipo previo (antecedente) |
 | `versions/<versión>/` | Capturas y notas de cada versión de esta construcción |
 
 ## Lo que no se versiona

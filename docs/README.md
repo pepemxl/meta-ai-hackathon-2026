@@ -36,7 +36,6 @@ Describen el prototipo hecho antes del kickoff, que tenía un respaldo local. Si
 | [09-dataset-quantigo.md](09-dataset-quantigo.md) | Dataset de Quantigo: para qué sirve (evaluar el tracking, no la demo) y plan de evaluación |
 | [mejoras/](mejoras/README.md) | Mejoras del análisis medidas en el prototipo: máscara de la cancha en el teléfono, descartar acercamientos, homografía de cada cuadro y otras (balón, árbitro, tracks) |
 | [learnings/](learnings/README.md) | Lo aprendido: análisis de video, cómo medir los cambios y el entorno de desarrollo y despliegue |
-| [pantallas/](pantallas/README.md) | Capturas y notas del prototipo, versión por versión (0.1.0 a 0.3.10) |
 
 Las versiones nuevas de la app, con sus capturas, van en `versions/` ([prompts/09-despliegue.md](prompts/09-despliegue.md#publicar-una-versión-de-la-app)).
 

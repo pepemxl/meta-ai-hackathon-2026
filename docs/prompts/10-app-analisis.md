@@ -1,6 +1,6 @@
 # 10 · App: estadísticas, alineación y ver el análisis
 
-**Lee antes:** [pantallas/0.3.5](../pantallas/0.3.5/README.md), [0.3.6](../pantallas/0.3.6/README.md) y [0.3.7](../pantallas/0.3.7/README.md) (qué hace cada pantalla, con capturas), [11-stats-jugadores.md](../11-stats-jugadores.md), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md) y el formato del resultado en la etapa [08](08-worker.md).
+**Lee antes:** [11-stats-jugadores.md](../11-stats-jugadores.md), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md) y el formato del resultado en la etapa [08](08-worker.md).
 
 ```text
 Agrega a pp-coach-tracker lo que el entrenador ve después de enviar y lo

@@ -1,6 +1,6 @@
 # 09 · Despliegue en Cloud Provider y publicación de versiones
 
-**Lee antes:** [arquitectura/05-despliegue.md](../arquitectura/05-despliegue.md), [pantallas/README.md](../pantallas/README.md#para-agregar-una-versión) (el formato de cada versión; las nuevas van en `docs/versions/`, que se crea con la primera).
+**Lee antes:** [arquitectura/05-despliegue.md](../arquitectura/05-despliegue.md) y la sección [Publicar una versión de la app](#publicar-una-versión-de-la-app) (las versiones van en `docs/versions/`, que se crea con la primera).
 
 ## Desplegar la API
 
