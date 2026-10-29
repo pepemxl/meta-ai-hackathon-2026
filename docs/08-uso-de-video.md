@@ -15,9 +15,9 @@ Descargar partidos de YouTube viola sus términos de servicio, y los derechos de
 2. **Derechos de autor.** Las transmisiones de ligas como Liga MX, LaLiga, Premier o FIFA tienen dueño y se defienden con fuerza. Que alguien las haya subido a YouTube no da ningún permiso.
    - En EE. UU. (las reglas del hackathon probablemente se rigen por su ley) existe el *fair use*. Analizar un video para investigación tiene buenos argumentos, pero se decide caso por caso.
    - En México, la Ley Federal del Derecho de Autor tiene excepciones mucho más estrechas (cita, uso personal, etc.).
-3. **Reglas del hackathon.** Casi siempre exigen tener derechos sobre todo lo que se presenta. Un demo con una transmisión de TV puede descalificar el proyecto o recibir un reclamo de copyright en el video. Confirmarlo en las Reglas Oficiales ([05-plan-hackathon.md](05-plan-hackathon.md), checklist de entrega).
+3. **Reglas del hackathon.** Casi siempre exigen tener derechos sobre todo lo que se presenta. Un demo con una transmisión de TV puede descalificar el proyecto o recibir un reclamo de copyright en el video. Confirmarlo en las Reglas Oficiales del hackathon.
 4. **Términos de la Meta API.** Al subir un video a SAM 3.1 o Muse Spark se declara que se tiene derecho a usarlo. Revisar esa cláusula antes de mandar material de terceros.
-5. **Partidos amateur.** Aparecen personas identificables, a veces menores. Eso suma un tema de privacidad (en México, la LFPDPPP) además del de copyright. Ver también el riesgo de privacidad de menores en [05-plan-hackathon.md](05-plan-hackathon.md).
+5. **Partidos amateur.** Aparecen personas identificables, a veces menores. Eso suma un tema de privacidad (en México, la LFPDPPP) además del de copyright. Ver también [10-privacidad-jugadores.md](10-privacidad-jugadores.md).
 
 ## Qué se puede hacer con cada uso
 
@@ -32,7 +32,7 @@ Descargar partidos de YouTube viola sus términos de servicio, y los derechos de
 
 ## Fuentes recomendadas
 
-1. **Grabaciones propias** con pp-coach-tracker ([07-plan-android.md](07-plan-android.md)). Es lo mejor para el demo: además, muestra el flujo real de la app. Están planeadas para el día 8 del hackathon.
+1. **Grabaciones propias** con pp-coach-tracker. Es lo mejor para el demo: además, muestra el flujo real de la app.
    - Pedir consentimiento a los jugadores, y a los tutores si hay menores, antes de grabar.
    - No usar el tier *contributor* de la Meta API con video de menores.
    - Borrar los videos de prueba que no se vayan a usar.

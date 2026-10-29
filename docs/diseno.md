@@ -2,7 +2,7 @@
 
 La app pp-coach-tracker sigue el **estilo de las apps de Meta** (Facebook, Instagram, Threads, Meta AI): fondos neutros, un solo azul para las acciones, tarjetas planas, barra de navegación inferior y un degradado que distingue lo que hace la IA. Todas las etapas de la app ([01](prompts/01-app-base.md), [02](prompts/02-app-plantel-stats.md), [03](prompts/03-app-chunks.md), [05](prompts/05-app-subida.md), [07](prompts/07-consentimiento.md), [10](prompts/10-app-analisis.md), [13](prompts/13-cancha-en-metros.md)) siguen este documento; la etapa 1 crea el tema y los componentes compartidos.
 
-> **Inspirado en Meta, no igual a Meta.** Las reglas piden no violar marcas registradas ([rules/](rules/README.md#propiedad-intelectual-y-contenido)). Se toma el lenguaje visual (colores neutros, azul de acción, formas, navegación), **no** la identidad: nada del logo del infinito, ni del anillo de Meta AI, ni de los íconos o la tipografía propios de Meta, ni la palabra "Meta" en la interfaz salvo para nombrar los modelos ("Analizado con SAM 3.1 y Muse Spark de Meta"). El nombre, el ícono y el degradado son propios.
+> **Inspirado en Meta, no igual a Meta.** Las reglas del hackathon piden no violar marcas registradas. Se toma el lenguaje visual (colores neutros, azul de acción, formas, navegación), **no** la identidad: nada del logo del infinito, ni del anillo de Meta AI, ni de los íconos o la tipografía propios de Meta, ni la palabra "Meta" en la interfaz salvo para nombrar los modelos ("Analizado con SAM 3.1 y Muse Spark de Meta"). El nombre, el ícono y el degradado son propios.
 
 ## Principios
 

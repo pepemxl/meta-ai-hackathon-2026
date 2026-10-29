@@ -42,7 +42,7 @@ Para el hackathon, el caso realista es la LFPDPPP. Diseñar pensando en el GDPR 
 5. **Borrado real.** Borrar un jugador borra su nombre y desliga sus tracks. Borrar un partido borra videos, tracks e insights. Se puede pedir la exportación o el borrado de todo (derechos ARCO).
 6. **Retención corta del video.** Opción para borrar el video del servidor después de procesarlo y conservar solo tracks e insights.
 7. **Meta API.** No usar el tier *contributor* (que permite a Meta usar los datos) con video de menores. Revisar los términos de uso de datos de la API antes del demo.
-8. **Datasets de terceros.** Nunca se etiquetan nombres en video de datasets o transmisiones (por ejemplo, [09-dataset-quantigo.md](09-dataset-quantigo.md)). Ahí solo existen IDs.
+8. **Datasets de terceros.** Nunca se etiquetan nombres en video de datasets o transmisiones (por ejemplo, el dataset de Quantigo). Ahí solo existen IDs.
 
 ## Cambios al modelo de datos
 
@@ -60,7 +60,7 @@ players(id, team_id, number, position,
 
 ## Cambios a la app
 
-En [07-plan-android.md](07-plan-android.md), v0.4 (tagging):
+Cuando la app permita etiquetar los tracks:
 
 - Al tocar un track se elige **dorsal y posición** (obligatorios) y **nombre** (opcional, con el texto de ayuda "puedes usar un apodo o iniciales").
 - En v0.2, el alta de un partido incluye un aviso: "Graba solo con el consentimiento de los jugadores o de sus tutores".

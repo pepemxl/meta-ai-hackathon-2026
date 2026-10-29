@@ -1,6 +1,6 @@
 # 01 · App Android base (v0.1)
 
-**Lee antes:** [diseno.md](../diseno.md) (tema, componentes y navegación, completo), [07-plan-android.md](../07-plan-android.md) (v0.1, estructura, almacenamiento, permisos), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md).
+**Lee antes:** [diseno.md](../diseno.md) (tema, componentes y navegación, completo), [arquitectura/02-app-android.md](../arquitectura/02-app-android.md).
 
 ```text
 Crea la app Android "pp-coach-tracker" en android_native/ (proyecto Gradle con

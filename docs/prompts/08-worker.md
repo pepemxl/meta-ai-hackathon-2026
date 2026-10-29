@@ -2,7 +2,7 @@
 
 Esta etapa deja el worker base. Las etapas [11](11-worker-calidad.md) (cuadros que cuentan, balón), [12](12-mascara-cancha.md) (máscara de la cancha) y [13](13-cancha-en-metros.md) (metros) lo amplían; [arquitectura/06-pipeline-analisis.md](../arquitectura/06-pipeline-analisis.md) describe el worker ya construido, con todas esas etapas.
 
-**Sin respaldo:** SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights. No hay detector local (YOLO), ni tracker local, ni insights por reglas. Si Meta falla después de los reintentos, el trabajo falla con un mensaje claro. Así no hay modelos con licencias copyleft (YOLOv8n es AGPL-3.0) y el uso de las herramientas de Meta, que vale el 25 % de la evaluación, es total ([reglas](../rules/README.md)).
+**Sin respaldo:** SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights. No hay detector local (YOLO), ni tracker local, ni insights por reglas. Si Meta falla después de los reintentos, el trabajo falla con un mensaje claro. Así no hay modelos con licencias copyleft (YOLOv8n es AGPL-3.0) y el uso de las herramientas de Meta, que vale el 25 % de la evaluación, es total.
 
 **En desarrollo, contra el simulador:** el worker se construye y prueba con `SAM_API_BASE_URL` apuntando al simulador local de la etapa [08a](08a-simulador-sam.md) ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)), con chunks de 1 min. Para el worker es solo una URL: no lleva código de modelos locales. La prueba con SAM real (criterios de abajo) se hace en cuanto haya key.
 

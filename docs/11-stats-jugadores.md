@@ -82,11 +82,11 @@ Lo produce el worker al terminar. Ejemplo completo en `android_native/samples/an
 - Los valores fuera de rango se recortan (por ejemplo, minutos a 130).
 - `source`: el backend que lo generó (`meta_sam`, `local_cv`, `cache`), como en `segmenter_used` del job. La app lo muestra.
 
-Para que el worker pueda llenar los dorsales hace falta el **post-tagging**: el coach liga cada track a un dorsal (v0.4 del [plan Android](07-plan-android.md)). Antes de eso, el reporte solo puede traer stats de equipo o de tracks sin identificar.
+Para que el worker pueda llenar los dorsales hace falta el **post-tagging**: el coach liga cada track a un dorsal (pendiente en la app). Antes de eso, el reporte solo puede traer stats de equipo o de tracks sin identificar.
 
 ## Qué tan confiables son las stats del análisis
 
-Con una cámara fija y SAM 3.1 (o YOLO en modo local), minutos, duelos y posiciones son razonables. Pases, tiros, regates y entradas dependen de detectar bien el balón, que es la parte débil ([09-dataset-quantigo.md](09-dataset-quantigo.md), evaluación E3). Por eso el coach puede corregir todo después del reporte, y por eso la app marca qué vino del análisis y qué editó él.
+Con una cámara fija y SAM 3.1 (o YOLO en modo local), minutos, duelos y posiciones son razonables. Pases, tiros, regates y entradas dependen de detectar bien el balón, que es la parte débil. Por eso el coach puede corregir todo después del reporte, y por eso la app marca qué vino del análisis y qué editó él.
 
 ## Dónde se guarda
 

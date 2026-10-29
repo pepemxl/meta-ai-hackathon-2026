@@ -2,7 +2,7 @@
 
 Con estos prompts, un agente de programación (Claude Code, Muse Code u otro) escribe todo pp-coach-tracker durante el hackathon, partiendo de un repo que solo tiene `docs/`: la app Android, la API (Node para desarrollo y PHP para Cloud Provider), el worker de análisis y el visor.
 
-**Por qué así:** los organizadores aclararon que el código escrito antes del kickoff (26 de octubre de 2026) se puede usar, pero la entrega tiene que **declarar qué es previo y qué se hizo durante el hackathon** ([reglas](../rules/README.md)). Antes del kickoff se diseñó el proyecto y se hizo un prototipo. De ese trabajo solo se conserva la documentación de `docs/`; todo el código se escribe de nuevo con estos prompts.
+**Por qué así:** los organizadores aclararon que el código escrito antes del kickoff (26 de octubre de 2026) se puede usar, pero la entrega tiene que **declarar qué es previo y qué se hizo durante el hackathon**. Antes del kickoff se diseñó el proyecto y se hizo un prototipo. De ese trabajo solo se conserva la documentación de `docs/`; todo el código se escribe de nuevo con estos prompts.
 
 Tres decisiones atraviesan todas las etapas:
 
@@ -47,18 +47,18 @@ Las etapas 1–3 (app) y 4 (API) se pueden hacer en paralelo con dos agentes; ta
 
 ## Orden sugerido para el hackathon
 
-La evaluación pesa **impacto 30 %, uso de las herramientas de Meta 25 %, técnica 20 % y demo 25 %** ([reglas](../rules/README.md#cómo-se-evalúa-el-proyecto)). **El desarrollo no depende de la key:** el worker se construye contra el simulador de SAM ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)) con chunks de 1 min. La key hace falta para verificar el formato real de SAM, medir el costo y analizar el clip del demo en chunks de 5 min.
+La evaluación pesa **impacto 30 %, uso de las herramientas de Meta 25 %, técnica 20 % y demo 25 %**. **El desarrollo no depende de la key:** el worker se construye contra el simulador de SAM ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)) con chunks de 1 min. La key hace falta para verificar el formato real de SAM, medir el costo y analizar el clip del demo en chunks de 5 min.
 
 1. **Días 1–2 (26–27 oct): la columna.** 8a → 4 → 6 → 8 contra el simulador. En cuanto haya key: un minuto propio contra SAM real, el parser y el simulador ajustados al formato real, y el costo medido. Desplegar la API (9, primera parte) en cuanto pase la 6.
 2. **Días 3–4 (28–29 oct): la app de punta a punta.** 1 → 3 → 5 → 7, más la parte de "ver el análisis" de la 10.
 3. **Días 5–6 (30–31 oct): calidad y cancha.** 11 → 12 → 13 (pasos 1 a 4).
-4. **Días 7–8 (1–2 nov): el worker desplegado y el demo.** El worker en Modal ($100 en créditos) o un VPS, contra SAM real; la app en perfil `demo` (chunks de 5 min); video demo con video propio según el [guion](../guion-demo.md); ensayo del demo en vivo con un análisis ya hecho a la mano.
+4. **Días 7–8 (1–2 nov): el worker desplegado y el demo.** El worker en Modal ($100 en créditos) o un VPS, contra SAM real; la app en perfil `demo` (chunks de 5 min); video demo con video propio; ensayo del demo en vivo con un análisis ya hecho a la mano.
 5. **Si sobra tiempo:** 2 y el resto de la 10 (plantel, estadísticas, alineación), el paso 5 de la 13 (líneas con SAM).
 6. **3 de noviembre: congelar.** El 4, solo la entrega (cierra a las 21:00 ET, 20:00 en la Ciudad de México).
 
 **Qué se puede recortar** sin perder el núcleo: el plantel y las estadísticas por jugador (2 y parte de la 10), la API Node (si se va directo a la PHP, a costa de pruebas más lentas), la opción de 1080p y el visor.
 
-> **Anti-proyectos:** la página del evento pide no construir *"Sports analyzers or coaches"*. Los organizadores respondieron (28 oct) que este proyecto sí vale si el núcleo es el tracking con SAM 3.1 más la calibración métrica, y si la entrega explica en qué se diferencia de un analizador deportivo común ([reglas](../rules/README.md#lo-que-implica-para-pp-coach-tracker)). Por eso las etapas propias del deporte (2 y parte de la 10) van al final, y el README y el video empiezan por los diferenciadores.
+> **Anti-proyectos:** la página del evento pide no construir *"Sports analyzers or coaches"*. Los organizadores respondieron (28 oct) que este proyecto sí vale si el núcleo es el tracking con SAM 3.1 más la calibración métrica, y si la entrega explica en qué se diferencia de un analizador deportivo común. Por eso las etapas propias del deporte (2 y parte de la 10) van al final, y el README y el video empiezan por los diferenciadores.
 
 ## Lo que cuesta no tener respaldo
 

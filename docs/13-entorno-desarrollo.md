@@ -91,7 +91,7 @@ Con `SIM_YOLO_TILES=1` (sin mosaicos) el simulador procesa un chunk de 1 min en 
 2. Correr `analyze` con un clip propio de 1 min contra Meta (`SAM_API_BASE_URL` vacío) y guardar los streams crudos.
 3. Ajustar el parser del worker y el simulador al formato real; las pruebas usan esos streams.
 4. Medir el costo de ese minuto y anotarlo en `worker/README.md`.
-5. Cambiar la app al perfil `demo` (chunks de 5 min, 3 s) y analizar el clip del demo ([guion](guion-demo.md)).
+5. Cambiar la app al perfil `demo` (chunks de 5 min, 3 s) y analizar el clip del demo.
 6. En producción: `SAM_API_BASE_URL` vacío en el worker desplegado y `PP_COACH_TRACKER_REQUIRE_META=1` en la API.
 
 ## Qué se declara en la entrega
