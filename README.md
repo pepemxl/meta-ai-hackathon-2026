@@ -1,7 +1,55 @@
 # pp-coach-tracker
 
-Análisis táctico con IA para fútbol amateur, con solo un celular. Proyecto del **Meta Global AI Developer Hackathon** (26 de octubre – 4 de noviembre de 2026).
+**A phone camera that measures the pitch in meters.** Record a match with one phone on a tripod, mark the pitch once, and get every player's position in meters, tracked by **SAM 3.1**, even on amateur pitches with faded lines and poor light.
 
-El entrenador graba con la app Android, la app sube el video en partes a la API (https://ppcoachtracker.pepemxl.com), **SAM 3.1** sigue a jugadores y balón, el worker pone sus posiciones en metros sobre la cancha y **Muse Spark** escribe los hallazgos tácticos que el entrenador ve en la app.
+Built for the **Meta Global AI Developer Hackathon** (October 26 – November 4, 2026). The core is SAM 3.1 tracking plus metric calibration.
 
-Este repo empieza solo con la documentación. Todo el código se escribe durante el hackathon con los prompts de [docs/prompts/](docs/prompts/README.md); el índice de la documentación está en [docs/README.md](docs/README.md).
+## How it differs from a common sports analyzer
+
+1. **Meters, not pixels, from one phone.** The coach taps a few points or paints a few lines of the pitch on one frame. The worker solves the camera (homography) and follows it frame by frame as the phone pans, tilts or zooms, so every player's feet land in meters on the pitch. Common analyzers give pixel heatmaps, or need fixed installations, several cameras or GPS vests.
+2. **Works on real, bad pitches.** When the lines are faded or the light is poor, the coach paints over a reference photo or a video frame: "this is a line". Each stroke goes to SAM 3.1 as a point-prompted object that it follows through the video, next to a separate `white line` concept request; the masks confirm or correct the camera.
+3. **Nothing to train, nothing to label.** SAM 3.1 finds each team with a short noun-phrase prompt from the jersey color (`player in red jersey`) and tracks it through the video. A new league, new kits or a new pitch need no dataset and no model.
+4. **It measures; the coach decides.** Muse Spark turns the measurements (possession, meters per minute, sprints, team width and length) into short findings linked to the exact moment of the video. It never sees player names.
+5. **It says where it did not measure.** Frames without the pitch, camera cuts and stretches without calibration are flagged and left out. There is no local fallback that invents data: if the Meta API fails, the analysis fails with a clear message.
+6. **Privacy by design.** Video-use consent before the first upload, withdrawable in the app, and no names sent to Meta.
+
+## How it works
+
+```
+Android app ──chunks──▶ API (PHP + MySQL) ◀──jobs── Worker (Python) ──▶ Meta Model API
+ record, 10 fps copy,     resumable upload,          SAM 3.1 tracking,       SAM 3.1
+ pitch marks, consent     queue, results              pitch in meters,        Muse Spark
+                                                      metrics, findings
+```
+
+- **App** ([`android_native/`](android_native/README.md), Kotlin + Jetpack Compose): records or imports a match, prepares a light analysis copy on the phone (10 fps, up to 720p, 1- or 5-minute chunks with overlap, plus a per-frame pitch mask), uploads it in resumable 8 MB parts, lets the coach mark the pitch and shows the analysis.
+- **API** ([`api/`](api/README.md)): one HTTP contract with two implementations that pass the same tests: PHP 8.3 with no dependencies for production, and Node for development.
+- **Worker** ([`worker/`](worker/README.md), Python): sends each chunk to SAM 3.1 (one noun-phrase concept per request: each team and the ball), joins the tracks across chunks, solves the pitch in meters from the coach's marks, computes the metrics and asks Muse Spark for findings with a strict JSON schema.
+
+The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/README.md) (in Spanish).
+
+## Status (October 28, 2026)
+
+| | |
+|---|---|
+| App, API (Node and PHP) and worker | Built, with automated tests passing (app 48, Node 23, PHP 25, worker 87) |
+| SAM 3.1 and Muse Spark | Written against the documented formats and tested with synthetic streams; **first runs with the real API on October 29** |
+| Lines with SAM (`PP_PITCH_SAM`) | Off until verified with the real API |
+| Production API at https://ppcoachtracker.pepemxl.com and hosted worker | Not deployed yet |
+| Per-player statistics | Not built: metrics are per team and per track |
+
+## Running it locally
+
+From `api/`: `npm run db:up`, `npm run php:up && npm run php:migrate`, `npm run worker:up` and `npm run viewer:up`. Tests: `npm test`, `npm run test:php`, `npm run worker:test`, and `gradlew :app:testDebugUnitTest` in `android_native/`. Secrets go only in a `.env` at the root that is never committed; [`.env.example`](.env.example) lists the names. Details in [docs/arquitectura/05-despliegue.md](docs/arquitectura/05-despliegue.md).
+
+## Prior work and what was built during the hackathon
+
+**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and built a first prototype, which never ran SAM 3.1. From that work we kept only documentation: the design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`, and the step-by-step build prompts in `docs/prompts/`. Commit `2005a96` is the starting point: docs only, no application code.
+
+**During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this repository was written from scratch with an AI coding agent driven by those prompts: the Android app, the API, the analysis worker with SAM 3.1 and Muse Spark and no local model fallback, the pitch calibration and the metrics in meters. The git history shows every step.
+
+**Third-party components:** permissive licenses only (MIT, BSD, Apache-2.0); see [THIRD_PARTY.md](THIRD_PARTY.md). The vision and language models are Meta's, used through the Meta Model API.
+
+---
+
+**En español:** pp-coach-tracker convierte el video de un celular en posiciones en metros. SAM 3.1 sigue a los jugadores y la calibración que marca el entrenador (puntos o líneas pintadas, también en canchas con líneas borradas o poca luz) los pone sobre la cancha. Muse Spark explica lo medido. La documentación del proyecto está en [docs/](docs/README.md).
