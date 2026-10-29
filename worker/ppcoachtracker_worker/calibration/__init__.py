@@ -165,7 +165,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
     cuts where they contradict the propagated pitch; then the chain again."""
     notes: list[str] = []
     report = {"concept": lines.concept, "key_frames": 0, "frames_charged": 0, "references": sum(1 for g in video.order if g is None),
-              "exemplars": sum(len(b) for _, b in video.exemplars), "found": 0, "used": 0, "confirmed": 0, "contradicted": 0, "frames": []}
+              "strokes": len(video.objects), "strokes_sent": len(video.sent_objects()), "found": 0, "used": 0, "confirmed": 0, "contradicted": 0, "frames": []}
     try:
         white, charged = sam_lines.find_white(lines, video)
     except (MetaError, RetryableError, OSError) as e:

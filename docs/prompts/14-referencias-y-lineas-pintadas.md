@@ -20,7 +20,7 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
   mientras algo pase de 1.5 % del alto y queden más de 5, y al final se
   recuperan las que encajan. solver.well_posed rechaza lo que deja la
   cancha libre (líneas de una sola dirección).
-- Los trazos sin nombre no entran al solver: son ejemplos para SAM.
+- Los trazos sin nombre no entran al solver: solo le muestran a SAM dónde hay una línea.
 
 2 · API (Node y PHP, igual)
 - POST /clips/:id/calibration: por cuadro 0..40 puntos y 0..20 líneas
@@ -39,12 +39,19 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
   (con franjas negras al tamaño del video) y después un cuadro clave por
   segundo más los cuadros tocados; se escribe mientras pasan los cuadros
   para la propagación (nunca todos en memoria).
-- La petición: el concepto (SAM_LINE_CONCEPT) y, en cada cuadro con trazos,
-  cajitas de 8 % del alto a lo largo de cada trazo como ejemplos positivos
-  (una caja alrededor de una línea diagonal entera sería casi todo pasto).
-  El formato del ejemplo vive en exemplar_content() y NO está verificado.
-- Lector tolerante de máscaras (COCO numérico o la cadena de pycocotools,
-  bits empacados, PNG; del cuadro o de la caja) y stream crudo guardado.
+- Dos peticiones con ese video, porque SAM 3.1 no combina una frase con
+  puntos o cajas (dev.meta.ai/docs/sam/segmenting):
+  · el concepto (SAM_LINE_CONCEPT, "white line": frase sustantiva corta);
+  · los trazos: cada uno es un objeto con hasta 8 puntos positivos a lo
+    largo, en su cuadro del video, como tokens en el texto
+    ("<0f>1<|point;x=..;y=..;w=..;h=..|>..."; object_prompt()). Cada punto
+    se mueve al píxel más brillante cercano (1.2 % del alto): un dedo es más
+    ancho que una línea lejana. Hasta 16 objetos: los trazos más largos.
+  Las máscaras de las dos se unen; si una falla, queda la otra. Cada
+  petición cobra al menos 50 cuadros.
+- Máscaras: el formato documentado data=H,W,<marca><base85> de la caja del
+  objeto (el alfabeto y el empacado, supuestos) y un lector tolerante de
+  otros (COCO, bits empacados, PNG); stream crudo guardado.
 - Con el lugar de la cámara del primer cuadro tocado: si la homografía
   propagada ya cae sobre los blancos, se confirma; si no, se ajustan paneo,
   inclinación y zoom contra ellos en los dos sentidos, con truncado de 30 a
@@ -53,7 +60,7 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
   corta. Con "Se ven poco o no hay" solo se llama si el entrenador pintó
   algo. Si SAM falla: nota y la cancha de los puntos.
 - Bloque calibration.sam: cuadros clave, cuadros cobrados, referencias,
-  ejemplos, encontrados, confirmados, usados y contradichos.
+  trazos (y los enviados), encontrados, confirmados, usados y contradichos.
 
 4 · APP
 - Match.references (hasta 6, en filesDir/references/match_NNNN/): "Tomar
@@ -84,5 +91,5 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
 
 - [x] Pruebas: worker (83), API Node (23) y PHP (25), app JVM (48), sin llamar a Meta.
 - [x] En el emulador: puntos y líneas pintadas con vista previa, una foto con la cámara virtual y un cuadro del video con trazos; el clip enviado a la API PHP local guarda las líneas y las dos imágenes, y el worker calcula la cancha con esas marcas. Capturas en [versions/0.1.0](../versions/0.1.0/README.md).
-- [ ] Rediseñar los ejemplos: la documentación de SAM 3.1 dice que los puntos y cajas van como tokens en el texto y no se combinan con una frase ([arquitectura/06](../arquitectura/06-pipeline-analisis.md#la-meta-model-api)).
-- [ ] Con la key de SAM 3.1: verificar el formato de los ejemplos y de las máscaras (`sam_lines.exemplar_content`, `decode_mask`), y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige SAM y cuánto cuesta.
+- [x] Los trazos como objetos con puntos, en una petición aparte del concepto, como pide la documentación de SAM 3.1 ([arquitectura/06](../arquitectura/06-pipeline-analisis.md#la-meta-model-api)).
+- [ ] Con la key de SAM 3.1: verificar las dos peticiones y las máscaras (`sam_lines.object_prompt`, `decode_mask`), ver si SAM sigue un trazo de una foto a los cuadros del video, y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige SAM y cuánto cuesta.

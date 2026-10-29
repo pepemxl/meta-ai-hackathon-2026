@@ -3,14 +3,20 @@
 OFF by default (PP_PITCH_SAM=1). When the light is poor or the lines are
 faint, the coach paints over a line in a reference picture (a photo of the
 pitch, a frame of the video, or the frame where the points were touched):
-"this is a line". SAM gets one short MP4 at 1 fps:
+"this is a line". SAM gets one short MP4 at 1 fps (first the coach's
+pictures, letterboxed to the video size, then the key frames: one per second,
+plus the touched frames) in two requests, because the SAM docs say a noun
+phrase cannot be combined with box or point prompts
+(dev.meta.ai/docs/sam/segmenting):
 
-- first the coach's pictures (letterboxed to the video size), then the key
-  frames (one per second, plus the touched frames);
-- the concept in text (SAM_LINE_CONCEPT) and, on every frame with strokes,
-  small boxes along each stroke as positive visual exemplars.
+- the concept (SAM_LINE_CONCEPT, a short noun phrase): every line SAM sees;
+- the strokes as objects: each stroke is one object id with positive points
+  along it, on its frame of the prompt video, written as tokens in the text
+  ("<0f>1<|point;x=..;y=..;w=..;h=..|>..."); SAM follows each one through the
+  video. A finger is wider than a far line, so every point is moved to the
+  brightest pixel near it. At most 16 objects: the longest strokes go.
 
-The masks SAM returns on the key frames are the white pixels. With the
+The masks of both, joined, are the white pixels of each key frame. With the
 camera's place from a touched frame, pan, tilt and zoom are fitted so the
 template falls on them, measured both ways (template → white and white →
 template; one way alone lets the template shrink onto a strong line or
@@ -19,20 +25,17 @@ key of the propagation; one with lines that contradict the propagated pitch
 cuts it. There is no local line detector: if SAM fails, the coach's points
 stay alone and a note says so.
 
-THE REQUEST AND MASK FORMATS ARE NOT VERIFIED against real SAM: the mask reader
-takes the documented "data=H,W,<marker><base85>" of the object's box (alphabet
-and packing guessed) and is tolerant of other shapes (COCO RLE, packed bits,
-PNG). The SAM docs say box and point prompts go as tokens inside the text and
-cannot be combined with a noun phrase, so exemplar_content (a separate content
-item next to the concept) does not match them and must be redesigned before
-PP_PITCH_SAM is turned on. Every raw stream is kept.
+Both requests follow the SAM docs but are NOT VERIFIED against real SAM: the
+mask reader takes the documented "data=H,W,<marker><base85>" of the object's
+box (alphabet and packing guessed) and is tolerant of other shapes (COCO RLE,
+packed bits, PNG). Whether SAM follows a line from a photo into the video
+frames is to be measured. Every raw stream is kept.
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import math
 import re
 from dataclasses import dataclass, field
@@ -47,9 +50,14 @@ from .template import Template, circle_polyline
 
 # A short noun phrase: the SAM docs say filler and spatial words degrade matching.
 DEFAULT_CONCEPT = "white line"
-# Exemplar boxes: the stroke is cut in pieces of this length (of the height), each box padded.
-EXEMPLAR_PIECE = 0.08
-EXEMPLAR_PAD = 0.008
+# Points along a stroke: one every this length (of the height), at most this many.
+POINT_STEP = 0.08
+MAX_POINTS = 8
+# A point moves to the brightest pixel within this distance (of the height).
+SNAP = 0.012
+# Objects per request (SAM docs) and frames billed at least per request.
+MAX_OBJECTS = 16
+MIN_BILLED_FRAMES = 50
 MAX_KEY_FRAMES = 900
 MIN_WHITE_PX = 60
 # Quality filter (measured in the prototype with local lines; same numbers for SAM).
@@ -96,30 +104,63 @@ def strokes_of(calibration: dict | None) -> tuple[list[dict], dict[int, list[lis
     return refs, touched
 
 
-def exemplar_boxes(strokes: list[list[tuple[float, float]]], aspect: float) -> list[list[float]]:
-    """Small normalized boxes [x1, y1, x2, y2] along each stroke: a box around a
-    whole diagonal line would be mostly grass."""
+def stroke_points(strokes: list[list[tuple[float, float]]], aspect: float) -> list[list[tuple[float, float]]]:
+    """Normalized points along each stroke, evenly by length: one every
+    POINT_STEP of the height, both ends included, at most MAX_POINTS."""
     out = []
-    piece, pad_y = EXEMPLAR_PIECE, EXEMPLAR_PAD
-    pad_x = pad_y / max(aspect, 1e-6)
     for s in strokes:
         pts = np.asarray(s, dtype=float)
         if len(pts) < 2:
             continue
-        # Resample by length (in height units) so every piece has the same size.
         seg = np.diff(pts, axis=0) * [aspect, 1.0]
         cum = np.r_[0.0, np.cumsum(np.hypot(seg[:, 0], seg[:, 1]))]
         if cum[-1] <= 0:
             continue
-        n = max(1, int(math.ceil(cum[-1] / piece)))
-        edges = np.linspace(0, cum[-1], n + 1)
-        for a, b in zip(edges[:-1], edges[1:]):
-            ts = np.linspace(a, b, 5)
-            xs = np.interp(ts, cum, pts[:, 0])
-            ys = np.interp(ts, cum, pts[:, 1])
-            out.append([round(float(max(0.0, xs.min() - pad_x)), 5), round(float(max(0.0, ys.min() - pad_y)), 5),
-                        round(float(min(1.0, xs.max() + pad_x)), 5), round(float(min(1.0, ys.max() + pad_y)), 5)])
+        n = min(MAX_POINTS, max(2, int(math.ceil(cum[-1] / POINT_STEP)) + 1))
+        ts = np.linspace(0, cum[-1], n)
+        out.append([(float(np.interp(t, cum, pts[:, 0])), float(np.interp(t, cum, pts[:, 1]))) for t in ts])
     return out
+
+
+def snap(img: np.ndarray, points: list[tuple[float, float]], radius: int) -> list[tuple[int, int]]:
+    """Each normalized point → the brightest pixel within radius (in pixels)."""
+    h, w = img.shape[:2]
+    gray = img if img.ndim == 2 else img.min(axis=2)  # white is bright in every channel; grass is not
+    out = []
+    for x, y in points:
+        px, py = min(w - 1, max(0, int(x * w))), min(h - 1, max(0, int(y * h)))
+        x0, y0 = max(0, px - radius), max(0, py - radius)
+        win = gray[y0:py + radius + 1, x0:px + radius + 1]
+        ys, xs = np.nonzero(win == win.max())
+        i = int(np.argmin((xs + x0 - px) ** 2 + (ys + y0 - py) ** 2))  # the nearest of the brightest
+        out.append((x0 + int(xs[i]), y0 + int(ys[i])))
+    return out
+
+
+@dataclass
+class StrokeObject:
+    """One stroke for SAM: its frame of the prompt video and its points in pixels."""
+
+    frame: int
+    points: list[tuple[int, int]]
+
+    @property
+    def length(self) -> float:
+        p = np.asarray(self.points, dtype=float)
+        return float(np.hypot(*np.diff(p, axis=0).T).sum()) if len(p) > 1 else 0.0
+
+
+def object_prompt(objects: list[StrokeObject], width: int, height: int) -> str:
+    """The point prompt of the SAM docs: "<Nf>" per frame, then per object its
+    id and its points, records split by ","."""
+    by_frame: dict[int, list[tuple[int, StrokeObject]]] = {}
+    for i, o in enumerate(objects, start=1):
+        by_frame.setdefault(o.frame, []).append((i, o))
+    parts = []
+    for k in sorted(by_frame):
+        recs = [f"{i}" + "".join(f"<|point;x={x};y={y};w={width};h={height}|>" for x, y in o.points) for i, o in by_frame[k]]
+        parts.append(f"<{k}f>" + ",".join(recs))
+    return "".join(parts)
 
 
 def letterbox(img: np.ndarray, width: int, height: int) -> tuple[np.ndarray, tuple[float, float, float, float]]:
@@ -134,12 +175,6 @@ def letterbox(img: np.ndarray, width: int, height: int) -> tuple[np.ndarray, tup
     x0, y0 = (width - nw) // 2, (height - nh) // 2
     out[y0:y0 + nh, x0:x0 + nw] = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_AREA)
     return out, (nw / width, nh / height, x0 / width, y0 / height)
-
-
-def exemplar_content(frame: int, boxes: list[list[float]]) -> dict:
-    """One content item with the positive exemplars on one frame of the prompt
-    video. UNVERIFIED shape: adjust here (and in its test) to the real API."""
-    return {"type": "input_visual_prompt", "frame": frame, "boxes": boxes, "labels": [1] * len(boxes)}
 
 
 # ── SAM's masks ──────────────────────────────────────────────────────────────
@@ -462,11 +497,10 @@ class SamLines:
     simulator: bool = False
     streams: list[str] = field(default_factory=list)
 
-    def call(self, video: Path, exemplars: list[tuple[int, list[list[float]]]], frames: int) -> str:
-        """One streamed request: the concept, the prompt video and the exemplars."""
+    def call(self, video: Path, text: str, frames: int, name: str) -> str:
+        """One streamed request: the text (the concept or the point prompt) and the prompt video."""
         sha = hashlib.sha256(video.read_bytes()).hexdigest()
-        ex_key = hashlib.sha256(json.dumps(exemplars, sort_keys=True).encode()).hexdigest()
-        key = cache_key(self.client.base_url, sha, self.model, self.concept, ex_key)
+        key = cache_key(self.client.base_url, sha, self.model, text)
         cached = self.client.cache.get(key)
         if cached is not None:
             self.client.usage.cached += 1
@@ -474,18 +508,17 @@ class SamLines:
         else:
             file_id, sim = self.client.upload(video, sha)
             self.simulator |= sim
-            content = [{"type": "input_text", "text": self.concept}, {"type": "input_video", "file_id": file_id}]
-            content += [exemplar_content(k, boxes) for k, boxes in exemplars if boxes]
+            content = [{"type": "input_text", "text": text}, {"type": "input_video", "file_id": file_id}]
             body = {"model": self.model, "input": [{"type": "message", "role": "user", "content": content}],
                     "metadata": {"include_confidence": "true", "mask_encoding": "one_bit"}}
-            resp = self.client.respond(body, key, {"model": self.model, "concept": self.concept, "video_sha256": sha, "exemplars": len(exemplars)})
-            self.client.usage.frames_sent += frames
+            resp = self.client.respond(body, key, {"model": self.model, "prompt": text[:200], "video_sha256": sha})
+            self.client.usage.frames_sent += max(frames, MIN_BILLED_FRAMES)
         self.simulator |= resp.simulator
         if self.raw_dir is not None:
             self.raw_dir.mkdir(parents=True, exist_ok=True)
-            name = f"sam_pitch_lines_{sha[:8]}.sse"
-            (self.raw_dir / name).write_text(resp.raw, encoding="utf-8")
-            self.streams.append(name)
+            fname = f"sam_pitch_lines_{name}_{sha[:8]}.sse"
+            (self.raw_dir / fname).write_text(resp.raw, encoding="utf-8")
+            self.streams.append(fname)
         return resp.text
 
 
@@ -500,26 +533,34 @@ class PromptVideo:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 1, (width, height))
         self.order: list[int | None] = []  # prompt frame → global frame (None for a picture)
-        self.exemplars: list[tuple[int, list[list[float]]]] = []
-        aspect = width / height
+        self.objects: list[StrokeObject] = []
         for ref in references:
             if ref.image is None:
                 continue
             img, (sx, sy, ox, oy) = letterbox(ref.image, width, height)
-            strokes = [[(x * sx + ox, y * sy + oy) for x, y in st] for st in ref.strokes]
-            self.exemplars.append((len(self.order), exemplar_boxes(strokes, aspect)))
+            self._strokes(img, [[(x * sx + ox, y * sy + oy) for x, y in st] for st in ref.strokes])
             self.order.append(None)
             self.writer.write(img)
 
+    def _strokes(self, img: np.ndarray, strokes: list[list[tuple[float, float]]]) -> None:
+        radius = max(1, round(SNAP * self.height))
+        for pts in stroke_points(strokes, self.width / self.height):
+            self.objects.append(StrokeObject(len(self.order), snap(img, pts, radius)))
+
     def add(self, g: int, img: np.ndarray, strokes: list[list[tuple[float, float]]] | None = None) -> None:
         if strokes:
-            self.exemplars.append((len(self.order), exemplar_boxes(strokes, self.width / self.height)))
+            self._strokes(img, strokes)
         self.order.append(g)
         self.writer.write(img)
 
     def close(self) -> int:
         self.writer.release()
         return len(self.order)
+
+    def sent_objects(self) -> list[StrokeObject]:
+        """The longest MAX_OBJECTS strokes, in their painted order."""
+        keep = sorted(sorted(range(len(self.objects)), key=lambda i: -self.objects[i].length)[:MAX_OBJECTS])
+        return [self.objects[i] for i in keep]
 
 
 def refine_keys(white: dict[int, np.ndarray], start: dict[int, np.ndarray], camera: Camera, t: Template) -> tuple[dict[int, np.ndarray], set[int], list[dict]]:
@@ -563,15 +604,34 @@ def refine_keys(white: dict[int, np.ndarray], start: dict[int, np.ndarray], came
 
 
 def find_white(lines: SamLines, video: PromptVideo) -> tuple[dict[int, np.ndarray], int]:
-    """SAM's white pixels per global key frame, and the prompt frames charged.
-    Raises MetaError when SAM answers objects but no mask can be read."""
+    """SAM's white pixels per global key frame (the concept and the strokes,
+    joined), and the prompt frames charged. Raises MetaError when no request
+    worked: each one failed or answered objects without a readable mask."""
     frames = video.close()
-    text = lines.call(video.path, video.exemplars, frames)
-    masks, unreadable = parse_masks(text, video.width, video.height)
-    if unreadable and not masks:
-        raise MetaError("meta_sam", f"SAM returned {unreadable} line objects without a readable mask (raw stream kept)")
+    requests = [("concept", lines.concept)]
+    if objects := video.sent_objects():
+        requests.append(("strokes", object_prompt(objects, video.width, video.height)))
+    joined: dict[int, np.ndarray] = {}
+    errors: list[MetaError] = []
+    charged = 0
+    for name, text in requests:
+        before = lines.client.usage.frames_sent
+        try:
+            masks, unreadable = parse_masks(lines.call(video.path, text, frames, name), video.width, video.height)
+        except MetaError as e:
+            errors.append(e)
+            continue
+        finally:
+            charged += lines.client.usage.frames_sent - before
+        if unreadable and not masks:
+            errors.append(MetaError("meta_sam", f"SAM returned {unreadable} line objects without a readable mask ({name}; raw stream kept)"))
+            continue
+        for k, mask in masks.items():
+            joined[k] = joined[k] | mask if k in joined else mask
+    if len(errors) == len(requests):
+        raise errors[0]
     out = {}
-    for k, mask in masks.items():
+    for k, mask in joined.items():
         if 0 <= k < len(video.order) and video.order[k] is not None:
             out[video.order[k]] = mask
-    return out, frames
+    return out, charged

@@ -198,7 +198,7 @@ sequenceDiagram
     end
 ```
 
-Los puntos, las líneas y las referencias viajan con el envío (flujo 3). En el worker, la homografía del cuadro marcado se lleva a los demás cuadros de su toma siguiendo el pasto, y los pies de cada jugador pasan a metros. Con `PP_PITCH_SAM=1`, SAM recibe los trazos como ejemplos de "esto es una línea" ([06-pipeline-analisis.md](06-pipeline-analisis.md#la-cancha-en-metros)).
+Los puntos, las líneas y las referencias viajan con el envío (flujo 3). En el worker, la homografía del cuadro marcado se lleva a los demás cuadros de su toma siguiendo el pasto, y los pies de cada jugador pasan a metros. Con `PP_PITCH_SAM=1`, SAM busca las líneas dos veces: con el concepto `white line` y con cada trazo como un objeto marcado con puntos, "esto es una línea" ([06-pipeline-analisis.md](06-pipeline-analisis.md#la-cancha-en-metros)).
 
 ## 6. Cola de análisis
 
@@ -233,8 +233,10 @@ sequenceDiagram
     W->>W: une tracks entre chunks, equipos, cortes, cuadros que cuentan, balón, posesión
     W->>W: cancha en metros (con las marcas del entrenador) y métricas
     opt PP_PITCH_SAM=1 y el entrenador marcó la cancha
-        W->>M: SAM 3.1 con las referencias y los cuadros clave, trazos como ejemplos
+        W->>M: SAM 3.1 con las referencias y los cuadros clave: el concepto "white line"
         M-->>W: máscaras de las líneas
+        W->>M: SAM 3.1, el mismo video: cada trazo como objeto con puntos
+        M-->>W: máscaras de esos objetos (se unen a las anteriores)
     end
     W->>M: Muse Spark con métricas sin nombres (json_schema estricto)
     M-->>W: resumen e insights
