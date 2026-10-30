@@ -91,7 +91,9 @@ fun SquadScreen(vm: CoachViewModel, lib: Library) {
                             Text("${p.number}", style = MaterialTheme.typography.headlineSmall, color = c.textPrimary, modifier = Modifier.width(48.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(p.alias.ifBlank { s.positionLabel(p.position.key) }, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
-                                Text("${s.positionLabel(p.position.key)} · ${s.matchesPlayed}: ${t.matches} · ${s.statLabel("goals")}: ${t.of(Stat.GOALS)}",
+                                // Without an alias the position is the title: not twice.
+                                val position = if (p.alias.isBlank()) "" else "${s.positionLabel(p.position.key)} · "
+                                Text("$position${s.matchesPlayed}: ${t.matches} · ${s.statLabel("goals")}: ${t.of(Stat.GOALS)}",
                                     style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
                             }
                             PpTextButton(s.editPlayer, { editing = p })

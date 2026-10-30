@@ -1,6 +1,6 @@
 {
   "name": "pp-coach-tracker-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "API de pp-coach-tracker: recibe los chunks de 10 fps que sube la app y coordina el worker",
   "main": "src/server.js",
   "private": true,

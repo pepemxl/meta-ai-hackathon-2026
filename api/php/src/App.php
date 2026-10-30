@@ -14,7 +14,7 @@ use PpCoachTracker\Http\Router;
  */
 final class App
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
     private const LOGIN_WINDOW = 900;
     private const LOGIN_MAX_EMAIL = 10;
     private const LOGIN_MAX_IP = 30;
