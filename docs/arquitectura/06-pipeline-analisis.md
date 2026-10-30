@@ -137,7 +137,7 @@ flowchart LR
 | Resultado con métricas por equipo | Estadísticas por dorsal: requiere etiquetar los tracks en la app |
 | El worker de producción corre en la máquina de desarrollo; el simulador no existe | Un servidor que no se suspenda; el simulador (etapa 8a, fuera del repo) |
 | El visor dibuja cajas, posesión y la cancha calculada, y compara dos corridas | Que dibuje las líneas pintadas y las máscaras de SAM |
-| Los chunks se quedan en el servidor | Cron de retención que los borre después del análisis |
+| `bin/retention.php` borra el video después del análisis | Programar su cron diario en producción |
 
 ## Estados mientras analiza
 

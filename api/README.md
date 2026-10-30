@@ -70,7 +70,7 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 
 Opcional: `"analysis": {"pitch_mode": "lines" | "no_lines" | "off", "camera": "static" | "moving"}`. `pitch_mode` dice si se calcula la cancha; `camera`, si la cámara queda quieta todo el video (tripié o panorámica: una sola homografía) o se mueve y hace zoom (se sigue cuadro por cuadro). Sin el campo, `null`; otro valor, 400 con `analysis.pitch_mode` o `analysis.camera`. Quedan fijos cuando el worker toma el clip.
 
-Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode, camera, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
+Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode, camera, video_deleted, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
 
 - **400** `{error: "invalid fields", fields: [...]}`: `duration_ms` ≤ 6 h, `chunk_count` 1..1000, textos 1..160 (`venue` puede ir vacío), `chunk_seconds` 60..300 (perfiles `dev` = 60 y `demo` = 300), `overlap_ms` 2000..5000.
 - **428** `{error: "consent required", consent_version}`: falta el consentimiento, no es la versión vigente (`2026-10-27`) o la fecha es inválida o está más de 1 día en el futuro.

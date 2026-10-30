@@ -529,3 +529,46 @@ test('painted lines and reference pictures: validated, stored and given to the w
   const late = await put(2, JPEG);
   assert.equal(late.status, 409);
 });
+
+test('retention deletes the video of analyzed and expired clips, keeps the analysis, and a clip sent again uploads it again', async () => {
+  // Analyzed: ready, with its analysis.
+  const analyzed = await readyClip();
+  const job = await claim(analyzed.jobId);
+  assert.ok(job);
+  const result = { version: 1, backends: { segmenter: 'meta_sam' }, summary: 'ok' };
+  const done = await api().post(`/internal/jobs/${analyzed.jobId}/result`).set('Authorization', h.WORKER)
+    .field('status', 'done').attach('analysis', Buffer.from(JSON.stringify(result)), 'analysis.json');
+  assert.equal(done.status, 200, JSON.stringify(done.body));
+  // Expired: registered 31 days ago and never finished, its job still queued.
+  const old = await register(h.clipBody({ client_clip_id: 'clip-old' }));
+  const oldId = old.body.clip_id;
+  await uploadChunk(oldId, 1, Buffer.from('old-one'));
+  sql(`UPDATE clips SET created_at = NOW() - INTERVAL 31 DAY WHERE id = ${oldId}`);
+  // Recent and not analyzed: untouched.
+  const fresh = (await register(h.clipBody({ client_clip_id: 'clip-fresh' }))).body.clip_id;
+  await uploadChunk(fresh, 1, Buffer.from('fresh-one'));
+
+  const dry = compose(['php', 'php', 'bin/retention.php', '--ready-hours=0', '--dry-run']);
+  assert.match(dry, new RegExp(`borraría  clip ${analyzed.id} `));
+  assert.match(dry, new RegExp(`borraría  clip ${oldId} .*más de 30 días`));
+  assert.doesNotMatch(dry, new RegExp(`clip ${fresh} `));
+  assert.equal((await api().get(`/internal/clips/${analyzed.id}/files/chunks.yaml`).set('Authorization', h.WORKER)).status, 200);
+
+  const out = compose(['php', 'php', 'bin/retention.php', '--ready-hours=0']);
+  assert.match(out, new RegExp(`borrado  clip ${analyzed.id} `));
+  assert.equal((await api().get(`/internal/clips/${analyzed.id}/files/chunks.yaml`).set('Authorization', h.WORKER)).status, 404);
+  const state = await api().get(`/clips/${analyzed.id}`).set('Authorization', h.COACH1);
+  assert.equal(state.body.video_deleted, true);
+  assert.deepEqual(state.body.received, []);
+  assert.equal(state.body.status, 'ready');
+  assert.equal((await api().get(`/clips/${analyzed.id}/analysis`).set('Authorization', h.COACH1)).status, 200);
+  const expired = await api().get(`/clips/${oldId}`).set('Authorization', h.COACH1);
+  assert.equal(expired.body.status, 'failed');
+  assert.equal(expired.body.video_deleted, true);
+  assert.equal((await api().get(`/clips/${fresh}`).set('Authorization', h.COACH1)).body.received.length, 1);
+  // Nothing left to delete on a second run.
+  assert.match(compose(['php', 'php', 'bin/retention.php', '--ready-hours=0']), /^0 clips/m);
+  // Sent again: the video comes back and the mark goes away.
+  await putPart(analyzed.id, 1, 0, Buffer.from('again'));
+  assert.equal((await api().get(`/clips/${analyzed.id}`).set('Authorization', h.COACH1)).body.video_deleted, false);
+});

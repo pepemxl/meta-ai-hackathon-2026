@@ -78,7 +78,7 @@ flowchart LR
 | Plantel y estadísticas por jugador, alineación inicial | **Pendiente** | etapas 2 y 10 |
 | Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
 | API en producción y worker desplegado | Listo: API en Hostinger; worker en Docker dentro de WSL en la máquina de desarrollo (se detiene si la laptop se suspende) | etapa 9, [05-despliegue.md](05-despliegue.md) |
-| Retención: borrar los chunks después del análisis | **Pendiente** | [legal/README.md](../legal/README.md) |
+| Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo (`bin/retention.php`); falta el cron diario en producción | `api/php/bin/retention.php` |
 
 ## Decisiones que dan forma a todo
 

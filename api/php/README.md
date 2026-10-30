@@ -13,7 +13,17 @@ npm run test:php       # pruebas de contrato por HTTP (con .htaccess)
 
 wsl -e docker compose exec -T -e PP_COACH_TRACKER_PASSWORD='…' php php bin/user.php add coach@example.com "Nombre"
 wsl -e docker compose exec php php bin/user.php list
+wsl -e docker compose exec php php bin/retention.php --dry-run   # qué video borraría la retención
 ```
+
+## Retención del video
+
+`bin/retention.php` cumple el aviso de privacidad ("hasta terminar el análisis y como máximo 30 días después de subirlo"). Borra los chunks, los YAML, las partes a medias, el índice y las imágenes de referencia de un clip, y deja su análisis:
+
+- de un clip analizado (`ready`) hace más de `--ready-hours` (24 por omisión);
+- de cualquier clip registrado hace más de `--max-days` (30). Si seguía en la cola, su trabajo y el clip quedan en `failed`.
+
+Marca `clips.video_deleted_at` y `GET /clips/:id` responde `video_deleted: true`. Si el entrenador vuelve a enviar el clip, la app sube el video otra vez y la marca se quita. `--dry-run` solo dice qué borraría y cuántos MB. En producción lo corre un cron diario del hosting: `/usr/bin/php ~/ppcoachtracker_api/bin/retention.php`.
 
 El contenedor sirve la misma carpeta `public/` dos veces: en `/pp-coach-tracker` con los límites de producción y en `/pp-coach-tracker-strict` con `PP_COACH_TRACKER_REQUIRE_META=1` y `MAX_CHUNK_BYTES` de 12 MB, para que las pruebas cubran esos casos sin otro contenedor. Las pruebas usan `PHP_API_URL` si está definida.
 

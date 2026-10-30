@@ -133,6 +133,7 @@ final class App
             'overlap_ms' => $clip['overlap_ms'],
             'pitch_mode' => $clip['pitch_mode'] ?? null,
             'camera' => $clip['camera'] ?? null,
+            'video_deleted' => !empty($clip['video_deleted_at']),
             'received' => array_map(fn($c) => ['number' => $c['number'], 'sha256' => $c['sha256']], $this->repo()->chunks($clip['id'])),
             'partial' => $this->storage->partials($clip['id']),
         ];
@@ -408,7 +409,8 @@ final class App
             @unlink((string) $tmp);
         }
         if (in_array($clip['status'], ['registered', 'failed', 'ready'], true)) {
-            $this->repo()->updateClip($clip['id'], ['status' => 'uploading']);
+            // Un clip que se vuelve a enviar recupera su video (la retención lo había borrado).
+            $this->repo()->updateClip($clip['id'], ['status' => 'uploading', 'video_deleted_at' => null]);
         }
         return Response::json(['number' => $n, 'received_bytes' => $have + $copied]);
     }

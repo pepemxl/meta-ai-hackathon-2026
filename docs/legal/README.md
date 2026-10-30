@@ -64,7 +64,7 @@ Hay que poder demostrar **quién aceptó, qué texto y cuándo**. Así lo hacen 
 - [ ] Publicado (desplegar la API con `public/legal/`) el aviso de privacidad en `https://ppcoachtracker.pepemxl.com/legal/privacidad.html`.
 - [x] La API exige `consent` y guarda la tabla `consents`; la app muestra el diálogo y lo manda.
 - [ ] Funciona el borrado: de un clip, de un partido y de la cuenta completa, incluidos los chunks en `storage/`.
-- [ ] Cron de retención que borra los chunks después del análisis (pendiente en ../../api/php/README.md).
+- [x] Cron de retención que borra los chunks después del análisis (`api/php/bin/retention.php`, ver ../../api/php/README.md).
 - [ ] Correo de privacidad (`[CORREO DE PRIVACIDAD]`) creado y monitoreado; respuesta a solicitudes ARCO en 20 días hábiles.
 - [ ] Para el demo del hackathon: solo video propio con consentimiento firmado ([../08-uso-de-video.md](../08-uso-de-video.md)).
 

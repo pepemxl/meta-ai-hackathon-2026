@@ -57,6 +57,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN camera VARCHAR(16) NULL AFTER pitch_mode');
             $done[] = 'clips.camera';
         }
+        // El cron de retención marca cuándo borró el video de un clip.
+        if (!self::hasColumn($db, 'clips', 'video_deleted_at')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN video_deleted_at DATETIME NULL AFTER calibration');
+            $done[] = 'clips.video_deleted_at';
+        }
         return $done;
     }
 

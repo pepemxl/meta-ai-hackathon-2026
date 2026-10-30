@@ -82,7 +82,17 @@ final class Storage
         return $out;
     }
 
-    /** Borra chunks, YAML, parciales e índice (cambió el perfil del clip). */
+    /** Lo que ocupan los archivos de un clip, en bytes. */
+    public function clipBytes(int $clipId): int
+    {
+        $total = 0;
+        foreach (glob($this->clipDir($clipId) . '/*') ?: [] as $f) {
+            $total += (int) @filesize($f);
+        }
+        return $total;
+    }
+
+    /** Borra chunks, YAML, parciales, índice e imágenes de referencia (cambió el perfil del clip, o la retención). */
     public function wipeClip(int $clipId): void
     {
         $d = $this->clipDir($clipId);

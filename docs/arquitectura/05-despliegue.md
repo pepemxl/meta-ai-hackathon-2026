@@ -73,7 +73,7 @@ flowchart LR
 
 - **API:** PHP en el hosting compartido, en la raíz del subdominio; la app vive en `~/ppcoachtracker_api` y la carpeta web es `~/domains/pepemxl.com/public_html/ppcoachtracker`. Sin SSH: un paquete (`api/php/tools/package.sh`, sin secretos en las actualizaciones), subido por la API de archivos del hosting a `_deploy/` (protegida con un `.htaccess` que niega todo) y un instalador (`install_cloud_provider.php`) que corre un cron de una sola vez: reemplaza el código, aplica el esquema, copia `public/` y borra `_deploy`. El cron se borra al terminar.
 - **Worker:** el hosting no corre procesos largos ni Docker, así que la imagen de `worker/` corre en la máquina de desarrollo (Docker en WSL) con `worker/docker-compose.prod.yml`: `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`, el `PROD_WORKER_CALLBACK_SECRET`, SAM real, sin copias del video y con `restart: unless-stopped`. Una tarea programada al iniciar sesión (`worker/tools/register_wsl_task.ps1`) mantiene WSL vivo. Solo hace peticiones de salida: no abre puertos. El simulador nunca se despliega.
-- **Retención:** falta el cron que borre los chunks y las imágenes después del análisis, como promete el aviso de privacidad.
+- **Retención:** `api/php/bin/retention.php` borra el video (chunks e imágenes de referencia) 24 h después del análisis y, en cualquier caso, a los 30 días; deja el análisis ([api/php/README.md](../../api/php/README.md#retención-del-video)). Lo corre un cron diario del hosting.
 
 ## Cómo se publica una versión de la app
 

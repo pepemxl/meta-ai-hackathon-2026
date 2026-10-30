@@ -133,6 +133,7 @@ function createApp({
       overlap_ms: clip.overlap_ms,
       pitch_mode: clip.pitch_mode ?? null,
       camera: clip.camera ?? null,
+      video_deleted: Boolean(clip.video_deleted_at),
       received: chunks.map((c) => ({ number: c.number, sha256: c.sha256 })),
       partial: storage.partials(storageDir, clip.id),
     };
@@ -286,7 +287,8 @@ function createApp({
     fs.mkdirSync(dir, { recursive: true });
     fs.appendFileSync(path.join(dir, storage.partialName(n)), body);
     if (clip.status === 'registered' || clip.status === 'failed' || clip.status === 'ready') {
-      await repo.updateClip(clip.id, { status: 'uploading' });
+      // A clip sent again gets its video back (retention had deleted it).
+      await repo.updateClip(clip.id, { status: 'uploading', video_deleted_at: null });
     }
     res.json({ number: n, received_bytes: have + body.length });
   }));

@@ -143,6 +143,38 @@ final class Repo
         $this->run('DELETE FROM clip_chunks WHERE clip_id = ?', [$clipId]);
     }
 
+    /**
+     * Clips con video que bin/retention.php debe borrar: analizados hace más de
+     * [readyHours] o registrados hace más de [maxDays] (expired), en cualquier estado.
+     *
+     * @return list<array{id: int, status: string, expired: bool}>
+     */
+    public function retentionCandidates(int $readyHours, int $maxDays): array
+    {
+        $rows = $this->all(
+            "SELECT id, status, created_at < NOW() - INTERVAL ? DAY AS expired FROM clips
+             WHERE video_deleted_at IS NULL
+               AND ((status = 'ready' AND updated_at < NOW() - INTERVAL ? HOUR) OR created_at < NOW() - INTERVAL ? DAY)
+             ORDER BY id",
+            [$maxDays, $readyHours, $maxDays],
+        );
+        return array_map(fn($r) => ['id' => (int) $r['id'], 'status' => $r['status'], 'expired' => (bool) $r['expired']], $rows);
+    }
+
+    public function markVideoDeleted(int $clipId): void
+    {
+        $this->run('UPDATE clips SET video_deleted_at = UTC_TIMESTAMP() WHERE id = ?', [$clipId]);
+    }
+
+    /** Los trabajos en cola o corriendo de un clip pasan a failed con [error]. */
+    public function failOpenJobs(int $clipId, string $error): void
+    {
+        $this->run(
+            "UPDATE jobs SET status = 'failed', error = ?, finished_at = UTC_TIMESTAMP() WHERE clip_id = ? AND status IN ('queued', 'running')",
+            [mb_substr($error, 0, 500), $clipId],
+        );
+    }
+
     public function putChunk(int $clipId, int $n, string $sha, int $size): void
     {
         $this->run(
