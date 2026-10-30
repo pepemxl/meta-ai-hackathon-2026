@@ -51,7 +51,8 @@ npm run worker:prod:down   # lo detiene
 
 - **Configuración:** toma del `.env` de la raíz `MODEL_API_KEY` y `PROD_WORKER_CALLBACK_SECRET` (el mismo `WORKER_CALLBACK_SECRET` de la API de producción), sin copiarlos a otro archivo. Fija la URL de la API, `SAM_API_BASE_URL` vacío (SAM real, nunca el simulador) y `DEBUG_DIR` vacío (no guarda copias del video). La caché y los trabajos van en el volumen `ppcoachtracker-prod_worker-data`.
 - **Versión fija:** la imagen lleva una copia del código; después de un cambio, `npm run worker:prod:up` la reconstruye.
-- **Reinicios:** Docker arranca con systemd dentro de WSL y levanta el contenedor, pero WSL solo arranca cuando algo lo invoca. `powershell -ExecutionPolicy Bypass -File worker	oolsegister_wsl_task.ps1` registra una tarea al iniciar sesión que lo arranca y lo mantiene vivo.
+- **Reinicios:** Docker arranca con systemd dentro de WSL y levanta el contenedor, pero WSL solo arranca cuando algo lo invoca. `powershell -ExecutionPolicy Bypass -File worker	ools
+egister_wsl_task.ps1` registra una tarea al iniciar sesión que lo arranca y lo mantiene vivo.
 - **Suspensión:** con la laptop suspendida el worker no atiende y los trabajos esperan en la cola; la API devuelve a la cola lo que lleva más de 2 h en `running`.
 
 ## Variables
@@ -133,6 +134,10 @@ SAM cobra US$0.20 por cada 1,000 cuadros y concepto (3 conceptos por chunk). Un 
 - `tools/overlay.py`: dibuja las cajas y equipos de un cuadro; úsalo alrededor del cambio de chunk para revisar la unión.
 - `tools/compare_runs.py RUN…`: tabla Markdown entre corridas guardadas (jugadores por cuadro, tamaño de cajas, balón, posesión, tracks, cuadros usados, tiempo y costo de SAM por minuto). Cada cambio se mide antes y después con la misma corrida y se revisa en el visor.
 - `tools/rescore.py RUN`: recalcula cuadros que cuentan, balón y posesión de una corrida guardada sin volver a llamar a SAM.
+- `tools/make_tiles.py`: parte un video ancho (panorámica, o 4K/8K de un teléfono) en 3 videos de 1024 px de ancho con traslape, para que SAM vea a los jugadores a su tamaño real. SAM reduce cada cuadro a 1024 px por el lado largo antes del encoder, así que un panorama de 3840 de ancho deja a los jugadores en unos cuantos pixeles.
+  - `plan VIDEO tiles.json`: encuentra la cancha con el mismo método que la app y coloca las partes sobre ella. Si no alcanzan a tamaño real, reduce el video lo justo para cubrirla (`--tiles 3 --size 1024 --overlap 160 --height pitch|full --margin 0.02`).
+  - `encode tiles.json`: corta las partes con ffmpeg, en H.264 a los fps del original. Solo necesita ffmpeg, así que en Windows corre en el host; `plan` y `merge` corren en la imagen del worker.
+  - `merge tiles.json RUN_1 RUN_2 RUN_3 --out merged.json`: pasa las cajas de la corrida de cada parte a las coordenadas del original y une los tracks de partes vecinas en su traslape (IoU > 0.5 en la mitad de los cuadros compartidos y en 5 o más, como entre chunks). En el traslape deja una caja por jugador: la de la parte cuyo borde queda más lejos.
 
 ### Conceptos de SAM
 
