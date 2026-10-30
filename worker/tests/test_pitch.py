@@ -117,6 +117,29 @@ def test_points_that_do_not_fit_are_not_used(tmp_path):
     assert any("no encajan" in n for n in notes)
 
 
+def test_a_static_camera_keeps_the_touched_homography_without_reading_the_video(tmp_path):
+    from ppcoachtracker_worker.calibration import calibrate
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.types import TrackSet
+
+    clip = load_clip(ps.make_clip(tmp_path / "pitch", seconds=3))
+    infos = clip.frame_infos()
+    # No frames at all: a static camera needs no motion pass.
+    cal, notes = calibrate(clip, TrackSet(rows=[], frames=infos), ps.touches(), "no_lines", frames=iter(()), camera="static")
+    assert notes == []
+    assert len(cal.homographies) == len(infos)
+    assert {s for _, s in cal.homographies.values()} == {"manual", "static"}
+    assert cal.report["camera"] == "static"
+    assert cal.report["frames_with_homography"] == 1.0
+    assert cal.report["by_method"]["static"] == round((len(infos) - 1) / len(infos), 4)
+    assert cal.report["by_method"]["propagated"] == 0.0
+    key = cal.homographies[0][0]
+    assert all(np.allclose(Hm, key) for Hm, _ in cal.homographies.values())
+    # Moving (the default) with no frames to follow: only the touched frame.
+    moving, _ = calibrate(clip, TrackSet(rows=[], frames=infos), ps.touches(), "no_lines", frames=iter(()))
+    assert moving.report["camera"] == "moving" and len(moving.homographies) == 1
+
+
 def test_propagation_follows_a_pan_and_stops_at_a_cut():
     import cv2
 

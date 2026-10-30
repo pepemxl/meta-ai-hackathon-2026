@@ -7,6 +7,8 @@ namespace PpCoachTracker;
 final class Calibration
 {
     public const PITCH_MODES = ['lines', 'no_lines', 'off'];
+    /** La cámara quieta todo el video (una homografía) o con movimiento y zoom. */
+    public const CAMERA_MODES = ['static', 'moving'];
     public const MAX_REFERENCES = 6;
     private const MAX_FRAMES = 20;
     private const MAX_LINES = 20;
@@ -28,6 +30,22 @@ final class Calibration
             return [true, null];
         }
         return in_array($m, self::PITCH_MODES, true) ? [true, $m] : [false, null];
+    }
+
+    /** analysis.camera de POST /clips → [ok, valor] (null si falta). */
+    public static function camera(mixed $analysis): array
+    {
+        if ($analysis === null) {
+            return [true, null];
+        }
+        if (!is_array($analysis)) {
+            return [false, null];
+        }
+        $m = $analysis['camera'] ?? null;
+        if ($m === null) {
+            return [true, null];
+        }
+        return in_array($m, self::CAMERA_MODES, true) ? [true, $m] : [false, null];
     }
 
     private static function num(mixed $v): bool

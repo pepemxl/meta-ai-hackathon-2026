@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +59,7 @@ import com.ppcoach.tracker.data.Clip
 import com.ppcoach.tracker.data.ClipKind
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Library
+import com.ppcoach.tracker.data.CameraMode
 import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.ProxySpec
@@ -254,6 +257,15 @@ private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: String
                 )
             }
             Switch(on, { vm.setPitchEnabled(clip.id, it) }, enabled = !locked, colors = SwitchDefaults.colors(checkedTrackColor = c.accent))
+        }
+        // Still or moving camera: one homography for the whole video, or carried frame by frame.
+        val static = vm.library.collectAsState().value.cameraOf(clip) == CameraMode.STATIC
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+            Checkbox(static, { vm.setCameraStatic(clip.id, it) }, enabled = !locked, colors = CheckboxDefaults.colors(checkedColor = c.accent))
+            Column(Modifier.weight(1f)) {
+                Text(s.cameraStatic, style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
+                Text(if (static) s.cameraStaticHelp else s.cameraMovingHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+            }
         }
         if (on) {
             val n = clip.touches?.points?.size ?: 0

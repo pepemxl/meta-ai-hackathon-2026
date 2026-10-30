@@ -426,20 +426,24 @@ const CAL = {
   ] }],
 };
 
-test('pitch_mode is validated, stored and given to the worker', async () => {
+test('pitch_mode and camera are validated, stored and given to the worker', async () => {
   const bad = await register(h.clipBody({ analysis: { pitch_mode: 'maybe' } }));
   assert.equal(bad.status, 400);
   assert.deepEqual(bad.body.fields, ['analysis.pitch_mode']);
+  const badCamera = await register(h.clipBody({ analysis: { camera: 'tripod' } }));
+  assert.equal(badCamera.status, 400);
+  assert.deepEqual(badCamera.body.fields, ['analysis.camera']);
   assert.equal((await register(h.clipBody())).body.pitch_mode, null);
-  const reg = await register(h.clipBody({ analysis: { pitch_mode: 'no_lines' } }));
+  const reg = await register(h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static' } }));
   assert.equal(reg.body.pitch_mode, 'no_lines');
+  assert.equal(reg.body.camera, 'static');
   const id = reg.body.clip_id;
   assert.equal((await api().post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(CAL)).status, 200);
   await uploadChunk(id, 1, Buffer.from('a'));
   await uploadChunk(id, 2, Buffer.from('b'));
   const done = await complete(id);
   const next = await claim(done.body.job_id);
-  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines' });
+  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static' });
   assert.deepEqual(next.body.calibration, CAL);
 });
 

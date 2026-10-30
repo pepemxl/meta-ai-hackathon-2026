@@ -132,6 +132,7 @@ final class App
             'chunk_seconds' => $clip['chunk_seconds'],
             'overlap_ms' => $clip['overlap_ms'],
             'pitch_mode' => $clip['pitch_mode'] ?? null,
+            'camera' => $clip['camera'] ?? null,
             'received' => array_map(fn($c) => ['number' => $c['number'], 'sha256' => $c['sha256']], $this->repo()->chunks($clip['id'])),
             'partial' => $this->storage->partials($clip['id']),
         ];
@@ -224,6 +225,10 @@ final class App
         if (!$pitchOk) {
             $bad[] = 'analysis.pitch_mode';
         }
+        [$cameraOk, $camera] = Calibration::camera($b['analysis'] ?? null);
+        if (!$cameraOk) {
+            $bad[] = 'analysis.camera';
+        }
         if ($bad) {
             throw new HttpError(400, 'invalid fields', ['fields' => $bad]);
         }
@@ -250,7 +255,7 @@ final class App
             $id = $this->repo()->createClip([
                 'coach_id' => $coach, 'client_clip_id' => $b['client_clip_id'], 'match_id' => $matchId, 'title' => $b['title'],
                 'duration_ms' => $b['duration_ms'], 'chunk_count' => $b['chunk_count'], 'chunk_seconds' => $b['chunk_seconds'], 'overlap_ms' => $b['overlap_ms'],
-                'pitch_mode' => $pitchMode,
+                'pitch_mode' => $pitchMode, 'camera' => $camera,
             ]);
         } else {
             $id = $clip['id'];
@@ -258,6 +263,7 @@ final class App
             // La respuesta queda fija cuando el worker toma el clip.
             if (!in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
                 $fields['pitch_mode'] = $pitchMode;
+                $fields['camera'] = $camera;
             }
             $changed = $clip['chunk_count'] !== $b['chunk_count'] || $clip['chunk_seconds'] !== $b['chunk_seconds'] || $clip['overlap_ms'] !== $b['overlap_ms'];
             if ($changed && !in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
@@ -550,7 +556,7 @@ final class App
                 'dir' => Storage::clipDirName($clip['id']), 'index' => Storage::INDEX, 'files' => $files,
                 'references' => $this->storage->references($clip['id']),
             ],
-            'options' => ['pitch_mode' => $clip['pitch_mode'] ?? null],
+            'options' => ['pitch_mode' => $clip['pitch_mode'] ?? null, 'camera' => $clip['camera'] ?? null],
             'calibration' => empty($clip['calibration']) ? null : json_decode($clip['calibration']),
             'match' => $match === null ? null : [
                 'home' => $match['home'], 'away' => $match['away'], 'home_color' => $match['home_color'],

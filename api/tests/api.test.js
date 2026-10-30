@@ -441,15 +441,19 @@ const CAL = {
   ] }],
 };
 
-test('pitch_mode is validated, stored and given to the worker', async () => {
+test('pitch_mode and camera are validated, stored and given to the worker', async () => {
   const { app } = h.makeApp();
   const bad = await register(app, h.clipBody({ analysis: { pitch_mode: 'maybe' } }));
   assert.equal(bad.status, 400);
   assert.deepEqual(bad.body.fields, ['analysis.pitch_mode']);
+  const badCamera = await register(app, h.clipBody({ analysis: { camera: 'tripod' } }));
+  assert.equal(badCamera.status, 400);
+  assert.deepEqual(badCamera.body.fields, ['analysis.camera']);
   const none = await register(app, h.clipBody());
   assert.equal(none.body.pitch_mode, null);
-  const reg = await register(app, h.clipBody({ analysis: { pitch_mode: 'no_lines' } }));
+  const reg = await register(app, h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static' } }));
   assert.equal(reg.body.pitch_mode, 'no_lines');
+  assert.equal(reg.body.camera, 'static');
   const id = reg.body.clip_id;
   assert.equal((await request(app).post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(CAL)).status, 200);
   await uploadChunk(app, id, 1, Buffer.from('a'));
@@ -458,7 +462,7 @@ test('pitch_mode is validated, stored and given to the worker', async () => {
   let next;
   // Other tests may leave jobs queued in MySQL: claim until this clip's.
   do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
-  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines' });
+  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static' });
   assert.deepEqual(next.body.calibration, CAL);
 });
 

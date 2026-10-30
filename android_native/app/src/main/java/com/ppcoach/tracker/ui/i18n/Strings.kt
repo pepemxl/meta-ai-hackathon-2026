@@ -207,6 +207,9 @@ interface Strings {
     val pitchOff: String
     val pitchUseForMatch: String
     val computePitch: String
+    val cameraStatic: String
+    val cameraStaticHelp: String
+    val cameraMovingHelp: String
     val pitchAnswerLines: String
     val pitchAnswerNoLines: String
     val pitchAnswerAsk: String
@@ -466,6 +469,9 @@ object Es : Strings {
     override val pitchOff = "No calcular la cancha"
     override val pitchUseForMatch = "Usar esta respuesta para los demás videos de este partido"
     override val computePitch = "Calcular la cancha"
+    override val cameraStatic = "La cámara queda fija todo el video"
+    override val cameraStaticHelp = "Tripié o cámara panorámica: la cancha se calcula una vez para todo el video."
+    override val cameraMovingHelp = "La cámara se mueve o hace zoom: la cancha se sigue cuadro por cuadro."
     override val pitchAnswerLines = "Líneas bien marcadas"
     override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
     override val pitchAnswerAsk = "Se pregunta al enviar"
@@ -732,6 +738,9 @@ object En : Strings {
     override val pitchOff = "Do not compute the pitch"
     override val pitchUseForMatch = "Use this answer for the other videos of this match"
     override val computePitch = "Compute the pitch"
+    override val cameraStatic = "The camera stays still the whole video"
+    override val cameraStaticHelp = "Tripod or panoramic camera: the pitch is computed once for the whole video."
+    override val cameraMovingHelp = "The camera pans or zooms: the pitch is followed frame by frame."
     override val pitchAnswerLines = "Clear lines"
     override val pitchAnswerNoLines = "No lines: with the marked points"
     override val pitchAnswerAsk = "Asked when sending"

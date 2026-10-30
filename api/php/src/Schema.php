@@ -52,6 +52,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN calibration TEXT NULL AFTER pitch_mode');
             $done[] = 'clips.calibration';
         }
+        // La cámara quieta (una homografía para todo el video) o con movimiento y zoom.
+        if (!self::hasColumn($db, 'clips', 'camera')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN camera VARCHAR(16) NULL AFTER pitch_mode');
+            $done[] = 'clips.camera';
+        }
         return $done;
     }
 

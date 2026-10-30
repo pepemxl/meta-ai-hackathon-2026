@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS clips (
   overlap_ms SMALLINT UNSIGNED NOT NULL,
   -- lines | no_lines | off | NULL (docs/prompts/13-cancha-en-metros.md)
   pitch_mode VARCHAR(16) NULL,
+  -- static | moving | NULL: la cámara quieta todo el video (una homografía) o con movimiento y zoom
+  camera VARCHAR(16) NULL,
   -- Puntos de la cancha que marcó el entrenador (JSON), o NULL.
   calibration TEXT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'registered',

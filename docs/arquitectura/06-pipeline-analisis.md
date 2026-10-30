@@ -17,7 +17,7 @@ En todos los casos el worker **pide** trabajo (`GET /internal/jobs/next`) en lug
 
 ```mermaid
 flowchart TB
-    claim["1. Tomar trabajo<br/>GET /internal/jobs/next<br/>clip, archivos, referencias, equipos y colores,<br/>options.pitch_mode y calibration"] --> dl["2. Descargar<br/>chunks, YAML, chunks.yaml, reference_N.jpg"]
+    claim["1. Tomar trabajo<br/>GET /internal/jobs/next<br/>clip, archivos, referencias, equipos y colores,<br/>options.pitch_mode, options.camera y calibration"] --> dl["2. Descargar<br/>chunks, YAML, chunks.yaml, reference_N.jpg"]
     dl --> read["3. Leer como un solo video<br/>sin repetir el traslape, con la hora del original<br/>y la máscara de la cancha del YAML de la app"]
     read --> sam["4. SAM 3.1 por chunk y por concepto<br/>player in &lt;color&gt; jersey (A y B), soccer ball;<br/>une los tracks en el traslape"]
     sam --> pass["5. Una pasada por el video<br/>máscara de la cancha donde no vino de la app,<br/>histogramas para los cortes, pasto junto al balón"]
@@ -71,6 +71,11 @@ flowchart LR
 | `off` ("No calcular") | Nada; coordenadas de la imagen, aunque haya marcas |
 | `no_lines` ("Se ven poco o no hay") | Las marcas del entrenador; SAM para las líneas solo si pintó algo |
 | `lines` o sin el campo | Las marcas, y SAM para las líneas si `PP_PITCH_SAM=1` |
+
+| `camera` | Cómo se lleva la homografía del cuadro tocado al resto del video |
+|---|---|
+| `static` ("La cámara queda fija todo el video": tripié o panorámica) | La misma homografía para todos los cuadros, sin pasada de movimiento; solo la prueba de los pies puede cortarla (`by_method.static`) |
+| `moving` o sin el campo (una transmisión que se mueve y hace zoom) | Propagada cuadro por cuadro con KLT sobre el pasto (`by_method.propagated`) |
 
 - **Nada automático sin un cuadro tocado:** en un solo cuadro, el lugar de la cámara, la inclinación y el zoom se compensan entre sí, así que hace falta un cuadro marcado para saber dónde está la cámara.
 - **Con 4 marcas cualquier nombre encaja:** por eso se piden 5. Líneas de una sola dirección dejan la cancha libre (`well_posed`) y no se usan. Las líneas sin nombre no entran al cálculo; solo le muestran a SAM dónde hay una línea.

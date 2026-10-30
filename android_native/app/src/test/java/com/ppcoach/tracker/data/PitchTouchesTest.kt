@@ -86,6 +86,26 @@ class PitchTouchesTest {
     }
 
     @Test
+    fun theCameraComesFromTheClipThenItsMatchThenMoving() {
+        var lib = Library()
+        lib = lib.addMatch { Match(it, "A", "B", date = "2026-10-30") }.first
+        lib = lib.addClip { Clip(it, 1, "c") }.first
+        assertEquals(CameraMode.MOVING, lib.cameraOf(lib.clips[0]))
+        // The match's last answer applies to its other videos...
+        lib = lib.updateMatch(1) { it.copy(camera = CameraMode.STATIC) }
+        assertEquals(CameraMode.STATIC, lib.cameraOf(lib.clips[0]))
+        // ...unless the clip has its own.
+        lib = lib.updateClip(1) { it.copy(camera = CameraMode.MOVING) }
+        assertEquals(CameraMode.MOVING, lib.cameraOf(lib.clips[0]))
+        val back = LibraryCodec.decode(LibraryCodec.encode(lib))
+        assertEquals(lib, back)
+        val unknown = LibraryCodec.decode("""{"matches":[{"id":1,"home":"A","away":"B","camera":"tripod"}],"clips":[{"id":1,"matchId":1,"camera":"shaky"}]}""")
+        assertEquals("", unknown.matches[0].camera)
+        assertEquals("", unknown.clips[0].camera)
+        assertEquals(CameraMode.MOVING, unknown.cameraOf(unknown.clips[0]))
+    }
+
+    @Test
     fun analysisReadsTheBlockInMeters() {
         val heat = (0 until 8).joinToString(",", "[", "]") { r -> (0 until 12).joinToString(",", "[", "]") { c -> if (r == 0 && c == 0) "1" else "0" } }
         val text = """{"summary":"s","teams":{},"pitch":{"length_m":60,"width_m":40,"approximate":true,"seconds":12,"frames_with_homography":1.0,

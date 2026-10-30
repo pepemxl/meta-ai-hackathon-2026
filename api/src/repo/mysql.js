@@ -74,9 +74,9 @@ function createMysqlRepo({ host, port, database, user, password }) {
 
     async createClip(c) {
       const [r] = await pool.query(
-        `INSERT INTO clips (coach_id, client_clip_id, match_id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, pitch_mode, status)
+        `INSERT INTO clips (coach_id, client_clip_id, match_id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, pitch_mode, camera, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'registered')`,
-        [c.coach_id, c.client_clip_id, c.match_id, c.title, c.duration_ms, c.chunk_count, c.chunk_seconds, c.overlap_ms, c.pitch_mode ?? null],
+        [c.coach_id, c.client_clip_id, c.match_id, c.title, c.duration_ms, c.chunk_count, c.chunk_seconds, c.overlap_ms, c.pitch_mode ?? null, c.camera ?? null],
       );
       return r.insertId;
     },

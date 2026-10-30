@@ -98,6 +98,8 @@ data class Match(
     val references: List<PitchReference> = emptyList(),
     /** The saved pitch where it is played (SavedPitch.id), 0 = none: the next clips start on it. */
     val pitchId: Int = 0,
+    /** Last answer to "The camera stays still" (CameraMode), used for the other videos of the match. */
+    val camera: String = "",
 ) {
     val folder: String get() = "match_%04d".format(id)
     val nextReferenceId: Int get() = (references.maxOfOrNull { it.id } ?: 0) + 1
@@ -133,6 +135,8 @@ data class Clip(
     val touches: PitchTouches? = null,
     /** Share of the analysis copy's frames where the pitch is seen (0..1), -1 = not measured. */
     val pitchShare: Double = -1.0,
+    /** static | moving (CameraMode); "" = the match's answer. Fixed once sent. */
+    val camera: String = "",
 ) {
     val fileName: String get() = "clip_%04d.mp4".format(id)
 }
@@ -165,6 +169,10 @@ data class Library(
         matches = matches.map { if (it.pitchId == id) it.copy(pitchId = 0) else it },
     )
     fun clip(id: Int): Clip? = clips.firstOrNull { it.id == id }
+
+    /** The camera of a clip as it is sent: its answer, else its match's, else moving. */
+    fun cameraOf(clip: Clip): String =
+        clip.camera.takeIf { CameraMode.valid(it) } ?: match(clip.matchId)?.camera?.takeIf { CameraMode.valid(it) } ?: CameraMode.MOVING
     fun clipsOf(matchId: Int): List<Clip> = clips.filter { it.matchId == matchId }.sortedByDescending { it.createdAt }
 
     fun addMatch(build: (id: Int) -> Match): Pair<Library, Match> {

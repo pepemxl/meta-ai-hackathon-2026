@@ -31,7 +31,7 @@ log = logging.getLogger("ppcoachtracker_worker")
 
 
 def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep,
-            pitch_mode: str | None = None, calibration: dict | None = None, frames=None) -> tuple[dict, TrackSet]:
+            pitch_mode: str | None = None, calibration: dict | None = None, frames=None, camera: str | None = None) -> tuple[dict, TrackSet]:
     started = time.monotonic()
     clip = load_clip(clip_dir)
     if clip.frames_sent_per_concept > cfg.max_frames_per_job:
@@ -80,7 +80,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
 
     # The pitch in meters: only from the coach's points, never guessed.
     lines = SamLines(sam_client, cfg.sam_model, cfg.line_concept, raw_dir) if cfg.pitch_sam else None
-    cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames, lines=lines)
+    cal, cal_notes = calibrate(clip, trackset, calibration, pitch_mode, frames=frames, lines=lines, camera=camera)
     if lines is not None:
         segmenter.simulator |= lines.simulator
     pitch = None
@@ -210,6 +210,7 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
     """Downloads, analyzes and reports one job. Returns "done" or "failed"."""
     job_id = int(job["job_id"])
     clip = job["clip"]
+    options = job.get("options") or {}
     work = cfg.work_dir / f"job_{job_id:06d}"
     log.info("job %s: clip %s (%s chunks)", job_id, clip["id"], clip.get("chunk_count"))
     try:
@@ -220,7 +221,7 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
             except ApiError as e:
                 raise InputError(f"cannot download {name}: {e}") from None
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
-                                   pitch_mode=(job.get("options") or {}).get("pitch_mode"), calibration=job.get("calibration"))
+                                   pitch_mode=options.get("pitch_mode"), camera=options.get("camera"), calibration=job.get("calibration"))
         if cfg.debug_dir is not None:
             run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)
             log.info("job %s: run saved in %s", job_id, run)

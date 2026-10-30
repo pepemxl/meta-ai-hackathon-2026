@@ -29,6 +29,7 @@ import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.Durable
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
+import com.ppcoach.tracker.data.CameraMode
 import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.PitchReference
 import com.ppcoach.tracker.data.SavedPitch
@@ -346,6 +347,13 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         val clip = library.value.clip(clipId) ?: return
         val fromMatch = library.value.match(clip.matchId)?.pitchMode.orEmpty()
         updateClip(clipId) { it.copy(pitchMode = if (!on) PitchMode.OFF else fromMatch.takeIf { m -> m == PitchMode.LINES || m == PitchMode.NO_LINES } ?: "") }
+    }
+
+    /** "The camera stays still the whole video": the clip's answer, and the match's for its next videos. */
+    fun setCameraStatic(clipId: Int, static: Boolean) {
+        val clip = library.value.clip(clipId) ?: return
+        val mode = if (static) CameraMode.STATIC else CameraMode.MOVING
+        AppGraph.commit { it.updateClip(clipId) { c -> c.copy(camera = mode) }.updateMatch(clip.matchId) { m -> m.copy(camera = mode) } }
     }
 
     fun saveTouches(clipId: Int, touches: com.ppcoach.tracker.data.PitchTouches?) {

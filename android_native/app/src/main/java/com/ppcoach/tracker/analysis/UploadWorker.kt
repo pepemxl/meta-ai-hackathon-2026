@@ -79,7 +79,9 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                         .put("venue", match.venue.take(160)),
                 )
                 .put("consent", Consent.clipBlock(settings.consentAt, BuildConfig.VERSION_NAME))
-            if (PitchMode.valid(clip.pitchMode)) body.put("analysis", JSONObject().put("pitch_mode", clip.pitchMode))
+            val analysis = JSONObject().put("camera", AppGraph.library.value.cameraOf(clip))
+            if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
+            body.put("analysis", analysis)
             val remote = api.register(body)
             AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id) } }
             // The coach's points, painted lines and reference pictures right after

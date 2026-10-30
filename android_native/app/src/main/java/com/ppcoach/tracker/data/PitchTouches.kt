@@ -13,6 +13,17 @@ object PitchMode {
 }
 
 /**
+ * Whether the camera stays still the whole video (a tripod or a panorama: the
+ * worker uses one homography for all of it) or moves and zooms (a feed: carried
+ * frame by frame). "" = not answered: the match's last answer, else moving.
+ */
+object CameraMode {
+    const val STATIC = "static"
+    const val MOVING = "moving"
+    fun valid(m: String?) = m == STATIC || m == MOVING
+}
+
+/**
  * The pitch in meters with every point and line named: the SAME names as
  * worker/ppcoachtracker_worker/calibration/template.py (a test compares them).
  * Origin at the center, x along the length, y across (y > 0 the far touchline).

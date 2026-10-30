@@ -3,6 +3,9 @@
 // Whether the worker computes the pitch (docs/prompts/13-cancha-en-metros.md):
 // lines = the lines are clear; no_lines = only the coach's points; off = do not.
 const PITCH_MODES = ['lines', 'no_lines', 'off'];
+// Whether the camera stays still the whole video (a tripod or a panorama:
+// one homography holds) or moves and zooms (a feed: it is carried frame by frame).
+const CAMERA_MODES = ['static', 'moving'];
 const POINT_NAME = /^[a-z0-9_]{1,40}$/;
 const MAX_FRAMES = 20;
 
@@ -13,6 +16,15 @@ function parsePitchMode(analysis) {
   const m = analysis.pitch_mode;
   if (m === undefined || m === null) return { value: null };
   return PITCH_MODES.includes(m) ? { value: m } : { error: true };
+}
+
+/** analysis.camera of POST /clips → {value} (null when absent) or {error}. */
+function parseCamera(analysis) {
+  if (analysis === undefined || analysis === null) return { value: null };
+  if (typeof analysis !== 'object') return { error: true };
+  const m = analysis.camera;
+  if (m === undefined || m === null) return { value: null };
+  return CAMERA_MODES.includes(m) ? { value: m } : { error: true };
 }
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -125,4 +137,4 @@ function parseCalibration(body) {
   return { value };
 }
 
-module.exports = { PITCH_MODES, MAX_REFERENCES, parsePitchMode, parseCalibration };
+module.exports = { PITCH_MODES, CAMERA_MODES, MAX_REFERENCES, parsePitchMode, parseCamera, parseCalibration };

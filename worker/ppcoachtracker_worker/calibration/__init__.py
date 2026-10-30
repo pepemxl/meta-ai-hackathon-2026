@@ -11,6 +11,10 @@ Rule of the whole thing: BETTER NO METERS THAN FALSE METERS.
   height (a note says so), carried along its shot by
   propagate.py. The chain stops at a cut, where too few points match, and
   where fewer than 90 % of the feet fall on the pitch with 5 m of margin.
+- camera "static" (the coach said the camera does not move the whole video:
+  a tripod or a panorama): the touched homography holds for every frame, with
+  no motion pass; only the feet check can cut it. "moving" or absent: carried
+  frame by frame as above (a feed that pans and zooms).
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ import numpy as np
 from ..chunks import Clip, iter_frames
 from ..types import MetaError, RetryableError, TrackSet
 from . import sam_lines
-from .propagate import chain, motion_steps
+from .propagate import Step, chain, motion_steps
 from .solver import Camera, Correspondences, fit_homography, fit_line, project, ransac_points, residuals, unproject, well_posed
 from .template import Template, build
 
@@ -197,7 +201,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
 
 
 def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mode: str | None, frames=None,
-              lines: "sam_lines.SamLines | None" = None) -> tuple[PitchCalibration | None, list[str]]:
+              lines: "sam_lines.SamLines | None" = None, camera: str | None = None) -> tuple[PitchCalibration | None, list[str]]:
     """Returns the calibration (or None) and notes for the result. [frames] overrides decoding (tests).
 
     [lines] (PP_PITCH_SAM=1): SAM looks for the lines on key frames, shown by
@@ -237,6 +241,7 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     report = {
         "pitch": {"size": template.size, "length_m": template.length, "width_m": template.width, "source": "default" if template.approximate else "coach"},
         "mode": pitch_mode,
+        "camera": "static" if camera == "static" else "moving",
         "key_frames": key_report,
         "frames_with_homography": 0.0,
         "by_method": {"manual": 0.0, "propagated": 0.0},
@@ -277,7 +282,17 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
                 yield g, img
 
         source = tap(source)
-    steps = motion_steps(source, boxes_of)
+    static = camera == "static"
+    if static:
+        # A camera that does not move: every step is the identity, so each key
+        # frame's homography holds until the feet say otherwise. The frames are
+        # only read when SAM's prompt video needs them.
+        if video is not None:
+            for _ in source:
+                pass
+        steps = [Step(np.eye(3), 0, 1.0, False) for _ in infos]
+    else:
+        steps = motion_steps(source, boxes_of)
     chained = chain(steps, keys, accept)
     method = {k: "manual" for k in keys}
     if video is not None:
@@ -285,15 +300,18 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         report["lines"] = "sam"
         report["sam"] = sam_report
         notes += sam_notes
-    homographies = {i: (Hm, method[k] if i == k else "propagated") for i, (Hm, k) in chained.items()}
+    carried = "static" if static else "propagated"
+    homographies = {i: (Hm, method[k] if i == k else carried) for i, (Hm, k) in chained.items()}
 
     n = max(1, len(infos))
     manual = sum(1 for _, s in homographies.values() if s == "manual")
     by_sam = sum(1 for _, s in homographies.values() if s == "meta_sam")
+    by_static = sum(1 for _, s in homographies.values() if s == "static")
     errs = [e["median_error_px"] for e in key_report if e["used"]]
     report.update(
         frames_with_homography=round(len(homographies) / n, 4),
-        by_method={"manual": round(manual / n, 4), "propagated": round((len(homographies) - manual - by_sam) / n, 4),
+        by_method={"manual": round(manual / n, 4), "propagated": round((len(homographies) - manual - by_sam - by_static) / n, 4),
+                   **({"static": round(by_static / n, 4)} if static else {}),
                    **({"meta_sam": round(by_sam / n, 4)} if video is not None else {})},
         median_error=round(float(np.median(errs)) / h, 5) if errs else None,
     )

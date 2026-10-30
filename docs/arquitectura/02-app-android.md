@@ -127,7 +127,7 @@ flowchart LR
     pm -->|"no (primer video del partido)"| pdlg["PitchDialog"] --> send2(["envía"])
     pm -->|sí| send2
     send2 --> cw["ChunkWorker<br/>(se salta los chunks ya hechos)"] --> uw["UploadWorker"]
-    uw -->|"POST /clips (con pitch_mode)<br/>POST calibration y PUT references (si hay)<br/>PUT partes de 8 MB + cierre de cada chunk<br/>POST complete"| api[("API")]
+    uw -->|"POST /clips (con pitch_mode y camera)<br/>POST calibration y PUT references (si hay)<br/>PUT partes de 8 MB + cierre de cada chunk<br/>POST complete"| api[("API")]
     acc -->|"POST /consent"| api
     wd(["Retirar consentimiento"]) --> wdw["ConsentWorker<br/>withdraw"] -->|"POST /consent"| api
     wd -.->|"cancela"| uw
@@ -136,7 +136,7 @@ flowchart LR
 | Worker | Qué hace | Reintentos |
 |---|---|---|
 | `ChunkWorker` | Corta el original en chunks con traslape, los convierte con Media3 Transformer a 10 fps y máx. 720p (o 1080p) sin audio, mide el tiempo real de cada cuadro y escribe el YAML con el mapa al original y el `sha256`. `PitchSampler` decodifica cada chunk con MediaCodec y mide la cancha por cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, conserva los chunks con YAML válido y sigue | Lo relanza la cadena |
-| `UploadWorker` | Registra el clip (consentimiento y `pitch_mode`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
+| `UploadWorker` | Registra el clip (consentimiento, `pitch_mode` y `camera`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
 | `ConsentWorker` | Manda cada aceptación o retiro a `POST /consent` | Con red; espera también a que haya sesión (`401`); hasta 20 intentos |
 
 ## Estados de un clip

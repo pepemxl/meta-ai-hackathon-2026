@@ -48,6 +48,7 @@ object LibraryCodec {
         put("pitchMode", m.pitchMode)
         put("references", JSONArray().apply { m.references.forEach { put(it.toJson()) } })
         put("pitchId", m.pitchId)
+        put("camera", m.camera)
     }
 
     private fun decodeMatch(o: JSONObject): Match? {
@@ -66,6 +67,7 @@ object LibraryCodec {
             pitchMode = o.optString("pitchMode", "").takeIf { PitchMode.valid(it) } ?: "",
             references = o.optJSONArray("references")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(PitchReference::fromJson) } } ?: emptyList(),
             pitchId = o.optInt("pitchId", 0).coerceAtLeast(0),
+            camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
         )
     }
 
@@ -95,6 +97,7 @@ object LibraryCodec {
         put("pitchMode", c.pitchMode)
         c.touches?.let { put("touches", it.toJson()) }
         put("pitchShare", c.pitchShare)
+        put("camera", c.camera)
     }
 
     private fun decodeClip(o: JSONObject): Clip? {
@@ -126,6 +129,7 @@ object LibraryCodec {
             pitchMode = o.optString("pitchMode", "").takeIf { PitchMode.valid(it) } ?: "",
             touches = PitchTouches.fromJson(o.optJSONObject("touches")),
             pitchShare = o.optDouble("pitchShare", -1.0).let { if (it.isNaN() || it > 1.0) -1.0 else it },
+            camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
         )
     }
 }
