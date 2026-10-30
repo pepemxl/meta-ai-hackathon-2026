@@ -53,6 +53,7 @@ android_native/
 │   │   │   │   ├── PitchTouches.kt     respuesta de la cancha, cámara fija o en movimiento, plantilla de 11 y 7, puntos y líneas, homografía de vista previa
 │   │   │   │   ├── PitchReferences.kt  líneas pintadas, trazos, imágenes de referencia y el cuerpo de POST calibration
 │   │   │   │   ├── SavedPitches.kt     canchas guardadas con su largo y ancho en metros
+│   │   │   │   ├── Stats.kt            plantel, stats por jugador y partido, cálculos y el lector del reporte
 │   │   │   │   ├── ClipAnalysis.kt     el análisis del worker (también en metros) y su copia local
 │   │   │   │   ├── ApiClient.kt        cliente HTTP (OkHttp) y el plan de partes que faltan
 │   │   │   │   ├── Consent.kt          versión del consentimiento, enlaces legales y motivos de rechazo
@@ -67,6 +68,7 @@ android_native/
 │   │   ├── res/                    ícono, colores, temas y file_paths.xml (videos y references/)
 │   │   └── src/debug/res/          permite HTTP a 10.0.2.2 solo en debug
 │   └── src/test/                   pruebas JVM (JUnit, org.json, MockWebServer)
+├── samples/analysis-report.example.json   ejemplo del reporte de análisis por dorsal
 └── make.bat, gradlew               compilar en Windows
 ```
 

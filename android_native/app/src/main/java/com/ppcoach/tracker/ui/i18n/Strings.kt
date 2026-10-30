@@ -210,6 +210,47 @@ interface Strings {
     val cameraStatic: String
     val cameraStaticHelp: String
     val cameraMovingHelp: String
+
+    // squad and stats (docs/11-stats-jugadores.md)
+    val navSquad: String
+    val squadTitle: String
+    val squadEmptyTitle: String
+    val squadEmptyHelp: String
+    val addPlayer: String
+    val editPlayer: String
+    val deletePlayer: String
+    val playerNumber: String
+    val playerAlias: String
+    val playerAliasHelp: String
+    val numberTaken: String
+    val numberInvalid: String
+    fun positionLabel(key: String): String
+    fun statLabel(key: String): String
+    val matchStats: String
+    val matchStatsEmpty: String
+    val addToMatch: String
+    val removeFromMatch: String
+    val importReport: String
+    fun reportImported(players: Int, added: List<Int>, unknown: List<String>, ignored: List<String>): String
+    fun reportError(reason: String): String
+    fun reportFrom(source: String, via: String): String
+    val statsLocked: String
+    val noReportYet: String
+    fun editedFrom(analysis: Int): String
+    val backToAnalysis: String
+    val matchesPlayed: String
+    val per90: String
+    val passAccuracy: String
+    val totals: String
+    val byMatch: String
+    val noStatsYet: String
+    val trackTagsTitle: String
+    val trackTagsHelp: String
+    val noTag: String
+    fun trackLine(seconds: Int, meters: Double?): String
+    val tagsToMatch: String
+    fun minutesSynced(players: Int, added: List<Int>): String
+    val tagsNeedSquad: String
     val pitchAnswerLines: String
     val pitchAnswerNoLines: String
     val pitchAnswerAsk: String
@@ -472,6 +513,75 @@ object Es : Strings {
     override val cameraStatic = "La cámara queda fija todo el video"
     override val cameraStaticHelp = "Tripié o cámara panorámica: la cancha se calcula una vez para todo el video."
     override val cameraMovingHelp = "La cámara se mueve o hace zoom: la cancha se sigue cuadro por cuadro."
+
+    override val navSquad = "Plantel"
+    override val squadTitle = "Plantel"
+    override val squadEmptyTitle = "Sin jugadores"
+    override val squadEmptyHelp = "Agrega a tus jugadores con su dorsal y posición para llevar sus estadísticas."
+    override val addPlayer = "Agregar jugador"
+    override val editPlayer = "Editar jugador"
+    override val deletePlayer = "Borrar jugador"
+    override val playerNumber = "Dorsal"
+    override val playerAlias = "Apodo o iniciales (opcional)"
+    override val playerAliasHelp = "Nunca sale del teléfono: el análisis solo usa el dorsal."
+    override val numberTaken = "Ese dorsal ya es de otro jugador."
+    override val numberInvalid = "El dorsal va del 1 al 99."
+    override fun positionLabel(key: String) = when (key) {
+        "GK" -> "Portero"
+        "DF" -> "Defensa"
+        "FW" -> "Delantero"
+        else -> "Medio"
+    }
+    override fun statLabel(key: String) = when (key) {
+        "minutes" -> "Minutos"
+        "goals" -> "Goles"
+        "assists" -> "Asistencias"
+        "shots" -> "Tiros"
+        "shots_on_target" -> "Tiros a gol"
+        "passes_completed" -> "Pases acertados"
+        "passes_failed" -> "Pases fallidos"
+        "key_passes" -> "Pases de gol"
+        "dribbles_completed" -> "Regates"
+        "tackles" -> "Entradas"
+        "interceptions" -> "Intercepciones"
+        "clearances" -> "Despejes"
+        "blocks" -> "Bloqueos"
+        "duels" -> "Duelos"
+        "fouls" -> "Faltas"
+        "yellow_cards" -> "Amarillas"
+        "red_cards" -> "Rojas"
+        else -> key
+    }
+    override val matchStats = "Estadísticas"
+    override val matchStatsEmpty = "Agrega jugadores del plantel a este partido o importa un reporte."
+    override val addToMatch = "Agregar del plantel"
+    override val removeFromMatch = "Quitar del partido"
+    override val importReport = "Importar reporte"
+    override fun reportImported(players: Int, added: List<Int>, unknown: List<String>, ignored: List<String>) = buildString {
+        append("Reporte importado: $players jugadores.")
+        if (added.isNotEmpty()) append(" Dorsales nuevos en el plantel como medios: ${added.joinToString(", ")}; revisa su posición.")
+        if (unknown.isNotEmpty()) append(" Se ignoraron: ${unknown.joinToString(", ")}.")
+        if (ignored.isNotEmpty()) append(" Las captura el entrenador, no el reporte: ${ignored.joinToString(", ")}.")
+    }
+    override fun reportError(reason: String) = "No se pudo importar el reporte ($reason). No cambió nada."
+    override fun reportFrom(source: String, via: String) = "Reporte ${if (via == "video") "de los tracks del video" else "importado"}" + (if (source.isNotBlank()) " · $source" else "")
+    override val statsLocked = "Las estadísticas del video (🔒) se desbloquean con el reporte."
+    override val noReportYet = "Sin reporte todavía"
+    override fun editedFrom(analysis: Int) = "editado · análisis: $analysis"
+    override val backToAnalysis = "Volver al análisis"
+    override val matchesPlayed = "Partidos jugados"
+    override val per90 = "por 90 min"
+    override val passAccuracy = "Precisión de pase"
+    override val totals = "Totales"
+    override val byMatch = "Por partido"
+    override val noStatsYet = "Todavía no tiene estadísticas en ningún partido."
+    override val trackTagsTitle = "Dorsales de los tracks"
+    override val trackTagsHelp = "Liga cada track a un jugador de tu plantel; un jugador puede tener varios. Sus minutos pasan a las estadísticas del partido."
+    override val noTag = "Sin dorsal"
+    override fun trackLine(seconds: Int, meters: Double?) = "${seconds / 60}:${"%02d".format(seconds % 60)} en cuadro" + (meters?.let { " · ${Math.round(it)} m" } ?: "")
+    override val tagsToMatch = "Pasar los minutos al partido"
+    override fun minutesSynced(players: Int, added: List<Int>) = "Minutos de $players jugadores en el partido." + (if (added.isNotEmpty()) " Dorsales nuevos en el plantel: ${added.joinToString(", ")}." else "")
+    override val tagsNeedSquad = "Agrega jugadores al plantel para ligar los tracks."
     override val pitchAnswerLines = "Líneas bien marcadas"
     override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
     override val pitchAnswerAsk = "Se pregunta al enviar"
@@ -741,6 +851,75 @@ object En : Strings {
     override val cameraStatic = "The camera stays still the whole video"
     override val cameraStaticHelp = "Tripod or panoramic camera: the pitch is computed once for the whole video."
     override val cameraMovingHelp = "The camera pans or zooms: the pitch is followed frame by frame."
+
+    override val navSquad = "Squad"
+    override val squadTitle = "Squad"
+    override val squadEmptyTitle = "No players"
+    override val squadEmptyHelp = "Add your players with their number and position to keep their stats."
+    override val addPlayer = "Add player"
+    override val editPlayer = "Edit player"
+    override val deletePlayer = "Delete player"
+    override val playerNumber = "Number"
+    override val playerAlias = "Nickname or initials (optional)"
+    override val playerAliasHelp = "Never leaves the phone: the analysis only uses the number."
+    override val numberTaken = "That number belongs to another player."
+    override val numberInvalid = "Numbers go from 1 to 99."
+    override fun positionLabel(key: String) = when (key) {
+        "GK" -> "Goalkeeper"
+        "DF" -> "Defender"
+        "FW" -> "Forward"
+        else -> "Midfielder"
+    }
+    override fun statLabel(key: String) = when (key) {
+        "minutes" -> "Minutes"
+        "goals" -> "Goals"
+        "assists" -> "Assists"
+        "shots" -> "Shots"
+        "shots_on_target" -> "Shots on target"
+        "passes_completed" -> "Passes completed"
+        "passes_failed" -> "Passes failed"
+        "key_passes" -> "Key passes"
+        "dribbles_completed" -> "Dribbles"
+        "tackles" -> "Tackles"
+        "interceptions" -> "Interceptions"
+        "clearances" -> "Clearances"
+        "blocks" -> "Blocks"
+        "duels" -> "Duels"
+        "fouls" -> "Fouls"
+        "yellow_cards" -> "Yellow cards"
+        "red_cards" -> "Red cards"
+        else -> key
+    }
+    override val matchStats = "Stats"
+    override val matchStatsEmpty = "Add squad players to this match or import a report."
+    override val addToMatch = "Add from squad"
+    override val removeFromMatch = "Remove from match"
+    override val importReport = "Import report"
+    override fun reportImported(players: Int, added: List<Int>, unknown: List<String>, ignored: List<String>) = buildString {
+        append("Report imported: $players players.")
+        if (added.isNotEmpty()) append(" New numbers added to the squad as midfielders: ${added.joinToString(", ")}; check their position.")
+        if (unknown.isNotEmpty()) append(" Ignored: ${unknown.joinToString(", ")}.")
+        if (ignored.isNotEmpty()) append(" Entered by the coach, not the report: ${ignored.joinToString(", ")}.")
+    }
+    override fun reportError(reason: String) = "The report could not be imported ($reason). Nothing changed."
+    override fun reportFrom(source: String, via: String) = "Report ${if (via == "video") "from the video tracks" else "imported"}" + (if (source.isNotBlank()) " · $source" else "")
+    override val statsLocked = "Stats from the video (🔒) unlock with the report."
+    override val noReportYet = "No report yet"
+    override fun editedFrom(analysis: Int) = "edited · analysis: $analysis"
+    override val backToAnalysis = "Back to the analysis"
+    override val matchesPlayed = "Matches played"
+    override val per90 = "per 90 min"
+    override val passAccuracy = "Pass accuracy"
+    override val totals = "Totals"
+    override val byMatch = "By match"
+    override val noStatsYet = "No stats in any match yet."
+    override val trackTagsTitle = "Track numbers"
+    override val trackTagsHelp = "Link each track to a squad player; a player can have several. Their minutes go to the match stats."
+    override val noTag = "No number"
+    override fun trackLine(seconds: Int, meters: Double?) = "${seconds / 60}:${"%02d".format(seconds % 60)} on screen" + (meters?.let { " · ${Math.round(it)} m" } ?: "")
+    override val tagsToMatch = "Send the minutes to the match"
+    override fun minutesSynced(players: Int, added: List<Int>) = "Minutes of $players players in the match." + (if (added.isNotEmpty()) " New numbers in the squad: ${added.joinToString(", ")}." else "")
+    override val tagsNeedSquad = "Add players to the squad to link the tracks."
     override val pitchAnswerLines = "Clear lines"
     override val pitchAnswerNoLines = "No lines: with the marked points"
     override val pitchAnswerAsk = "Asked when sending"

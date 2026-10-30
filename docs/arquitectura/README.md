@@ -75,7 +75,9 @@ flowchart LR
 | Worker: líneas de la cancha con SAM guiado por los trazos del entrenador | Escrito y **apagado** (`PP_PITCH_SAM`); el concepto `white line` y sus máscaras funcionan con SAM real, falta ver si SAM sigue un trazo | `calibration/sam_lines.py` (14) |
 | Visor de corridas (cajas, posesión, métricas, hallazgos) y comparación de dos corridas del mismo video | Listo; no dibuja las líneas pintadas ni las máscaras de SAM | `viewer/` (11) |
 | Resultados medidos: SAM 3.1 contra un segmentador local de desarrollo | Tres pruebas sobre el mismo partido | [results/](../results/README.md) |
-| Plantel y estadísticas por jugador, alineación inicial | **Pendiente** | etapas 2 y 10 |
+| Plantel y estadísticas por jugador y partido: lo del entrenador gana, totales, por 90 y precisión de pase, importar el reporte por dorsal | Listo; sin probar en pantalla | `data/Stats.kt`, `ui/screens/StatsScreens.kt` (2) |
+| Dorsales de los tracks del análisis: el entrenador liga cada track a un jugador y sus minutos pasan a las estadísticas del partido | Listo; sin probar en pantalla | `TrackTagsCard`, `Library.syncVideoMinutes` |
+| Pestaña de estadísticas con filtros, alineación inicial | **Pendiente** | etapa 10 |
 | Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
 | API en producción y worker desplegado | Listo: API en Hostinger; worker en Docker dentro de WSL en la máquina de desarrollo (se detiene si la laptop se suspende) | etapa 9, [05-despliegue.md](05-despliegue.md) |
 | Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo (`bin/retention.php`); falta el cron diario en producción | `api/php/bin/retention.php` |

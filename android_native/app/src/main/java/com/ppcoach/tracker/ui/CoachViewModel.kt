@@ -30,6 +30,11 @@ import com.ppcoach.tracker.data.Durable
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
 import com.ppcoach.tracker.data.CameraMode
+import com.ppcoach.tracker.data.AnalysisReportParser
+import com.ppcoach.tracker.data.ImportSummary
+import com.ppcoach.tracker.data.Player
+import com.ppcoach.tracker.data.Stat
+import com.ppcoach.tracker.data.StatsCalc
 import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.PitchReference
 import com.ppcoach.tracker.data.SavedPitch
@@ -58,6 +63,9 @@ sealed interface Screen {
     data class PitchTouches(val clipId: Int) : Screen
     data class PitchReferences(val matchId: Int, val clipId: Int) : Screen
     data class PaintReference(val matchId: Int, val refId: Int) : Screen
+    data object Squad : Screen
+    data class PlayerStats(val playerId: Int) : Screen
+    data class MatchStats(val matchId: Int) : Screen
 }
 
 /** Progress of a clip's chain as the UI shows it. */
@@ -562,6 +570,59 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         AppGraph.settings.clearSession()
         settings = AppGraph.settings.load()
     }
+
+    // ── squad and stats ──────────────────────────────────────────────────────
+
+    /** Saves a player; false (with a message) when the number is out of range or taken. */
+    fun savePlayer(p: Player): Boolean {
+        val s = strings()
+        val lib = library.value
+        if (p.number !in Player.NUMBERS) return false.also { toast(s.numberInvalid) }
+        if (lib.players.any { it.number == p.number && it.id != p.id }) return false.also { toast(s.numberTaken) }
+        AppGraph.commit { it.savePlayer(if (p.id == 0) p.copy(createdAt = System.currentTimeMillis()) else p).first }
+        return true
+    }
+
+    fun deletePlayer(id: Int) = AppGraph.commit { it.removePlayer(id) }
+    fun addToMatch(matchId: Int, playerId: Int) = AppGraph.commit { it.addToMatch(matchId, playerId) }
+    fun removeFromMatch(matchId: Int, playerId: Int) = AppGraph.commit { it.removeFromMatch(matchId, playerId) }
+    fun setStat(matchId: Int, playerId: Int, stat: Stat, value: Int?) = AppGraph.commit { it.setStat(matchId, playerId, stat, value) }
+
+    /** Imports an analysis report (JSON) into a match: nothing changes when it is invalid. */
+    fun importReport(matchId: Int, uri: Uri) {
+        val s = strings()
+        val text = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+        val parsed = try {
+            AnalysisReportParser.parse(text ?: "")
+        } catch (e: AnalysisReportParser.ReportException) {
+            toast(s.reportError(e.message ?: ""))
+            return
+        }
+        var summary: ImportSummary? = null
+        AppGraph.commit { lib -> lib.applyReport(matchId, parsed, "file", System.currentTimeMillis()).also { summary = it.second }.first }
+        summary?.let { toast(s.reportImported(it.players, it.addedNumbers, it.unknownKeys, it.coachKeysIgnored)) }
+    }
+
+    /** Links a track of a clip's analysis to a squad number, or unlinks it (null). */
+    fun tagTrack(clipId: Int, trackId: Int, number: Int?) = AppGraph.commit { lib ->
+        lib.updateClip(clipId) { c -> c.copy(trackTags = if (number == null) c.trackTags - trackId else c.trackTags + (trackId to number)) }
+    }
+
+    /** The tagged tracks' seconds into this clip, then every clip's minutes into the match's stats. */
+    fun tagsToMatch(clipId: Int, analysis: ClipAnalysis) {
+        val s = strings()
+        val clip = library.value.clip(clipId) ?: return
+        val seconds = StatsCalc.secondsByNumber(analysis.tracks, clip.trackTags)
+        var summary: ImportSummary? = null
+        AppGraph.commit { lib ->
+            lib.updateClip(clipId) { it.copy(playerSeconds = seconds) }
+                .syncVideoMinutes(clip.matchId, analysis.segmenter, System.currentTimeMillis())
+                .also { summary = it.second }.first
+        }
+        summary?.let { toast(s.minutesSynced(it.players, it.addedNumbers)) }
+    }
+
+    private fun strings() = com.ppcoach.tracker.ui.i18n.stringsFor(settings.language.ifEmpty { java.util.Locale.getDefault().language })
 
     // ── analysis ─────────────────────────────────────────────────────────────
 

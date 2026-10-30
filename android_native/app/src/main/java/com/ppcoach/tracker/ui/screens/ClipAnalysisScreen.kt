@@ -151,6 +151,7 @@ fun ClipAnalysisScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                             }
                         }
                     }
+                    if (a.tracks.isNotEmpty()) item { TrackTagsCard(vm, lib, clipId, a) }
                     if (vm.settings.technical) {
                         item {
                             PpCard {

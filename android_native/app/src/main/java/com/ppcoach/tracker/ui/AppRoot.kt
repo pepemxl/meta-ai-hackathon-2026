@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddBox
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddBox
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Settings
@@ -47,7 +49,10 @@ import com.ppcoach.tracker.ui.screens.ClipAnalysisScreen
 import com.ppcoach.tracker.ui.screens.ClipDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchDetailScreen
 import com.ppcoach.tracker.ui.screens.MatchEditor
+import com.ppcoach.tracker.ui.screens.MatchStatsScreen
 import com.ppcoach.tracker.ui.screens.MatchesScreen
+import com.ppcoach.tracker.ui.screens.PlayerStatsScreen
+import com.ppcoach.tracker.ui.screens.SquadScreen
 import com.ppcoach.tracker.ui.screens.PaintReferenceScreen
 import com.ppcoach.tracker.ui.screens.PitchReferencesScreen
 import com.ppcoach.tracker.ui.screens.PitchTouchesScreen
@@ -81,7 +86,7 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
     BackHandler { if (!vm.back()) onExit() }
 
     val top = vm.top
-    val isRoot = top == Screen.Matches || top == Screen.Settings
+    val isRoot = top == Screen.Matches || top == Screen.Settings || top == Screen.Squad
     Column(Modifier.fillMaxSize().background(c.background)) {
         Box(Modifier.weight(1f)) {
             when (top) {
@@ -94,6 +99,9 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
                 is Screen.PitchTouches -> PitchTouchesScreen(vm, lib, top.clipId)
                 is Screen.PitchReferences -> PitchReferencesScreen(vm, lib, top.matchId, top.clipId)
                 is Screen.PaintReference -> PaintReferenceScreen(vm, lib, top.matchId, top.refId)
+                Screen.Squad -> SquadScreen(vm, lib)
+                is Screen.PlayerStats -> PlayerStatsScreen(vm, lib, top.playerId)
+                is Screen.MatchStats -> MatchStatsScreen(vm, lib, top.matchId)
             }
         }
         if (isRoot) {
@@ -101,13 +109,19 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
                 items = listOf(
                     BottomItem("matches", s.navMatches, Icons.Outlined.Home, Icons.Rounded.Home),
                     BottomItem("create", s.navCreate, Icons.Outlined.AddBox, Icons.Rounded.AddBox),
+                    BottomItem("squad", s.navSquad, Icons.Outlined.Groups, Icons.Rounded.Groups),
                     BottomItem("settings", s.navSettings, Icons.Outlined.Settings, Icons.Rounded.Settings),
                 ),
-                selected = if (top == Screen.Settings) "settings" else "matches",
+                selected = when (top) {
+                    Screen.Settings -> "settings"
+                    Screen.Squad -> "squad"
+                    else -> "matches"
+                },
                 onSelect = {
                     when (it) {
                         "matches" -> vm.root(Screen.Matches)
                         "settings" -> vm.root(Screen.Settings)
+                        "squad" -> vm.root(Screen.Squad)
                         "create" -> create = CreateFlow.SHEET
                     }
                 },

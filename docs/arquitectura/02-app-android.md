@@ -61,7 +61,7 @@ flowchart TB
 
 ## Navegación
 
-No hay librería de navegación: `CoachViewModel` guarda una pila de `Screen` y `AppRoot` dibuja la de arriba; "Atrás" quita una. Las pantallas raíz (Partidos y Ajustes) llevan la barra inferior con **Partidos**, **Crear** (hoja con grabar jugada, importar video o partido nuevo) y **Ajustes**.
+No hay librería de navegación: `CoachViewModel` guarda una pila de `Screen` y `AppRoot` dibuja la de arriba; "Atrás" quita una. Las pantallas raíz (Partidos, Plantel y Ajustes) llevan la barra inferior con **Partidos**, **Crear** (hoja con grabar jugada, importar video o partido nuevo), **Plantel** y **Ajustes**.
 
 ```mermaid
 flowchart LR
@@ -78,6 +78,11 @@ flowchart LR
     PR --> PA["PaintReference<br/>(pintar las líneas)"]
     CD -->|"análisis listo"| CA["ClipAnalysis"]
     CA -->|"ver en el video"| CD
+    CA -->|"dorsales de los tracks"| MS
+    M --> SQ["Squad<br/>(plantel)"]
+    SQ --> PS["PlayerStats<br/>(totales y por partido)"]
+    MD -->|"Estadísticas"| MS["MatchStats<br/>(hoja del partido, importar reporte)"]
+    PS --> MS
 ```
 
 **Ajustes:** idioma (español o inglés), apariencia (sistema, claro, oscuro), sistema de análisis (servidor, iniciar y cerrar sesión), privacidad y consentimiento (enlaces legales, retirar), ubicación de los videos (con "Mover N clips aquí"), vista técnica, alta resolución (1080p) y perfil de chunks (`dev` o `demo`).

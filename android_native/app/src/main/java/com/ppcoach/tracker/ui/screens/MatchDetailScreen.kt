@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
@@ -59,6 +60,7 @@ fun MatchDetailScreen(vm: CoachViewModel, lib: Library, matchId: Int, onEdit: (M
     }
     Column(Modifier.fillMaxSize()) {
         PpTopBar("${match.home} ${s.vs} ${match.away}", onBack = { vm.back() }) {
+            IconButton(onClick = { vm.push(Screen.MatchStats(matchId)) }) { Icon(Icons.Rounded.Leaderboard, s.matchStats, tint = c.textPrimary) }
             IconButton(onClick = { onEdit(match) }) { Icon(Icons.Rounded.Edit, s.editMatch, tint = c.textPrimary) }
             IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Rounded.Delete, s.deleteMatch, tint = c.textPrimary) }
         }
