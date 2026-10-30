@@ -18,6 +18,13 @@ joined by IoU on the overlap frames (the same frames of the original): the
 same identity if IoU > 0.5 in at least half of the overlap frames where both
 appear, and in 5 or more. The overlap is kept once.
 
+Wide video (a panorama, or a long side over 2048 px; PP_TILES=auto) goes
+to SAM in tiles of up to 1024 px over the pitch (tiles.py): SAM resizes every
+frame to 1024 px on its long side, and in a whole panorama the players vanish.
+Each tile is one request per concept; the tracks of neighbouring tiles are
+joined in their overlap before anything else, so the rest of the worker sees
+one chunk as always.
+
 In development SAM_API_BASE_URL points to the local simulator: its results
 are marked "sam_simulator", never "meta_sam".
 """
@@ -31,7 +38,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import teams
+from . import teams, tiles
 from .chunks import Chunk, Clip, read_frames
 from .colors import is_known, normalize
 from .meta_api import MetaClient, cache_key
@@ -162,9 +169,32 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 
 
+@dataclass
+class TileVideo:
+    """One tile of a chunk, sent to SAM as if it were a chunk."""
+
+    number: int
+    tile: int
+    video: Path
+    frame_count: int
+    _sha: str | None = None
+
+    @property
+    def sha256(self) -> str:
+        if self._sha is None:
+            import hashlib
+
+            self._sha = hashlib.sha256(self.video.read_bytes()).hexdigest()
+        return self._sha
+
+
 class SamSegmenter:
     def __init__(self, client: MetaClient, model: str, raw_dir: Path | None = None, is_meta_url: bool = True,
-                 player_concept: str = "player in {color} jersey", ball_concept: str = "soccer ball"):
+                 player_concept: str = "player in {color} jersey", ball_concept: str = "soccer ball", tile_mode: str = "auto"):
+        self.tile_mode = tile_mode
+        # Set by plan_tiles(): None = whole chunks, as always.
+        self.tile_plan: tiles.TilePlan | None = None
+        self.tile_joins = 0
         self.player_concept = player_concept
         self.ball_concept = ball_concept
         self.client = client
@@ -175,7 +205,23 @@ class SamSegmenter:
 
     # ── one chunk ────────────────────────────────────────────────────────────
 
-    def _call(self, chunk: Chunk, concept: Concept) -> str:
+    def plan_tiles(self, clip: Clip) -> tiles.TilePlan | None:
+        """Whether this clip goes in tiles, and which: over the pitch the app
+        measured (or measured here on a few frames when it did not come)."""
+        self.tile_plan = None
+        if not clip.chunks or not tiles.should_tile(self.tile_mode, clip.width, clip.height):
+            return None
+        polygons = [list(m.polygon) for m in clip.pitch_masks() if m is not None and m.has_pitch]
+        if not polygons:
+            from .pitch import measure
+
+            first = clip.chunks[0]
+            wanted = set(range(0, first.frame_count, max(1, first.frame_count // 12)))
+            polygons = [list(m.polygon) for _, img in read_frames(first, wanted) if (m := measure(img)).has_pitch]
+        self.tile_plan = tiles.plan(clip.width, clip.height, tiles.pitch_box(polygons, clip.width, clip.height))
+        return self.tile_plan
+
+    def _call(self, chunk: Chunk | TileVideo, concept: Concept) -> str:
         key = cache_key(self.client.base_url, chunk.sha256, self.model, concept.text)
         resp = self.client.cache.get(key)
         if resp is not None:
@@ -196,12 +242,15 @@ class SamSegmenter:
         self.simulator |= resp.simulator
         if self.raw_dir is not None:
             self.raw_dir.mkdir(parents=True, exist_ok=True)
-            name = f"chunk_{chunk.number:03d}_{_slug(concept.text)}.sse"
+            tile = f"_t{chunk.tile}" if isinstance(chunk, TileVideo) else ""
+            name = f"chunk_{chunk.number:03d}{tile}_{_slug(concept.text)}.sse"
             (self.raw_dir / name).write_text(resp.raw, encoding="utf-8")
             self.streams.append(name)
         return resp.text
 
     def chunk_rows(self, chunk: Chunk, concepts: list[Concept], home_color: str, away_color: str) -> list[LocalRow]:
+        if self.tile_plan is not None:
+            return self._resolve_teams(chunk, self._tiled_rows(chunk, concepts), concepts, home_color, away_color)
         rows: list[LocalRow] = []
         for ci, concept in enumerate(concepts):
             frames = parse_stream(self._call(chunk, concept), chunk.width or 1280, chunk.height or 720)
@@ -211,6 +260,30 @@ class SamSegmenter:
                 for ordinal, box, conf in objs:
                     rows.append(LocalRow(local, (ci, ordinal), concept.label, concept.team, box, conf))
         return self._resolve_teams(chunk, rows, concepts, home_color, away_color)
+
+    def _tiled_rows(self, chunk: Chunk, concepts: list[Concept]) -> list[LocalRow]:
+        """Every concept on every tile, joined back into the chunk's frame."""
+        plan = self.tile_plan
+        assert plan is not None
+        w, h = chunk.width or 1280, chunk.height or 720
+        paths = [chunk.video.parent / "tiles" / f"chunk_{chunk.number:03d}_t{t.index}.mp4" for t in plan.tiles]
+        if not all(p.exists() for p in paths):
+            paths = tiles.write_tiles(chunk.video, plan, chunk.video.parent / "tiles", f"chunk_{chunk.number:03d}", chunk.fps)
+        videos = [TileVideo(chunk.number, t.index, p, chunk.frame_count) for t, p in zip(plan.tiles, paths)]
+        edges = plan.edges(w)
+        rows: list[LocalRow] = []
+        for ci, concept in enumerate(concepts):
+            boxes: list[tiles.TileBox] = []
+            for t, video in zip(plan.tiles, videos):
+                for local, objs in parse_stream(self._call(video, concept), t.out_w, t.out_h).items():
+                    if 0 <= local < chunk.frame_count:
+                        boxes += [tiles.TileBox(local, t.index, ordinal, concept.label, tiles.to_frame(box, t, w, h), conf) for ordinal, box, conf in objs]
+            roots, joins = tiles.join_tracks(boxes, edges, label=concept.label)
+            self.tile_joins += len(joins)
+            for b in tiles.dedupe(boxes, roots, edges):
+                rt, rk = roots[(b.tile, b.track)]
+                rows.append(LocalRow(b.frame, (ci, rt * 100000 + rk), concept.label, concept.team, b.box, b.conf))
+        return rows
 
     def _resolve_teams(self, chunk: Chunk, rows: list[LocalRow], concepts: list[Concept], home: str, away: str) -> list[LocalRow]:
         """One track per person; the color decides when the concept cannot."""

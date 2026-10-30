@@ -18,7 +18,7 @@ from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
 from .debug import save_run
-from . import ball as ball_mod, cuts as cuts_mod, pitch as pitch_mod, shots as shots_mod
+from . import ball as ball_mod, cuts as cuts_mod, pitch as pitch_mod, shots as shots_mod, tiles as tiles_mod
 from .calibration import calibrate
 from .calibration.sam_lines import SamLines
 from .chunks import iter_frames
@@ -41,8 +41,13 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     cache = ResponseCache(cfg.cache_dir)
     sam_client = MetaClient(cfg.sam_base_url, cfg.api_key, "meta_sam", usage, cache, sleep=sleep)
     muse_client = MetaClient(cfg.meta_base_url, cfg.api_key, "muse_spark", usage, cache, sleep=sleep)
-    segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta, player_concept=cfg.player_concept, ball_concept=cfg.ball_concept)
+    segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta, player_concept=cfg.player_concept,
+                             ball_concept=cfg.ball_concept, tile_mode=cfg.tile_mode)
     home_color, away_color = match.get("home_color") or "", match.get("away_color") or ""
+    # Wide video goes to SAM in tiles: each tile costs one request per concept.
+    tile_plan = segmenter.plan_tiles(clip)
+    if tile_plan is not None and clip.frames_sent_per_concept * len(tile_plan.tiles) > cfg.max_frames_per_job:
+        raise InputError(f"{clip.frames_sent_per_concept} frames × {len(tile_plan.tiles)} tiles, more than META_MAX_FRAMES_PER_JOB={cfg.max_frames_per_job}")
 
     trackset = segmenter.track(clip, home_color, away_color)
 
@@ -104,6 +109,9 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     ins = analyst.insights(m, match, start_ms, pitch=pitch)
 
     notes = warnings_of(m) + mask_notes + cal_notes
+    if tile_plan is not None:
+        notes.append(f"Video ancho: SAM lo vio en {len(tile_plan.tiles)} partes de {tiles_mod.SIZE} px (escala {tile_plan.scale:g}); "
+                     f"{segmenter.tile_joins} tracks se unieron entre partes.")
     if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
         notes.append(f"Se descartaron {len(trackset.frames) - len(shots.counted)} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.")
     if pitch is not None:
@@ -144,6 +152,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "discarded": shots.discarded,
             "cuts": len(cut_frames),
             "closeups": shots.closeups,
+            **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
+                          "joins": segmenter.tile_joins}} if tile_plan is not None else {}),
         },
         "coordinates": "screen",
         "frames": m["frames"],

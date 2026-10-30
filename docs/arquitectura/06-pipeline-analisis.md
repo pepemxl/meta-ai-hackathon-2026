@@ -130,7 +130,7 @@ flowchart LR
 |---|---|
 | SAM 3.1 y Muse Spark verificados con la API real y el costo medido; las pruebas usan streams sintéticos | Guardar el stream real de un clip propio como fixture de las pruebas |
 | Conceptos `player in <color> jersey` y `soccer ball`, medidos con SAM real: un track por jugador en cada chunk y balón en el 85 % de los cuadros | Un concepto para los porteros y el árbitro, que ningún color describe; que SAM encuentre a los dos equipos desde el inicio del chunk (a veces tarda de 5 a 30 s) |
-| Video ancho o 4K: `tools/make_tiles.py` lo parte en videos de 1024 px con traslape y une los tracks, a mano | Partir y unir dentro del worker, y mandar solo las partes con cancha |
+| Video ancho o 4K: el worker lo parte en videos de hasta 1024 px sobre la cancha y une los tracks (`tiles.py`, `PP_TILES`) | Que la app pueda mandar el video a su resolución (hoy, como mucho 1080p, que no se parte); probarlo con SAM real dentro del worker |
 | Cámara fija (`options.camera = static`): una homografía para todo el video, sin pasada de movimiento | Probarlo con un video de tripié propio |
 | SAM para las líneas, apagado: el concepto y los trazos como puntos, en dos peticiones con el formato documentado; el concepto y las máscaras ya probados con SAM real | Ver si SAM sigue un trazo de una foto a los cuadros del video y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige, y cuánto cuesta |
 | Metros donde el entrenador marcó la cancha | Probarlo con un video de tripié propio; con 5 marcas a ojo el error en la imagen no dice cuánto se corre la cancha |

@@ -49,6 +49,8 @@ class Config:
     # The pitch lines with SAM on key frames (calibration/sam_lines.py); off by default.
     pitch_sam: bool = False
     line_concept: str = "white line"
+    # Wide video to SAM in tiles of 1024 px (tiles.py): auto, on or off.
+    tile_mode: str = "auto"
 
     @property
     def sam_is_meta(self) -> bool:
@@ -78,6 +80,9 @@ def from_env(env: dict[str, str] | None = None) -> Config:
         max_frames = int(e.get("META_MAX_FRAMES_PER_JOB") or 15000)
     except ValueError as ex:
         raise ConfigError(f"invalid number: {ex}") from None
+    tile_mode = (e.get("PP_TILES") or "auto").strip().lower()
+    if tile_mode not in ("auto", "on", "off"):
+        raise ConfigError(f"PP_TILES must be auto, on or off, not {tile_mode!r}")
     return Config(
         api_url=(e.get("PP_COACH_TRACKER_API_URL") or "").rstrip("/"),
         worker_secret=e.get("WORKER_CALLBACK_SECRET", ""),
@@ -95,4 +100,5 @@ def from_env(env: dict[str, str] | None = None) -> Config:
         ball_concept=e.get("SAM_BALL_CONCEPT") or "soccer ball",
         pitch_sam=(e.get("PP_PITCH_SAM") or "0").strip() == "1",
         line_concept=e.get("SAM_LINE_CONCEPT") or "white line",
+        tile_mode=tile_mode,
     )

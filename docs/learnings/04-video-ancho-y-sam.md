@@ -80,7 +80,7 @@ Un solo recorte pierde las porterías. La solución fue partir el panorama en **
 
 ## Trampas del entorno
 
-- **ffmpeg no está en la imagen del worker y OpenCV no está en el Python de Windows.** Por eso `make_tiles.py` tiene `plan` y `merge` (OpenCV, en el contenedor) separados de `encode` (solo ffmpeg, en el host).
+- **ffmpeg no está en la imagen del worker y OpenCV no está en el Python de Windows.** Por eso `make_tiles.py` tiene `plan` y `merge` (OpenCV, en el contenedor) separados de `encode` (solo ffmpeg, en el host). Dentro del worker (`tiles.py`), las partes se escriben con OpenCV en MPEG-4, que SAM también acepta.
 - **Contenedores largos con `docker run -d`.** Cuando la memoria del sistema baja, Claude Code detiene los procesos de fondo de la sesión, incluido el `wsl docker run` que espera al contenedor. El contenedor sigue, pero la salida redirigida a un archivo se pierde. Con `-d` y `docker logs` al final, el log queda completo.
 - **Reutilizar la caché exige los mismos chunks byte por byte.** La llave incluye el sha256 del chunk: volver a cortar o recodificar el video vuelve a cobrar.
 - **Las capturas con video de la transmisión se quedan en la máquina** ([08-uso-de-video.md](../08-uso-de-video.md)): este documento describe el proceso sin imágenes.

@@ -69,7 +69,7 @@ flowchart LR
 | API Node (desarrollo y pruebas) y API PHP (producción), mismo contrato | Listo; la PHP **en producción** desde el 30 de octubre | `api/src/`, `api/php/` (4, 6, 9) |
 | Worker: SAM 3.1 por concepto, equipos, métricas en la imagen, Muse Spark con salida estructurada, caché y costo | Listo y **verificado con la API real** (dos clips de 15 min); máscaras con `meta-sam-parser`; ~US$0.36 por minuto | `worker/` (8) |
 | Worker: corridas guardadas, cortes, cuadros que cuentan, balón, posesión, árbitro | Listo; con SAM real, el balón en el 85 % de los cuadros y un track por jugador en cada chunk | `cuts.py`, `shots.py`, `ball.py`, `metrics.py` (11) |
-| Video ancho o 4K: partir en videos de 1024 px con traslape y unir los tracks | Herramienta lista y probada a mano (0 → 19 jugadores por cuadro); **pendiente** dentro del worker | `worker/tools/make_tiles.py` |
+| Video ancho o 4K: partir en videos de hasta 1024 px sobre la cancha y unir los tracks | Listo dentro del worker (`PP_TILES=auto`); probado a mano con SAM real (0 → 19 jugadores por cuadro). La app manda como mucho 1080p, que no se parte | `worker/ppcoachtracker_worker/tiles.py`, `tools/make_tiles.py` |
 | Worker: máscara de la cancha (de la app o medida) | Listo | `pitch.py` (12) |
 | Worker: cancha en metros con los puntos y las líneas del entrenador, propagada por la toma; métricas en metros | Listo; sin probar con un video de tripié propio | `calibration/` (13, 14) |
 | Worker: líneas de la cancha con SAM guiado por los trazos del entrenador | Escrito y **apagado** (`PP_PITCH_SAM`); el concepto `white line` y sus máscaras funcionan con SAM real, falta ver si SAM sigue un trazo | `calibration/sam_lines.py` (14) |

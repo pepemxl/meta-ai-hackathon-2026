@@ -213,7 +213,7 @@ Del clip 3, la panorámica nativa en tres partes:
   - en el traslape, sembrar el chunk nuevo con los jugadores del anterior.
 - **El personal de la banda con ropa del color de un equipo.** Revisar si la máscara de la cancha, ampliada 0.02, deja pasar los pies de la banda, o si conviene un tercer concepto para descartarlos (`referee`, `staff`).
 - **Las tres partes en los 15 min completos** (unos US$16), para medir la unión con cambios de chunk y jugadas que cruzan las uniones.
-- **Partir en el worker, no a mano.** Si se adopta, que el worker parta los chunks de video ancho y una los tracks (`make_tiles.py` ya tiene las dos mitades), y que solo mande las partes donde hay cancha.
+- **Partir en el worker, no a mano.** Hecho después de esta prueba: el worker parte solo el video ancho (`tiles.py`, `PP_TILES=auto`) sobre la cancha y une los tracks con la misma regla. Falta repetir esta prueba con SAM real dentro del worker.
 - **Un concepto para los porteros** (`goalkeeper`): con los conceptos de color, SAM no ve a los porteros ni al árbitro.
 - **Avisar en la app antes de gastar.** Si los jugadores se ven muy chicos, avisar o pedir que se grabe más cerca antes de subir el clip. Falta definir cómo medirlo en el teléfono.
 - **Repetirlo con un partido amateur grabado con tripié**, que es el uso real de la app: una transmisión no es el producto ([learnings/01](../learnings/01-analisis-de-video.md)).

@@ -35,14 +35,14 @@ The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/RE
 | App, API (Node and PHP) and worker | Built, with automated tests passing (app 55, Node 23, PHP 25, worker 89) |
 | SAM 3.1 and Muse Spark | **Verified with the real Meta Model API** on October 30: two 15-minute clips end to end, masks decoded with Meta's `meta-sam-parser`. Measured cost: about US$0.36 per minute of video (3 concepts at 10 fps) |
 | Results | [docs/results/](docs/results/README.md) (in Spanish): SAM 3.1 against a local detector and tracker used only during development (never shipped). SAM keeps one track per player and sees the ball in 85 % of frames, against 17 % |
-| Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. `worker/tools/make_tiles.py` splits it into overlapping 1024 px tiles and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama. Done by hand for now, not yet inside the worker |
+| Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. The worker now splits wide video (a panorama, or a long side over 2048 px) into overlapping tiles of up to 1024 px over the pitch and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama, at one SAM request per tile. The app still sends at most 1080p, which is not split |
 | Still or moving camera | The coach ticks "the camera stays still the whole video" (tripod or panorama) and the worker uses one homography for the whole video; otherwise it follows the camera frame by frame |
 | Saved pitches | A pitch is saved once with its length and width in meters and reused on every visit |
 | Lines with SAM (`PP_PITCH_SAM`) | Off: the `white line` concept and its masks work with the real API; whether SAM follows a painted stroke from a photo into the video is still unmeasured |
 | Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 and updated the same day (`/health` reports the database) |
 | Production worker | Running on the development host (Docker in WSL) since October 30 |
 | Run viewer (local only) | Shows a run over its video, and compares two runs of the same video side by side, overlaid or only where they differ |
-| Not built yet | Per-player statistics (metrics are per team and per track), splitting wide video inside the worker, the chunk-retention cron |
+| Video retention | `api/php/bin/retention.php` deletes a clip's video 24 h after its analysis and after 30 days at most, keeping the analysis |
 
 ## Running it locally
 

@@ -34,13 +34,12 @@ import json
 import shutil
 import subprocess
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-MIN_IOU = 0.5
-MIN_SHARED = 5
+from ppcoachtracker_worker import tiles  # noqa: E402
+
 
 
 def _even(v: float) -> int:
@@ -49,7 +48,6 @@ def _even(v: float) -> int:
 
 def plan(a) -> int:
     import cv2
-    import numpy as np
 
     from ppcoachtracker_worker.pitch import measure
 
@@ -60,67 +58,44 @@ def plan(a) -> int:
     W, H = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    boxes = []
+    polygons = []
     for k in range(a.samples):
         cap.set(cv2.CAP_PROP_POS_FRAMES, int((k + 0.5) * frames / a.samples))
         ok, img = cap.read()
-        if not ok:
-            continue
-        m = measure(img)
-        if m.has_pitch:
-            xs, ys = m.polygon[0::2], m.polygon[1::2]
-            boxes.append((min(xs), min(ys), max(xs), max(ys)))
+        if ok and (m := measure(img)).has_pitch:
+            polygons.append(list(m.polygon))
     cap.release()
-    if len(boxes) < a.samples // 3:
-        print(f"pitch found in only {len(boxes)} of {a.samples} frames: is it a wide shot?", file=sys.stderr)
+    if len(polygons) < a.samples // 3:
+        print(f"pitch found in only {len(polygons)} of {a.samples} frames: is it a wide shot?", file=sys.stderr)
         return 2
-    # A camera that pans or a frame with grass outside: the 10/90 percentiles, plus a margin.
-    b = np.array(boxes)
-    x0 = max(0.0, np.percentile(b[:, 0], 10) - a.margin) * W
-    y0 = max(0.0, np.percentile(b[:, 1], 10) - a.margin) * H
-    x1 = min(1.0, np.percentile(b[:, 2], 90) + a.margin) * W
-    y1 = min(1.0, np.percentile(b[:, 3], 90) + a.margin) * H
+    x0, y0, x1, y1 = tiles.pitch_box(polygons, W, H, a.margin)
     if a.height == "full":
         y0, y1 = 0.0, float(H)
-    pw, ph = x1 - x0, y1 - y0
-    # Scale 1 when the tiles reach across the pitch; else just enough to cover it.
-    reach = a.tiles * a.size - (a.tiles - 1) * a.overlap
-    scale = min(1.0, reach / pw)
-    if pw * scale < a.size:  # a narrow pitch: one tile already covers it, centered
-        pw = min(float(W), a.size / scale)
-        x0 = max(0.0, min(W - pw, (x0 + x1 - pw) / 2))
-    th = min(a.size, _even(ph * scale))
-    span = pw * scale
-    step = (span - a.size) / (a.tiles - 1) if a.tiles > 1 else 0
-    tiles = []
-    for k in range(a.tiles):
-        off = round(k * step)
-        src_x = x0 + off / scale
-        tiles.append({
-            "index": k + 1,
-            "file": f"{a.name}_t{k + 1}.mp4",
-            # Where it sits in the source, in source pixels.
-            "source": {"x": round(src_x, 1), "y": round(y0, 1), "w": round(a.size / scale, 1), "h": round(th / scale, 1)},
-            "width": a.size,
-            "height": th,
-        })
-    overlaps = [round(a.size - step) for _ in range(a.tiles - 1)]
+    tp = tiles.plan(W, H, (x0, y0, x1, y1), size=a.size, overlap=a.overlap, tiles=a.tiles)
     out = {
         "version": 1,
         "video": str(a.video.resolve()) if a.absolute else a.video.name,
         "source": {"width": W, "height": H, "fps": round(fps, 3), "frames": frames},
-        "pitch": {"x": round(x0, 1), "y": round(y0, 1), "w": round(pw, 1), "h": round(ph, 1), "frames_with_pitch": len(boxes), "frames_sampled": a.samples},
-        "scale": round(scale, 4),
+        "pitch": {"x": round(x0, 1), "y": round(y0, 1), "w": round(x1 - x0, 1), "h": round(y1 - y0, 1), "frames_with_pitch": len(polygons), "frames_sampled": a.samples},
+        "scale": tp.scale,
         "size": a.size,
-        "overlap_px": overlaps,
-        "tiles": tiles,
+        "overlap_px": [tp.overlap_px] * (len(tp.tiles) - 1),
+        "tiles": [{
+            "index": t.index,
+            "file": f"{a.name}_t{t.index}.mp4",
+            # Where it sits in the source, in source pixels.
+            "source": {"x": t.x, "y": t.y, "w": t.w, "h": t.h},
+            "width": t.out_w,
+            "height": t.out_h,
+        } for t in tp.tiles],
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
-    print(f"pitch {pw:.0f}x{ph:.0f} px at ({x0:.0f},{y0:.0f}) of {W}x{H}; scale {scale:.3f}; {a.tiles} tiles of {a.size}x{th}, overlap {overlaps} px")
-    for t in tiles:
-        s = t["source"]
-        print(f"  {t['file']}: source x {s['x']:.0f}..{s['x'] + s['w']:.0f}")
+    print(f"pitch {x1 - x0:.0f}x{y1 - y0:.0f} px at ({x0:.0f},{y0:.0f}) of {W}x{H}; scale {tp.scale:.3f}; "
+          f"{len(tp.tiles)} tiles of {tp.tiles[0].out_w}x{tp.tiles[0].out_h}, overlap {tp.overlap_px} px")
+    for t in out["tiles"]:
+        src = t["source"]
+        print(f"  {t['file']}: source x {src['x']:.0f}..{src['x'] + src['w']:.0f}")
     return 0
 
 
@@ -160,104 +135,48 @@ def encode(a) -> int:
     return 0
 
 
-def _boxes(run: Path, tile: dict, src: dict) -> list[dict]:
-    """The boxes of one tile's run, in the source's normalized coordinates."""
+def _boxes(run: Path, tile: dict, src: dict) -> list[tuple[tiles.TileBox, dict]]:
+    """The boxes of one tile's run, in the source's normalized coordinates (with their row)."""
     t = json.loads((run / "tracks.json").read_text(encoding="utf-8"))
     cols = t["columns"]
     s = tile["source"]
     out = []
     for r in t["rows"]:
         b = dict(zip(cols, r))
-        b["x"] = (s["x"] + b["x"] * s["w"]) / src["width"]
-        b["y"] = (s["y"] + b["y"] * s["h"]) / src["height"]
-        b["w"] = b["w"] * s["w"] / src["width"]
-        b["h"] = b["h"] * s["h"] / src["height"]
-        b["tile"] = tile["index"]
-        out.append(b)
+        box = ((s["x"] + b["x"] * s["w"]) / src["width"], (s["y"] + b["y"] * s["h"]) / src["height"],
+               b["w"] * s["w"] / src["width"], b["h"] * s["h"] / src["height"])
+        out.append((tiles.TileBox(b["frame"], tile["index"], b["track"], b["label"], box, b.get("conf") or 1.0), b))
     return out
-
-
-def _iou(a: dict, b: dict) -> float:
-    iw = max(0.0, min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"]))
-    ih = max(0.0, min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"]))
-    inter = iw * ih
-    union = a["w"] * a["h"] + b["w"] * b["h"] - inter
-    return inter / union if union > 0 else 0.0
 
 
 def merge(a) -> int:
     spec = json.loads(a.tiles_json.read_text(encoding="utf-8"))
     src = spec["source"]
-    tiles = spec["tiles"]
-    if len(a.runs) != len(tiles):
-        print(f"{len(tiles)} tiles but {len(a.runs)} runs", file=sys.stderr)
+    tile_specs = spec["tiles"]
+    if len(a.runs) != len(tile_specs):
+        print(f"{len(tile_specs)} tiles but {len(a.runs)} runs", file=sys.stderr)
         return 2
-    rows = []
-    for tile, run in zip(tiles, a.runs):
-        rows += _boxes(run, tile, src)
-    # Every (tile, track) is a node; the overlap joins nodes of neighbouring tiles.
-    parent: dict[tuple[int, int], tuple[int, int]] = {}
-
-    def find(n):
-        while parent.setdefault(n, n) != n:
-            parent[n] = parent[parent[n]]
-            n = parent[n]
-        return n
-
-    edges = {t["index"]: ((t["source"]["x"]) / src["width"], (t["source"]["x"] + t["source"]["w"]) / src["width"]) for t in tiles}
-    by_frame = defaultdict(lambda: defaultdict(list))
-    for b in rows:
-        if b["label"] == "player":
-            by_frame[b["frame"]][b["tile"]].append(b)
-    joined = []
-    for left, right in zip(tiles, tiles[1:]):
-        li, ri = left["index"], right["index"]
-        lo, hi = edges[ri][0], edges[li][1]  # the overlap, in source x
-        inside = lambda b: lo <= b["x"] + b["w"] / 2 <= hi  # noqa: E731
-        both = defaultdict(int)   # frames where the two tracks are inside the overlap
-        match = defaultdict(int)  # ... and their boxes overlap
-        for f, per_tile in by_frame.items():
-            ls = [b for b in per_tile.get(li, []) if inside(b)]
-            rs = [b for b in per_tile.get(ri, []) if inside(b)]
-            for x in ls:
-                for y in rs:
-                    k = (x["track"], y["track"])
-                    both[k] += 1
-                    if _iou(x, y) > MIN_IOU:
-                        match[k] += 1
-        # Best pairs first; each track joins at most one on the other side.
-        used_l, used_r = set(), set()
-        for (lt, rt), n in sorted(match.items(), key=lambda kv: -kv[1]):
-            if n < MIN_SHARED or n * 2 < both[(lt, rt)] or lt in used_l or rt in used_r:
-                continue
-            used_l.add(lt)
-            used_r.add(rt)
-            parent[find((ri, rt))] = find((li, lt))
-            joined.append({"tiles": [li, ri], "tracks": [lt, rt], "frames": n})
-    # New ids: one per joined group; inside an overlap, one box per player and frame.
+    pairs = []
+    for tile, run in zip(tile_specs, a.runs):
+        pairs += _boxes(run, tile, src)
+    boxes = [b for b, _ in pairs]
+    row_of = {id(b): r for b, r in pairs}
+    edges = {t["index"]: (t["source"]["x"] / src["width"], (t["source"]["x"] + t["source"]["w"]) / src["width"]) for t in tile_specs}
+    # The same rule as the worker (ppcoachtracker_worker/tiles.py): players and balls joined per label.
+    roots, joined = tiles.join_tracks(boxes, edges, "player")
+    ball_roots, _ = tiles.join_tracks(boxes, edges, "ball")
+    roots.update({k: v for k, v in ball_roots.items() if k != v})
     ids: dict[tuple[int, int], int] = {}
     merged = []
-    rows_by_frame = defaultdict(list)
-    for b in rows:
-        rows_by_frame[b["frame"]].append(b)
-    for f in sorted(rows_by_frame):
-        best: dict[int, dict] = {}
-        for b in rows_by_frame[f]:
-            root = find((b["tile"], b["track"]))
-            gid = ids.setdefault(root, len(ids) + 1)
-            lo, hi = edges[b["tile"]]
-            cx = b["x"] + b["w"] / 2
-            margin = min(cx - lo, hi - cx)
-            if b["label"] == "ball":
-                gid = 0
-            prev = best.get(gid)
-            if prev is None or margin > prev["_margin"]:
-                best[gid] = {**b, "track": gid, "_margin": margin}
-        merged += best.values()
+    for b in tiles.dedupe(boxes, roots, edges):
+        root = roots[(b.tile, b.track)]
+        gid = 0 if b.label == "ball" else ids.setdefault(root, len(ids) + 1)
+        r = row_of[id(b)]
+        merged.append({**r, "x": b.box[0], "y": b.box[1], "w": b.box[2], "h": b.box[3], "track": gid, "tile": b.tile})
     cols = ["frame", "t_ms", "track", "label", "team", "x", "y", "w", "h", "conf", "interp", "tile"]
     out_rows = [[b.get(c) for c in cols] for b in sorted(merged, key=lambda b: (b["frame"], b["track"]))]
-    frames = max(1, len({b["frame"] for b in rows}))
-    per_tile = {t["index"]: len({b["track"] for b in rows if b["tile"] == t["index"] and b["label"] == "player"}) for t in tiles}
+    frames = max(1, len({b.frame for b in boxes}))
+    per_tile = {t["index"]: len({b.track for b in boxes if b.tile == t["index"] and b.label == "player"}) for t in tile_specs}
     players = [b for b in merged if b["label"] == "player"]
     stats = {
         "frames": frames,
@@ -265,7 +184,7 @@ def merge(a) -> int:
         "tracks_before": sum(per_tile.values()),
         "tracks_after": len({b["track"] for b in players}),
         "joins": len(joined),
-        "players_per_frame_tiles": round(sum(1 for b in rows if b["label"] == "player") / frames, 2),
+        "players_per_frame_tiles": round(sum(1 for b in boxes if b.label == "player") / frames, 2),
         "players_per_frame_merged": round(len(players) / frames, 2),
         "ball_frames": round(len({b["frame"] for b in merged if b["label"] == "ball"}) / frames, 3),
     }
