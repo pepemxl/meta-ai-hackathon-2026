@@ -29,6 +29,8 @@ data class ClipAnalysis(
     val createdAt: String,
     /** Metrics in meters on the pitch, or null without a computed pitch. */
     val pitch: PitchStats? = null,
+    /** The player tracks, longest first (the coach tags them with squad numbers). */
+    val tracks: List<TrackInfo> = emptyList(),
 ) {
     val isSimulator: Boolean get() = segmenter == "sam_simulator"
 
@@ -63,6 +65,9 @@ data class ClipAnalysis(
         val widthM: Double?,
         val heatmap: List<List<Double>>?, // 8×12, the far touchline on top
     )
+
+    /** One player track: when it was seen and, with the pitch, how far it ran. */
+    data class TrackInfo(val id: Int, val team: String, val seconds: Double, val firstMs: Long, val lastMs: Long, val distanceM: Double?, val topSpeed: Double?)
 
     data class Insight(
         val title: String,
@@ -140,7 +145,23 @@ data class ClipAnalysis(
                 limitations = strings(r.optJSONArray("limitations")),
                 createdAt = root.optString("created_at").ifEmpty { r.optString("generated_at") },
                 pitch = r.optJSONObject("pitch")?.let(::pitch),
+                tracks = tracks(r, video.optDouble("fps", 10.0).takeIf { it > 0 && !it.isNaN() } ?: 10.0),
             )
+        }
+
+        private fun tracks(r: JSONObject, fps: Double): List<TrackInfo> {
+            val meters = r.optJSONObject("pitch")?.optJSONArray("tracks")?.let { arr ->
+                (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.associateBy { it.optInt("id", -1) }
+            } ?: emptyMap()
+            val arr = r.optJSONArray("tracks") ?: return emptyList()
+            return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+                .filter { it.optString("label", "player") == "player" && it.has("id") }
+                .map {
+                    val id = it.optInt("id")
+                    TrackInfo(id, it.optString("team"), it.optInt("frames") / fps, it.optLong("first_ms"), it.optLong("last_ms"),
+                        optDouble(meters[id], "distance_m"), optDouble(meters[id], "top_speed"))
+                }
+                .sortedByDescending { it.seconds }
         }
 
         private fun strings(arr: JSONArray?): List<String> = arr?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } } ?: emptyList()

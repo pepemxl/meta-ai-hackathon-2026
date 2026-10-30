@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "source": "meta_sam",
+  "generated_at": "2026-10-30T18:20:00Z",
+  "players": [
+    {
+      "number": 8,
+      "stats": {
+        "minutes": 55,
+        "passes_completed": 31,
+        "passes_failed": 6,
+        "key_passes": 3,
+        "shots": 2,
+        "shots_on_target": 1,
+        "duels": 11
+      }
+    },
+    {
+      "number": 4,
+      "stats": {
+        "minutes": 70,
+        "passes_completed": 40,
+        "passes_failed": 4,
+        "tackles": 5,
+        "interceptions": 3,
+        "clearances": 6,
+        "duels": 9
+      }
+    },
+    {
+      "number": 17,
+      "stats": {
+        "minutes": 25,
+        "passes_completed": 8,
+        "passes_failed": 3,
+        "dribbles_completed": 2,
+        "shots": 1
+      }
+    }
+  ]
+}

@@ -8,7 +8,8 @@ import org.json.JSONObject
  * values fall back to the default, so an older or newer app can read it.
  */
 object LibraryCodec {
-    const val VERSION = 1
+    /** 2: squad, stats per match, the match's report and the clip's track tags. Version 1 opens with an empty squad. */
+    const val VERSION = 2
 
     fun encode(lib: Library): String {
         val root = JSONObject()
@@ -19,6 +20,13 @@ object LibraryCodec {
         root.put("pitches", JSONArray().apply { lib.pitches.forEach { put(it.toJson()) } })
         root.put("matches", JSONArray().apply { lib.matches.forEach { put(encodeMatch(it)) } })
         root.put("clips", JSONArray().apply { lib.clips.forEach { put(encodeClip(it)) } })
+        root.put("nextPlayerId", lib.nextPlayerId)
+        root.put("players", JSONArray().apply {
+            lib.players.forEach { put(JSONObject().put("id", it.id).put("number", it.number).put("position", it.position.key).put("alias", it.alias).put("createdAt", it.createdAt)) }
+        })
+        root.put("matchStats", JSONArray().apply {
+            lib.matchStats.forEach { put(JSONObject().put("matchId", it.matchId).put("playerId", it.playerId).put("analysis", statsJson(it.analysis)).put("coach", statsJson(it.coach))) }
+        })
         return root.toString(2)
     }
 
@@ -32,8 +40,38 @@ object LibraryCodec {
         val nextClip = maxOf(root.optInt("nextClipId", 1), (clips.maxOfOrNull { it.id } ?: 0) + 1)
         val pitches = root.optJSONArray("pitches")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(SavedPitch::fromJson) } } ?: emptyList()
         val nextPitch = maxOf(root.optInt("nextPitchId", 1), (pitches.maxOfOrNull { it.id } ?: 0) + 1)
-        return Library(matches, clips, nextMatch, nextClip, pitches, nextPitch)
+        val players = mutableListOf<Player>()
+        root.optJSONArray("players")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val id = o.optInt("id", 0)
+                val number = o.optInt("number", 0)
+                // A broken entry or a repeated number is dropped, never the whole library.
+                if (id <= 0 || number !in Player.NUMBERS || players.any { it.id == id || it.number == number }) continue
+                players += Player(id, number, Position.fromKey(o.optString("position")), o.optString("alias", "").take(Player.MAX_ALIAS), o.optLong("createdAt", 0))
+            }
+        }
+        val playerIds = players.map { it.id }.toSet()
+        val matchIds = matches.map { it.id }.toSet()
+        val stats = root.optJSONArray("matchStats")?.let { arr ->
+            (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+                .filter { it.optInt("matchId") in matchIds && it.optInt("playerId") in playerIds }
+                .map { PlayerMatchStats(it.optInt("matchId"), it.optInt("playerId"), statsFrom(it.optJSONObject("analysis")), statsFrom(it.optJSONObject("coach"))) }
+                .distinctBy { it.matchId to it.playerId }
+        } ?: emptyList()
+        val nextPlayer = maxOf(root.optInt("nextPlayerId", 1), (players.maxOfOrNull { it.id } ?: 0) + 1)
+        return Library(matches, clips, nextMatch, nextClip, pitches, nextPitch, players, nextPlayer, stats)
     }
+
+    private fun statsJson(m: Map<Stat, Int>) = JSONObject().apply { m.forEach { (k, v) -> put(k.key, v) } }
+
+    private fun statsFrom(o: JSONObject?): Map<Stat, Int> =
+        o?.keys()?.asSequence()?.mapNotNull { k -> Stat.fromKey(k)?.let { it to it.clamp(o.optInt(k, 0)) } }?.toMap() ?: emptyMap()
+
+    private fun intMap(m: Map<Int, Int>) = JSONObject().apply { m.forEach { (k, v) -> put(k.toString(), v) } }
+
+    private fun intMapFrom(o: JSONObject?): Map<Int, Int> =
+        o?.keys()?.asSequence()?.mapNotNull { k -> k.toIntOrNull()?.let { it to o.optInt(k, 0) } }?.toMap() ?: emptyMap()
 
     private fun encodeMatch(m: Match) = JSONObject().apply {
         put("id", m.id)
@@ -49,6 +87,7 @@ object LibraryCodec {
         put("references", JSONArray().apply { m.references.forEach { put(it.toJson()) } })
         put("pitchId", m.pitchId)
         put("camera", m.camera)
+        m.analysis?.let { put("analysis", it.toJson()) }
     }
 
     private fun decodeMatch(o: JSONObject): Match? {
@@ -68,6 +107,7 @@ object LibraryCodec {
             references = o.optJSONArray("references")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(PitchReference::fromJson) } } ?: emptyList(),
             pitchId = o.optInt("pitchId", 0).coerceAtLeast(0),
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
+            analysis = AnalysisReport.fromJson(o.optJSONObject("analysis")),
         )
     }
 
@@ -98,6 +138,8 @@ object LibraryCodec {
         c.touches?.let { put("touches", it.toJson()) }
         put("pitchShare", c.pitchShare)
         put("camera", c.camera)
+        put("trackTags", intMap(c.trackTags))
+        put("playerSeconds", intMap(c.playerSeconds))
     }
 
     private fun decodeClip(o: JSONObject): Clip? {
@@ -130,6 +172,8 @@ object LibraryCodec {
             touches = PitchTouches.fromJson(o.optJSONObject("touches")),
             pitchShare = o.optDouble("pitchShare", -1.0).let { if (it.isNaN() || it > 1.0) -1.0 else it },
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
+            trackTags = intMapFrom(o.optJSONObject("trackTags")).filterValues { it in Player.NUMBERS },
+            playerSeconds = intMapFrom(o.optJSONObject("playerSeconds")).filter { (k, v) -> k in Player.NUMBERS && v >= 0 },
         )
     }
 }

@@ -100,6 +100,8 @@ data class Match(
     val pitchId: Int = 0,
     /** Last answer to "The camera stays still" (CameraMode), used for the other videos of the match. */
     val camera: String = "",
+    /** The analysis report that unlocked the stats from the video, or null (docs/11-stats-jugadores.md). */
+    val analysis: AnalysisReport? = null,
 ) {
     val folder: String get() = "match_%04d".format(id)
     val nextReferenceId: Int get() = (references.maxOfOrNull { it.id } ?: 0) + 1
@@ -137,6 +139,10 @@ data class Clip(
     val pitchShare: Double = -1.0,
     /** static | moving (CameraMode); "" = the match's answer. Fixed once sent. */
     val camera: String = "",
+    /** The coach's tags on the analysis: track id → squad number (a player can have several tracks). */
+    val trackTags: Map<Int, Int> = emptyMap(),
+    /** Seconds each tagged number was seen in this clip, from its analysis (StatsCalc.secondsByNumber). */
+    val playerSeconds: Map<Int, Int> = emptyMap(),
 ) {
     val fileName: String get() = "clip_%04d.mp4".format(id)
 }
@@ -149,6 +155,10 @@ data class Library(
     /** Pitches the coach saved to reuse them (name, 11 or 7, meters). */
     val pitches: List<SavedPitch> = emptyList(),
     val nextPitchId: Int = 1,
+    /** The coach's squad (numbers 1..99, unique) and each player's stats per match. */
+    val players: List<Player> = emptyList(),
+    val nextPlayerId: Int = 1,
+    val matchStats: List<PlayerMatchStats> = emptyList(),
 ) {
     fun match(id: Int): Match? = matches.firstOrNull { it.id == id }
     fun pitch(id: Int): SavedPitch? = if (id > 0) pitches.firstOrNull { it.id == id } else null
@@ -188,5 +198,78 @@ data class Library(
     fun updateClip(id: Int, change: (Clip) -> Clip): Library = copy(clips = clips.map { if (it.id == id) change(it) else it })
     fun updateMatch(id: Int, change: (Match) -> Match): Library = copy(matches = matches.map { if (it.id == id) change(it) else it })
     fun removeClip(id: Int): Library = copy(clips = clips.filterNot { it.id == id })
-    fun removeMatch(id: Int): Library = copy(matches = matches.filterNot { it.id == id }, clips = clips.filterNot { it.matchId == id })
+    fun removeMatch(id: Int): Library = copy(
+        matches = matches.filterNot { it.id == id },
+        clips = clips.filterNot { it.matchId == id },
+        matchStats = matchStats.filterNot { it.matchId == id },
+    )
+
+    // ── squad and stats ──────────────────────────────────────────────────────
+
+    fun player(id: Int): Player? = players.firstOrNull { it.id == id }
+    fun playerByNumber(number: Int): Player? = players.firstOrNull { it.number == number }
+    val playersByNumber: List<Player> get() = players.sortedBy { it.number }
+
+    /** Adds [p] (id 0) or replaces the one with its id. A number out of 1..99 or taken by another player throws. */
+    fun savePlayer(p: Player): Pair<Library, Player> {
+        require(p.number in Player.NUMBERS) { "number out of range" }
+        require(players.none { it.number == p.number && it.id != p.id }) { "number taken" }
+        val clean = p.copy(alias = p.alias.trim().take(Player.MAX_ALIAS))
+        if (clean.id > 0 && player(clean.id) != null) return copy(players = players.map { if (it.id == clean.id) clean else it }) to clean
+        val added = clean.copy(id = nextPlayerId)
+        return copy(players = players + added, nextPlayerId = nextPlayerId + 1) to added
+    }
+
+    /** Deletes a player and their stats in every match. */
+    fun removePlayer(id: Int): Library = copy(players = players.filterNot { it.id == id }, matchStats = matchStats.filterNot { it.playerId == id })
+
+    fun sheet(matchId: Int, playerId: Int): PlayerMatchStats? = matchStats.firstOrNull { it.matchId == matchId && it.playerId == playerId }
+    fun sheetsOf(matchId: Int): List<PlayerMatchStats> = matchStats.filter { it.matchId == matchId }
+    fun sheetsOfPlayer(playerId: Int): List<PlayerMatchStats> = matchStats.filter { it.playerId == playerId }
+
+    /** Puts a squad player on a match's sheet (no-op if already there). */
+    fun addToMatch(matchId: Int, playerId: Int): Library =
+        if (sheet(matchId, playerId) != null || player(playerId) == null) this else copy(matchStats = matchStats + PlayerMatchStats(matchId, playerId))
+
+    private fun updateSheet(matchId: Int, playerId: Int, change: (PlayerMatchStats) -> PlayerMatchStats): Library {
+        val withSheet = addToMatch(matchId, playerId)
+        return withSheet.copy(matchStats = withSheet.matchStats.map { if (it.matchId == matchId && it.playerId == playerId) change(it) else it })
+    }
+
+    /** The coach's value of [stat] (clamped), or null to go back to the analysis. */
+    fun setStat(matchId: Int, playerId: Int, stat: Stat, value: Int?): Library =
+        updateSheet(matchId, playerId) { s -> s.copy(coach = if (value == null) s.coach - stat else s.coach + (stat to stat.clamp(value))) }
+
+    fun removeFromMatch(matchId: Int, playerId: Int): Library = copy(matchStats = matchStats.filterNot { it.matchId == matchId && it.playerId == playerId })
+
+    /**
+     * Applies a report to a match: each number goes to the squad player with it
+     * (a new one is added as a midfielder) and its analysis values are set;
+     * the coach's corrections are never touched. [only] limits which stats are
+     * replaced (the minutes from the video replace only the minutes).
+     */
+    fun applyReport(matchId: Int, parsed: AnalysisReportParser.Parsed, via: String, now: Long, only: Set<Stat>? = null): Pair<Library, ImportSummary> {
+        var lib = this
+        val added = mutableListOf<Int>()
+        for ((number, values) in parsed.players) {
+            val player = lib.playerByNumber(number) ?: lib.savePlayer(Player(0, number, Position.MF, createdAt = now)).let { (l, p) ->
+                lib = l
+                added += number
+                p
+            }
+            lib = lib.updateSheet(matchId, player.id) { s ->
+                val kept = if (only == null) emptyMap() else s.analysis.filterKeys { it !in only }
+                s.copy(analysis = kept + values.filterKeys { only == null || it in only })
+            }
+        }
+        lib = lib.updateMatch(matchId) { it.copy(analysis = AnalysisReport(now, via, parsed.source, parsed.generatedAt)) }
+        return lib to ImportSummary(parsed.players.size, added, parsed.unknownKeys, parsed.coachKeys)
+    }
+
+    /** The minutes of each tagged number over every clip of the match, from the video (via "video"). */
+    fun syncVideoMinutes(matchId: Int, source: String, now: Long): Pair<Library, ImportSummary> {
+        val seconds = clips.filter { it.matchId == matchId }.flatMap { it.playerSeconds.entries }.groupBy({ it.key }, { it.value }).mapValues { (_, v) -> v.sum() }
+        val players = seconds.filterKeys { it in Player.NUMBERS }.mapValues { (_, s) -> mapOf(Stat.MINUTES to Stat.MINUTES.clamp(Math.round(s / 60.0).toInt())) }
+        return applyReport(matchId, AnalysisReportParser.Parsed(source, "", players, emptyList(), emptyList()), "video", now, only = setOf(Stat.MINUTES))
+    }
 }
