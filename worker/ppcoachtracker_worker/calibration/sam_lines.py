@@ -213,32 +213,17 @@ def _from_counts(counts: list[int], h: int, w: int) -> np.ndarray:
 
 
 def _sam_payload(h: int, w: int, marker: str, payload: str) -> np.ndarray | None:
-    """The documented SAM mask: base85 after "H,W," and a marker ("!" one bit,
-    "~" lossless). The base85 alphabet and the packing are not documented:
-    RFC 1924, Z85 and Ascii85 are tried, then packed bits or one byte a pixel,
-    row-major (zlib-compressed for "~", if it decompresses)."""
-    import zlib
+    """The documented SAM mask: "H,W," then "!" (one_bit) or "~" (lossless) and
+    Meta's own base85 codec, decoded with Meta's meta-sam-parser
+    (dev.meta.ai/docs/sam/client-libraries). Row-major, H × W."""
+    from meta_sam_parser import InvalidSegmentationMaskError, SegmentationMask, decode_mask_to_raster
 
-    decoders = [base64.b85decode, getattr(base64, "z85decode", None), base64.a85decode]
-    for dec in decoders:
-        if dec is None:
-            continue
-        try:
-            raw = dec(payload.encode("ascii"))
-        except (ValueError, TypeError):
-            continue
-        if marker == "~":
-            try:
-                raw = zlib.decompress(raw)
-            except zlib.error:
-                pass
-        data = np.frombuffer(raw, np.uint8)
-        if marker == "~" and data.size == h * w:
-            return data.reshape(h, w) > 0
-        bits = np.unpackbits(data)
-        if bits.size >= h * w and bits.size - h * w < 8:
-            return bits[: h * w].reshape(h, w).astype(bool)
-    return None
+    encoding = "one_bit" if marker == "!" else "lossless"
+    try:
+        raster = decode_mask_to_raster(SegmentationMask(encoding, marker + payload, w, h))
+    except InvalidSegmentationMaskError:
+        return None
+    return np.frombuffer(raster, np.uint8).reshape(h, w) > 0
 
 
 def decode_mask(body: str, box: tuple[float, float, float, float] | None, width: int, height: int) -> np.ndarray | None:

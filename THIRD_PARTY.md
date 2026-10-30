@@ -1,6 +1,6 @@
 # Componentes de terceros
 
-Solo licencias permisivas (MIT, BSD, Apache-2.0, ISC) o las propias de la plataforma. Los modelos de visión y lenguaje (SAM 3.1 y Muse Spark) se usan por la Meta Model API, bajo sus términos.
+Solo licencias permisivas (MIT, BSD, Apache-2.0, ISC) o las propias de la plataforma. La excepción es `meta-sam-parser`, el decodificador oficial de Meta para la salida de SAM 3.1, bajo la SAM License (permite usar, modificar y redistribuir); se aceptó por ser de Meta y parte de las herramientas del hackathon. Los modelos de visión y lenguaje (SAM 3.1 y Muse Spark) se usan por la Meta Model API, bajo sus términos.
 
 ## API Node (`api/`)
 
@@ -19,6 +19,7 @@ Solo licencias permisivas (MIT, BSD, Apache-2.0, ISC) o las propias de la plataf
 | numpy | 2.1.3 | BSD-3-Clause | Métricas y colores |
 | opencv-python-headless | 4.10.0.84 | Apache-2.0 (el wheel trae FFmpeg con LGPL, enlazado dinámicamente) | Leer los chunks, color del torso, herramientas |
 | PyYAML | 6.0.2 | MIT | YAML de los chunks |
+| meta-sam-parser | 0.1.0 | SAM License (Meta) | Decodificar las máscaras de SAM 3.1 (códec propio de Meta) |
 | pytest | 8.3.3 | MIT | Pruebas (solo desarrollo) |
 
 La imagen base es `python:3.12-slim` (PSF y licencias de Debian). No hay modelos locales.

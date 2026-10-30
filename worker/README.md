@@ -78,9 +78,9 @@ Errores: `RetryableError` (429, 5xx, timeout, stream cortado) se reintenta 3 vec
 
 ## Formato de SAM
 
-> **Las líneas tampoco están verificadas.** Siguen la [documentación](https://dev.meta.ai/docs/sam/segmenting): los trazos van como tokens de puntos en el texto (`<0f>1<|point;x=…;y=…;w=…;h=…|>…`, `sam_lines.object_prompt`), sin frase, y las máscaras se leen de `<|mask;x=0;y=0;data=H,W,<marca><base85>|>`, la máscara de la caja del objeto; el alfabeto base85 y el empacado no están documentados y el lector prueba RFC 1924, Z85 y Ascii85 (y sigue aceptando COCO, `bits` y `png`). Al tener key: ajustar el lector y sus pruebas al formato real, y medir si SAM sigue un trazo de una foto a los cuadros del video.
+> **Probado contra SAM 3.1 real el 30 de octubre** con 5 s de un clip de stock (32 cuadros): `soccer player` dio 4 a 6 jugadores por cuadro con su id estable y `white line`, 2 a 7 líneas; `parse_stream` leyó todas las cajas. Las máscaras (`<|mask;x=0;y=0;data=H,W,<marca><payload>|>`, la máscara de la caja del objeto) usan un códec propio de Meta (base85 con codificación aritmética), no base85 empacado: las decodifica `meta-sam-parser`, el paquete de Meta ([client libraries](https://dev.meta.ai/docs/sam/client-libraries)); las 333 del clip se leyeron. Falta medir si SAM sigue un trazo (puntos) de una foto a los cuadros del video.
 
-> **No verificado todavía.** El parser sigue el formato documentado: una marca `<Nf>` por cuadro y, por objeto, su ordinal y `<|box;x1=..;y1=..;x2=..;y2=..;c=..|>` (normalizadas 0..1 o en pixeles), dentro de eventos `response.output_text.delta` hasta `response.completed`. Las pruebas usan streams **sintéticos** con ese formato (`tests/fakes.py`). En cuanto haya key: capturar el stream de un clip propio de 1 min (`analyze` deja los crudos en `raw/`), ajustar el parser y el simulador a lo que de verdad devuelve, reemplazar los streams sintéticos de las pruebas por esos y escribir aquí el formato real.
+El parser sigue el formato documentado: una marca `<Nf>` por cuadro y, por objeto, su ordinal y `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..;c=..|>` en pixeles, dentro de eventos `response.output_text.delta` hasta `response.completed`. Un concepto que no aparece da `output_text` vacío: no es error. Las pruebas usan streams sintéticos con ese formato (`tests/fakes.py`).
 
 ## Resultado
 

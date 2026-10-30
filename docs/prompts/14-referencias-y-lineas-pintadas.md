@@ -50,7 +50,7 @@ pinta el entrenador es una marca más, que se mide igual que un punto.
   Las máscaras de las dos se unen; si una falla, queda la otra. Cada
   petición cobra al menos 50 cuadros.
 - Máscaras: el formato documentado data=H,W,<marca><base85> de la caja del
-  objeto (el alfabeto y el empacado, supuestos) y un lector tolerante de
+  objeto, decodificado con meta-sam-parser (el paquete de Meta), y un lector tolerante de
   otros (COCO, bits empacados, PNG); stream crudo guardado.
 - Con el lugar de la cámara del primer cuadro tocado: si la homografía
   propagada ya cae sobre los blancos, se confirma; si no, se ajustan paneo,

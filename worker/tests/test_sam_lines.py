@@ -82,10 +82,11 @@ def test_masks_are_read_in_every_tolerated_format():
 
 def test_the_documented_mask_is_the_objectʼs_box():
     # dev.meta.ai/docs/sam/reading-segmentation: "data=H,W,<marker><base85>", H × W the box (end inclusive).
+    # The payload is this mask in Meta's one_bit codec (meta-sam-parser 0.1.0).
     small = np.zeros((27, 60), bool)
     small[5:20, 10:50] = True
-    payload = base64.b85encode(np.packbits(small.ravel()).tobytes()).decode()
-    text = f"<2f>0<|box;x1=211;y1=228;x2=270;y2=254;w={ps.W};h={ps.H};c=0.9|><|mask;x=0;y=0;c=0.9;data=27,60,!{payload}|>"
+    payload = "!!!!!/@HRC3OurKB[CvXx"
+    text = f"<2f>0<|box;x1=211;y1=228;x2=270;y2=254;w={ps.W};h={ps.H};c=0.9|><|mask;x=0;y=0;c=0.9;data=27,60,{payload}|>"
     masks, unreadable = sam_lines.parse_masks(text, ps.W, ps.H)
     assert unreadable == 0
     expected = np.zeros((ps.H, ps.W), bool)

@@ -82,7 +82,9 @@ Reglas del proyecto:
    Apache-2.0, ISC) o las propias de la plataforma (Android SDK, AndroidX).
    Nada GPL, AGPL ni LGPL enlazado estático, ni modelos con licencia
    copyleft o no comercial. Los modelos de visión y lenguaje son los de la
-   Meta Model API, bajo sus términos. Antes de agregar una dependencia,
+   Meta Model API, bajo sus términos, y la única excepción a las licencias
+   permisivas es meta-sam-parser (SAM License), el decodificador de Meta
+   para las máscaras de SAM 3.1. Antes de agregar una dependencia,
    revisa su licencia y anótala en THIRD_PARTY.md (nombre, versión,
    licencia, para qué); si no está clara, pregúntame. El simulador de
    desarrollo (YOLOv8n, AGPL-3.0) vive fuera del repo, solo en la máquina
