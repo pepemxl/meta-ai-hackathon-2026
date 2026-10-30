@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CompareView } from './Compare';
 import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, Result, RunSummary, SEVERITY, Tracks } from './data';
 
 export function App() {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Up to two runs ticked to compare; `comparing` shows them instead of the selected run.
+  const [ticked, setTicked] = useState<string[]>([]);
+  const [comparing, setComparing] = useState<[string, string] | null>(null);
+  const tick = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id].slice(-2)));
 
   useEffect(() => {
     getJson<RunSummary[]>('/api/runs')
@@ -29,9 +34,12 @@ export function App() {
             {runs && !runs.length && <p className="muted">No hay corridas. Corre el worker con DEBUG_DIR o `analyze --debug-dir`.</p>}
             <ul className="runs">
               {runs?.map((r) => (
-                <li key={r.id} className={r.id === selected ? 'selected' : ''} onClick={() => setSelected(r.id)}>
-                  <div>
-                    {r.match?.home || 'Local'} vs {r.match?.away || 'Visitante'} <SegmenterChip segmenter={r.segmenter} />
+                <li key={r.id} className={!comparing && r.id === selected ? 'selected' : ''} onClick={() => { setSelected(r.id); setComparing(null); }}>
+                  <div className="run-row">
+                    <span>
+                      {r.match?.home || 'Local'} vs {r.match?.away || 'Visitante'} <SegmenterChip segmenter={r.segmenter} />
+                    </span>
+                    <input type="checkbox" title="Comparar" checked={ticked.includes(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => tick(r.id)} />
                   </div>
                   <div className="muted tnum">
                     clip {r.clip_id ?? '–'} · {r.chunks ?? '?'} chunks · {r.frames ?? '?'} cuadros
@@ -40,9 +48,25 @@ export function App() {
                 </li>
               ))}
             </ul>
+            {runs && runs.length > 1 && (
+              <div className="compare-bar">
+                <button className="primary" disabled={ticked.length !== 2} onClick={() => setComparing([ticked[0], ticked[1]])}>
+                  Comparar {ticked.length}/2
+                </button>
+                <span className="muted">Marca dos corridas del mismo video (un segmentador local contra SAM, o antes y después de un cambio).</span>
+              </div>
+            )}
           </div>
         </aside>
-        <main>{selected ? <RunView key={selected} run={selected} /> : <div className="card empty muted">Elige una corrida.</div>}</main>
+        <main>
+          {comparing ? (
+            <CompareView key={comparing.join('|')} ids={comparing} />
+          ) : selected ? (
+            <RunView key={selected} run={selected} />
+          ) : (
+            <div className="card empty muted">Elige una corrida.</div>
+          )}
+        </main>
       </div>
     </>
   );
@@ -76,7 +100,7 @@ function RunView({ run }: { run: string }) {
         <p style={{ margin: 0 }}>{result.summary}</p>
         <p className="muted" style={{ marginBottom: 0 }}>
           <span className="spark-star">✦</span>
-          {result.backends.sam_model} ({result.backends.segmenter}) · {result.backends.muse_spark_model} ({result.backends.analyst})
+          {result.backends.sam_model || result.backends.segmenter} ({result.backends.segmenter}) · {result.backends.muse_spark_model || result.backends.analyst} ({result.backends.analyst})
         </p>
       </div>
       <Stats result={result} colors={colors} />

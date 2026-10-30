@@ -88,13 +88,18 @@ services:
     networks: [default, ppcoachtracker-dev]
 
   # The viewer (../viewer) of the runs in worker/.local/runs, on http://localhost:8098.
+  # It also reads the runs saved by hand for comparisons (VIEWER_EXTRA_RUNS,
+  # LOCAL_DATA/Results by default; not versioned).
   viewer:
     profiles: ["viewer"]
     build: ../viewer
     ports:
       - "${VIEWER_HOST_PORT:-8098}:8098"
+    environment:
+      RUNS_DIR: /runs,/extra
     volumes:
       - ../worker/.local/runs:/runs:ro
+      - ${VIEWER_EXTRA_RUNS:-../LOCAL_DATA/Results}:/extra:ro
       - ppcoachtracker-viewer-cache:/cache
 
 volumes:

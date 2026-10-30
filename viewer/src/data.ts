@@ -7,6 +7,7 @@ export type RunSummary = {
   frames?: number;
   chunks?: number;
   generated_at?: string;
+  duration_ms?: number;
   match?: { home?: string; away?: string; home_color?: string; away_color?: string };
 };
 
@@ -62,9 +63,21 @@ export async function getJson<T>(url: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+/** A chunk as the worker saves it, or in the older format (analysis_start, overlap_frames, no end_ms). */
+type RawChunk = Partial<ChunkInfo> & { number: number; file: string; fps: number; frames: number; start_ms: number; analysis_start?: number; overlap_frames?: number };
+
+function normalizeChunk(c: RawChunk): ChunkInfo {
+  const skip = c.skip ?? c.overlap_frames ?? 0;
+  return {
+    number: c.number, file: c.file, fps: c.fps, frames: c.frames, skip, base: c.base ?? c.analysis_start ?? 0, start_ms: c.start_ms,
+    end_ms: c.end_ms ?? Math.round(c.start_ms + (c.frames * 1000) / c.fps),
+  };
+}
+
 export async function loadTracks(run: string): Promise<Tracks> {
   type RawPitch = { homographies: (number | string)[][]; lines: Pitch['lines']; circle: Pitch['circle'] };
-  const raw = await getJson<{ columns: string[]; rows: unknown[][]; frames: [number, number][]; chunks: ChunkInfo[]; pitch?: RawPitch | null; pitch_masks?: [number, number, number[]][] }>(`/api/runs/${run}/tracks.json`);
+  const raw = await getJson<{ columns: string[]; rows: unknown[][]; frames: [number, number][] | number; chunks: RawChunk[]; pitch?: RawPitch | number[][] | null; pitch_masks?: [number, number, number[]][] }>(`/api/runs/${run}/tracks.json`);
+  const chunks = raw.chunks.map(normalizeChunk);
   const idx = Object.fromEntries(raw.columns.map((c, i) => [c, i]));
   const byFrame = new Map<number, Box[]>();
   for (const r of raw.rows) {
@@ -77,7 +90,7 @@ export async function loadTracks(run: string): Promise<Tracks> {
     else byFrame.set(b.frame, [b]);
   }
   let pitch: Pitch | null = null;
-  if (raw.pitch) {
+  if (raw.pitch && !Array.isArray(raw.pitch) && raw.pitch.homographies) {
     const homographies = new Map<number, { source: string; h: number[] }>();
     for (const row of raw.pitch.homographies) homographies.set(row[0] as number, { source: row[1] as string, h: row.slice(2) as number[] });
     pitch = { homographies, lines: raw.pitch.lines, circle: raw.pitch.circle };
@@ -85,7 +98,13 @@ export async function loadTracks(run: string): Promise<Tracks> {
   // The pitch mask of each frame: its polygon (empty = no pitch, the frame does not count).
   const masks = new Map<number, number[]>();
   for (const [f, , poly] of raw.pitch_masks || []) masks.set(f, poly);
-  return { byFrame, frames: raw.frames, chunks: raw.chunks, pitch, masks };
+  // The older format saved one polygon per frame in `pitch`.
+  if (Array.isArray(raw.pitch)) (raw.pitch as number[][]).forEach((poly, f) => masks.set(f, poly));
+  // The older format saved only the count of frames: their times come from each chunk.
+  const frames: [number, number][] = Array.isArray(raw.frames)
+    ? raw.frames
+    : chunks.flatMap((c) => Array.from({ length: c.frames - c.skip }, (_, k): [number, number] => [c.base + k, Math.round(c.start_ms + ((c.skip + k) * 1000) / c.fps)]));
+  return { byFrame, frames, chunks, pitch, masks };
 }
 
 /** Global frame shown by chunk [c] at [seconds] of its video; null inside the overlap already shown. */
