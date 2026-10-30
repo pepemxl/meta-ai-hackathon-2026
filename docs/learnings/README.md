@@ -9,6 +9,7 @@ Lecciones de construir y medir PP-Coach-Tracker: qué funcionó, qué no y por q
 | [01-analisis-de-video.md](01-analisis-de-video.md) | Detección, resolución, acercamientos, el balón y la posesión |
 | [02-como-medir.md](02-como-medir.md) | Cómo saber si un cambio mejoró algo: corridas, muestras a ojo y sus trampas |
 | [03-entorno-y-despliegue.md](03-entorno-y-despliegue.md) | Docker en WSL, memoria, emulador, Cloud Provider sin SSH, permisos y commits |
+| [04-video-ancho-y-sam.md](04-video-ancho-y-sam.md) | Video ancho (panorámica, 4K/8K) con SAM 3.1: por qué más resolución no basta, cómo partirlo en videos de 1024 px y unir los tracks |
 
 ## Las cinco que más importan
 

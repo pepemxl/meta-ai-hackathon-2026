@@ -126,7 +126,7 @@ Lo que pasó:
 
 ## Clip 3: la panorámica nativa en tres partes
 
-¿Ayuda grabar a mayor resolución, como permiten los teléfonos 4K y 8K? Se probó con la misma panorámica del clip 2, pero sin reescalarla: el original de 3840×800.
+¿Ayuda grabar a mayor resolución, como permiten los teléfonos 4K y 8K? Se probó con la misma panorámica del clip 2, pero sin reescalarla: el original de 3840×800. El proceso completo, con las hipótesis que no funcionaron y lo que conviene recordar, está en [learnings/04-video-ancho-y-sam.md](../learnings/04-video-ancho-y-sam.md).
 
 ### Por qué no basta con mandar más resolución
 
