@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 334" width="1000" height="334" font-family="Roboto, Segoe UI, sans-serif" font-size="12">
+<rect width="1000" height="334" fill="#ffffff"/>
+<text x="44" y="20" font-size="14" font-weight="600" fill="#080809">Jugadores por cuadro (promedio por segundo) y segundos con balón</text>
+<line x1="44" x2="988" y1="234.0" y2="234.0" stroke="#e4e6eb"/>
+<text x="38" y="238.0" text-anchor="end" fill="#65676b">0</text>
+<line x1="44" x2="988" y1="205.4" y2="205.4" stroke="#e4e6eb"/>
+<text x="38" y="209.4" text-anchor="end" fill="#65676b">5</text>
+<line x1="44" x2="988" y1="176.9" y2="176.9" stroke="#e4e6eb"/>
+<text x="38" y="180.9" text-anchor="end" fill="#65676b">10</text>
+<line x1="44" x2="988" y1="148.3" y2="148.3" stroke="#e4e6eb"/>
+<text x="38" y="152.3" text-anchor="end" fill="#65676b">15</text>
+<line x1="44" x2="988" y1="119.7" y2="119.7" stroke="#e4e6eb"/>
+<text x="38" y="123.7" text-anchor="end" fill="#65676b">20</text>
+<line x1="44" x2="988" y1="91.1" y2="91.1" stroke="#e4e6eb"/>
+<text x="38" y="95.1" text-anchor="end" fill="#65676b">25</text>
+<line x1="44" x2="988" y1="62.6" y2="62.6" stroke="#e4e6eb"/>
+<text x="38" y="66.6" text-anchor="end" fill="#65676b">30</text>
+<line x1="44" x2="988" y1="34.0" y2="34.0" stroke="#e4e6eb"/>
+<text x="38" y="38.0" text-anchor="end" fill="#65676b">35</text>
+<line x1="44.0" x2="44.0" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="44.0" y="250" text-anchor="middle" fill="#65676b">0:00</text>
+<line x1="201.3" x2="201.3" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="201.3" y="250" text-anchor="middle" fill="#65676b">0:10</text>
+<line x1="358.7" x2="358.7" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="358.7" y="250" text-anchor="middle" fill="#65676b">0:20</text>
+<line x1="516.0" x2="516.0" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="516.0" y="250" text-anchor="middle" fill="#65676b">0:30</text>
+<line x1="673.3" x2="673.3" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="673.3" y="250" text-anchor="middle" fill="#65676b">0:40</text>
+<line x1="830.7" x2="830.7" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="830.7" y="250" text-anchor="middle" fill="#65676b">0:50</text>
+<line x1="988.0" x2="988.0" y1="34" y2="234" stroke="#f0f2f5"/>
+<text x="988.0" y="250" text-anchor="middle" fill="#65676b">1:00</text>
+<polyline points="51.9,58.6 67.6,62.0 83.3,45.4 99.1,47.7 114.8,64.3 130.5,52.3 146.3,44.9 162.0,49.4 177.7,48.3 193.5,48.9 209.2,54.0 224.9,44.9 240.7,39.1 256.4,55.1 272.1,56.9 287.9,50.0 303.6,42.0 319.3,37.4 335.1,46.0 350.8,62.0 366.5,51.1 382.3,54.0 398.0,56.9 413.7,46.6 429.5,44.3 445.2,50.0 460.9,47.7 476.7,46.6 492.4,46.6 508.1,39.1 523.9,42.6 539.6,51.7 555.3,54.6 571.1,56.9 586.8,56.9 602.5,52.9 618.3,52.3 634.0,64.3 649.7,56.3 665.5,65.4 681.2,56.3 696.9,50.0 712.7,47.7 728.4,59.1 744.1,63.1 759.9,56.9 775.6,59.1 791.3,62.0 807.1,75.7 822.8,80.9 838.5,68.3 854.3,56.3 870.0,64.3 885.7,69.4 901.5,73.4 917.2,70.6 932.9,72.3 948.7,69.4 964.4,72.3 980.1,73.4" fill="none" stroke="#E8710A" stroke-width="1.2" stroke-linejoin="round"/>
+<polyline points="51.9,178.6 67.6,176.9 83.3,176.9 99.1,176.9 114.8,173.4 130.5,125.4 146.3,127.1 162.0,132.9 177.7,136.9 193.5,136.9 209.2,132.3 224.9,121.4 240.7,121.4 256.4,132.3 272.1,130.6 287.9,125.4 303.6,122.0 319.3,119.7 335.1,121.4 350.8,122.6 366.5,112.9 382.3,114.0 398.0,118.0 413.7,119.7 429.5,119.7 445.2,119.7 460.9,119.7 476.7,118.6 492.4,114.0 508.1,114.0 523.9,108.3 539.6,101.4 555.3,99.1 571.1,106.0 586.8,111.1 602.5,114.0 618.3,114.0 634.0,114.0 649.7,114.0 665.5,114.0 681.2,114.0 696.9,114.0 712.7,114.0 728.4,114.0 744.1,118.6 759.9,122.6 775.6,125.4 791.3,125.4 807.1,125.4 822.8,125.4 838.5,125.4 854.3,125.4 870.0,125.4 885.7,125.4 901.5,125.4 917.2,125.4 932.9,125.4 948.7,125.4 964.4,125.4 980.1,123.1" fill="none" stroke="#7B2FF7" stroke-width="1.2" stroke-linejoin="round"/>
+<rect x="44" y="264" width="944" height="16" fill="#f0f2f5" rx="3"/>
+<rect x="44.0" y="264" width="62.9" height="16" fill="#E8710A"/>
+<rect x="154.1" y="264" width="47.2" height="16" fill="#E8710A"/>
+<rect x="248.5" y="264" width="15.7" height="16" fill="#E8710A"/>
+<rect x="280.0" y="264" width="15.7" height="16" fill="#E8710A"/>
+<rect x="358.7" y="264" width="78.7" height="16" fill="#E8710A"/>
+<rect x="531.7" y="264" width="31.5" height="16" fill="#E8710A"/>
+<rect x="594.7" y="264" width="15.7" height="16" fill="#E8710A"/>
+<rect x="626.1" y="264" width="31.5" height="16" fill="#E8710A"/>
+<rect x="720.5" y="264" width="15.7" height="16" fill="#E8710A"/>
+<rect x="877.9" y="264" width="15.7" height="16" fill="#E8710A"/>
+<text x="38" y="276" text-anchor="end" fill="#65676b">balón</text>
+<text x="50" y="276" fill="#080809" stroke="#ffffff" stroke-width="3" paint-order="stroke">CV local (YOLOv8n): balón en 35% de los segundos</text>
+<rect x="44" y="286" width="944" height="16" fill="#f0f2f5" rx="3"/>
+<rect x="138.4" y="286" width="125.9" height="16" fill="#7B2FF7"/>
+<rect x="280.0" y="286" width="188.8" height="16" fill="#7B2FF7"/>
+<rect x="516.0" y="286" width="440.5" height="16" fill="#7B2FF7"/>
+<text x="38" y="298" text-anchor="end" fill="#65676b">balón</text>
+<text x="50" y="298" fill="#080809" stroke="#ffffff" stroke-width="3" paint-order="stroke">SAM 3.1: balón en 80% de los segundos</text>
+<rect x="44" y="318" width="14" height="4" fill="#E8710A"/><text x="64" y="324" fill="#080809">CV local (YOLOv8n)</text>
+<rect x="244" y="318" width="14" height="4" fill="#7B2FF7"/><text x="264" y="324" fill="#080809">SAM 3.1</text>
+</svg>
