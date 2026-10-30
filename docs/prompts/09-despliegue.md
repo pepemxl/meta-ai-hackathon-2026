@@ -60,7 +60,7 @@ Confírmame antes de cada paso que publica algo o borra algo en el servidor.
 
 ## Trampas conocidas
 
-- **El worker no corre en Cloud Provider:** el hosting compartido no tiene Docker ni procesos largos. El worker va en Modal o en un VPS, con `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`, el mismo `WORKER_CALLBACK_SECRET` y `MODEL_API_KEY` como secretos de esa plataforma, y `SAM_API_BASE_URL` **vacío** (SAM real). El simulador de desarrollo nunca se despliega ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)).
+- **El worker no corre en Cloud Provider:** el hosting compartido no tiene Docker ni procesos largos. Corre en la máquina de desarrollo, en Docker dentro de WSL, con `worker/docker-compose.prod.yml` (`npm run worker:prod:up` desde `api/`): `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`, el `PROD_WORKER_CALLBACK_SECRET` y `MODEL_API_KEY` del `.env` de la raíz, y `SAM_API_BASE_URL` **vacío** (SAM real). El simulador de desarrollo nunca se despliega ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)). WSL arranca al iniciar sesión con `worker/tools/register_wsl_task.ps1`.
 - **Espacio en disco:** con chunks de 5 min, un clip del demo ocupa ~100 MB en `storage/`. Revisar la cuota y borrar los clips de prueba.
 
 - **El clasificador de permisos del agente** puede bloquear subir archivos con secretos o borrar carpetas: no intentar rodearlo; pedirle al usuario que lo haga o que lo autorice.

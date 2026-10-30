@@ -17,7 +17,11 @@
     "test:php": "node --test --test-concurrency=1 tests/php/contract.test.js",
     "viewer:up": "wsl -e docker compose --profile viewer up -d --build viewer",
     "worker:up": "wsl -e docker compose --profile worker up -d --build worker",
-    "worker:test": "wsl -e docker compose --profile worker run --rm --no-deps --entrypoint python worker -m pytest -q tests"
+    "worker:test": "wsl -e docker compose --profile worker run --rm --no-deps --entrypoint python worker -m pytest -q tests",
+    "worker:prod:up": "wsl -e docker compose -f ../worker/docker-compose.prod.yml --env-file ../.env up -d --build",
+    "worker:prod:once": "wsl -e docker compose -f ../worker/docker-compose.prod.yml --env-file ../.env run --rm worker once",
+    "worker:prod:logs": "wsl -e docker compose -f ../worker/docker-compose.prod.yml --env-file ../.env logs -f --tail 100 worker",
+    "worker:prod:down": "wsl -e docker compose -f ../worker/docker-compose.prod.yml --env-file ../.env down"
   },
   "engines": {
     "node": ">=20.12"

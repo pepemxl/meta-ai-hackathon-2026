@@ -36,7 +36,7 @@ The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/RE
 | SAM 3.1 and Muse Spark | Written against the documented formats and tested with synthetic streams; **first runs with the real API on October 29** |
 | Lines with SAM (`PP_PITCH_SAM`) | Off until verified with the real API |
 | Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 (`/health` reports the database) |
-| Hosted worker | Not deployed yet |
+| Production worker | Running on the development host (Docker in WSL) since October 30 |
 | Per-player statistics | Not built: metrics are per team and per track |
 
 ## Running it locally

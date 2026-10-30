@@ -1,0 +1,46 @@
+# Production worker on this host (Docker in WSL): polls the queue of
+# https://ppcoachtracker.pepemxl.com and calls SAM 3.1 and Muse Spark at Meta.
+# Only outbound HTTPS: no ports.
+#
+#   cd api && npm run worker:prod:up      # build and start (restarts on its own)
+#   npm run worker:prod:logs              # follow the logs
+#   npm run worker:prod:down              # stop
+#
+# Secrets come from the root .env (never committed): MODEL_API_KEY and
+# PROD_WORKER_CALLBACK_SECRET, the same as the production API's
+# WORKER_CALLBACK_SECRET. The image carries a fixed copy of the code (no
+# mount) and is separate from the development worker in api/docker-compose.yml.
+name: ppcoachtracker-prod
+
+services:
+  worker:
+    build:
+      context: .
+      args:
+        DEV: "0"
+    image: ppcoachtracker-worker:prod
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: true
+    environment:
+      PP_COACH_TRACKER_API_URL: https://ppcoachtracker.pepemxl.com
+      WORKER_CALLBACK_SECRET: ${PROD_WORKER_CALLBACK_SECRET:?set PROD_WORKER_CALLBACK_SECRET in the root .env}
+      META_API_BASE_URL: https://api.meta.ai/v1
+      # Empty = META_API_BASE_URL: real SAM, never the development simulator.
+      SAM_API_BASE_URL: ""
+      POLL_SECONDS: "10"
+      WORK_DIR: /data/jobs
+      META_CACHE_DIR: /data/meta_cache
+      # No run copies with the video: the privacy notice promises deletion.
+      DEBUG_DIR: ""
+    volumes:
+      - worker-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  worker-data:

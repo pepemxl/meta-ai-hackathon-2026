@@ -37,6 +37,23 @@ npm run php:up && npm run worker:up
 
 Todo lo que sale del simulador se marca `backends.segmenter = "sam_simulator"` (por la cabecera `X-PP-Simulator` o porque `SAM_API_BASE_URL` no es la de Meta), y la API de producción lo rechaza. Sin key: `META_API_BASE_URL` también al simulador, `MODEL_API_KEY=sim-local` y `SIM_MUSE=1`; entonces `analyst = "muse_spark_simulator"`.
 
+## Producción (en este host, Docker en WSL)
+
+El worker de producción corre en la máquina de desarrollo con [`docker-compose.prod.yml`](docker-compose.prod.yml), aparte del de desarrollo (proyecto `ppcoachtracker-prod`). Solo hace peticiones de salida por HTTPS (la cola de https://ppcoachtracker.pepemxl.com y Meta): no abre puertos.
+
+```bash
+cd api
+npm run worker:prod:once   # una consulta a la cola: "no job" si el secreto es correcto y no hay trabajos
+npm run worker:prod:up     # construye la imagen y lo deja corriendo (restart: unless-stopped)
+npm run worker:prod:logs   # sigue los logs
+npm run worker:prod:down   # lo detiene
+```
+
+- **Configuración:** toma del `.env` de la raíz `MODEL_API_KEY` y `PROD_WORKER_CALLBACK_SECRET` (el mismo `WORKER_CALLBACK_SECRET` de la API de producción), sin copiarlos a otro archivo. Fija la URL de la API, `SAM_API_BASE_URL` vacío (SAM real, nunca el simulador) y `DEBUG_DIR` vacío (no guarda copias del video). La caché y los trabajos van en el volumen `ppcoachtracker-prod_worker-data`.
+- **Versión fija:** la imagen lleva una copia del código; después de un cambio, `npm run worker:prod:up` la reconstruye.
+- **Reinicios:** Docker arranca con systemd dentro de WSL y levanta el contenedor, pero WSL solo arranca cuando algo lo invoca. `powershell -ExecutionPolicy Bypass -File worker	oolsegister_wsl_task.ps1` registra una tarea al iniciar sesión que lo arranca y lo mantiene vivo.
+- **Suspensión:** con la laptop suspendida el worker no atiende y los trabajos esperan en la cola; la API devuelve a la cola lo que lleva más de 2 h en `running`.
+
 ## Variables
 
 | Variable | Para qué | Por omisión |

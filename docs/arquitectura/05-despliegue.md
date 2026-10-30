@@ -1,6 +1,6 @@
 # Entornos y despliegue
 
-La API PHP está en producción desde el 30 de octubre en https://ppcoachtracker.pepemxl.com (etapa 9, [prompts/09-despliegue.md](../prompts/09-despliegue.md)). El worker desplegado sigue **pendiente**: hoy corre en la máquina de desarrollo.
+La API PHP está en producción desde el 30 de octubre en https://ppcoachtracker.pepemxl.com (etapa 9, [prompts/09-despliegue.md](../prompts/09-despliegue.md)). El worker de producción corre desde el mismo día en la máquina de desarrollo, en Docker dentro de WSL ([worker/README.md](../../worker/README.md#producción-en-este-host-docker-en-wsl)).
 
 ## Entorno local
 
@@ -59,7 +59,7 @@ Ninguna prueba llama a Meta ni al simulador. Las pruebas de la app y del worker 
 - **Producción:** el `.env` del servidor se genera desde los `PROD_*` del `.env` de la raíz, vive fuera de la carpeta web con permisos 600 y la API lo lee con `Config::load()` (`getenv` gana). Lleva `PP_COACH_TRACKER_REQUIRE_META=1` y `PP_COACH_TRACKER_ALLOW_HTTP` vacío.
 - **Worker:** `MODEL_API_KEY` y `WORKER_CALLBACK_SECRET` como secretos de la plataforma donde corra; `SAM_API_BASE_URL` vacío en producción (SAM real).
 
-## Producción (etapa 9; el worker, pendiente)
+## Producción (etapa 9)
 
 ```mermaid
 flowchart LR
@@ -67,12 +67,12 @@ flowchart LR
     sub --> web["carpeta web<br/>index.php, .htaccess, .user.ini, root.php, legal/"]
     web --> appdir["~/ppcoachtracker_api/<br/>src, bin, sql, VERSION, .env (600), storage/"]
     appdir --> maria[("&lt;prefijo&gt;_ppcoachtracker<br/>base nueva")]
-    worker["Worker (Modal o VPS)<br/>misma imagen de worker/"] -->|"/internal/*"| sub
+    worker["Worker en este host<br/>Docker en WSL, docker-compose.prod.yml"] -->|"/internal/*"| sub
     worker --> meta["Meta Model API<br/>SAM 3.1 + Muse Spark"]
 ```
 
 - **API:** PHP en el hosting compartido, en la raíz del subdominio; la app vive en `~/ppcoachtracker_api` y la carpeta web es `~/domains/pepemxl.com/public_html/ppcoachtracker`. Sin SSH: un paquete (`api/php/tools/package.sh`, sin secretos en las actualizaciones), subido por la API de archivos del hosting a `_deploy/` (protegida con un `.htaccess` que niega todo) y un instalador (`install_cloud_provider.php`) que corre un cron de una sola vez: reemplaza el código, aplica el esquema, copia `public/` y borra `_deploy`. El cron se borra al terminar.
-- **Worker:** el hosting no corre procesos largos ni Docker, así que la imagen de `worker/` va en Modal o en un VPS con `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`. El simulador nunca se despliega.
+- **Worker:** el hosting no corre procesos largos ni Docker, así que la imagen de `worker/` corre en la máquina de desarrollo (Docker en WSL) con `worker/docker-compose.prod.yml`: `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`, el `PROD_WORKER_CALLBACK_SECRET`, SAM real, sin copias del video y con `restart: unless-stopped`. Una tarea programada al iniciar sesión (`worker/tools/register_wsl_task.ps1`) mantiene WSL vivo. Solo hace peticiones de salida: no abre puertos. El simulador nunca se despliega.
 - **Retención:** falta el cron que borre los chunks y las imágenes después del análisis, como promete el aviso de privacidad.
 
 ## Cómo se publica una versión de la app
