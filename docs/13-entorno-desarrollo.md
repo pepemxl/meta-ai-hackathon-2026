@@ -83,7 +83,7 @@ npm run php:up
 npm run worker:up
 ```
 
-Con `SIM_YOLO_TILES=1` (sin mosaicos) el simulador procesa un chunk de 1 min en un par de minutos de CPU; con mosaicos encuentra más jugadores lejanos pero tarda unas 3 veces la duración del video. Por eso en desarrollo los chunks son de 1 min y los clips cortos.
+Con `SIM_DETECTOR_LOCAL_TILES=1` (sin mosaicos) el simulador procesa un chunk de 1 min en un par de minutos de CPU; con mosaicos encuentra más jugadores lejanos pero tarda unas 3 veces la duración del video. Por eso en desarrollo los chunks son de 1 min y los clips cortos.
 
 ## Pasar del simulador a SAM 3.1
 

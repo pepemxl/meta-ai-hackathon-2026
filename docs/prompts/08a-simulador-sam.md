@@ -41,7 +41,7 @@ Rutas (bajo /v1, contrato en docs/13-entorno-desarrollo.md del repo):
 - Fallas a propósito: SIM_FAIL_RATE (0..1) → 429 con Retry-After: 1 o 500;
   SIM_CUT_STREAM=1 → corta el stream a la mitad una de cada cinco veces.
 
-Configuración: SIM_PORT (8090), SIM_DATA_DIR, SIM_YOLO_TILES (1 por omisión,
+Configuración: SIM_PORT (8090), SIM_DATA_DIR, SIM_DETECTOR_LOCAL_TILES (1 por omisión,
 para que un chunk de 1 min tarde un par de minutos), SIM_FAIL_RATE,
 SIM_CUT_STREAM, SIM_MUSE.
 
@@ -65,7 +65,7 @@ real de SAM.
 ## Trampas conocidas
 
 - **El formato de SAM no está verificado:** el simulador imita lo que dice la etapa 8. Cuando haya key y un stream real, se ajusta el simulador a ese formato (y no al revés).
-- **El simulador es más lento que SAM:** con mosaicos (`SIM_YOLO_TILES=2`) tarda unas 3 veces la duración del video en CPU. Por eso en desarrollo los chunks son de 1 min ([12](../12-videos-largos-chunks.md)).
+- **El simulador es más lento que SAM:** con mosaicos (`SIM_DETECTOR_LOCAL_TILES=2`) tarda unas 3 veces la duración del video en CPU. Por eso en desarrollo los chunks son de 1 min ([12](../12-videos-largos-chunks.md)).
 - **No dejarlo publicado:** AGPL-3.0 (YOLOv8n). Solo `127.0.0.1` y la red de Docker local ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md#licencias)).
 - **Docker en WSL:** `host.docker.internal` no siempre resuelve; por eso la red externa compartida.
 
