@@ -18,6 +18,7 @@ La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugado
 | [12-videos-largos-chunks.md](12-videos-largos-chunks.md) | Videos en chunks de 10 fps con un YAML por chunk (contrato entre app, API y worker): 1 min en desarrollo y 5 min en el demo, con 2 a 5 s de traslape, y subida en partes de 8 MB |
 | [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo: simulador local de la API de SAM 3.1 (fuera del repo), cómo no se mezcla con SAM real y cómo pasar al demo |
 | [11-stats-jugadores.md](11-stats-jugadores.md) | Estadísticas por jugador: qué llena el análisis y qué el entrenador, formato del reporte y cálculos agregados |
+| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: segmentador local de desarrollo (YOLOv8n) contra SAM 3.1 |
 | [diseno.md](diseno.md) | Estilo visual de la app, tipo apps de Meta: colores claro y oscuro, tipografía, componentes, navegación e ícono |
 
 ## Antecedentes (diseño y prototipo previos al hackathon)

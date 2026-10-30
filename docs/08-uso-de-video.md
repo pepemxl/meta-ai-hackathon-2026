@@ -25,6 +25,7 @@ Descargar partidos de YouTube viola sus términos de servicio, y los derechos de
 |---|---|---|
 | Probar el pipeline en una máquina, sin publicar nada | Bajo en la práctica, aunque técnicamente incumple los términos de YouTube | Permitido para iterar. Los videos van en `LOCAL_DATA/` o `data/`, que no se versionan (`*.mp4` ya está en `.gitignore`) |
 | Frames, overlays o resultados en el repo público | Medio | No. Usar solo clips propios para cualquier ejemplo versionado |
+| Números agregados de una prueba local, sin cuadros, con equipos anonimizados y sin datos que identifiquen el partido | Bajo | Permitido en [results/](results/README.md) |
 | Video demo o pitch con la transmisión | Alto | No |
 | Videos con licencia Creative Commons en YouTube | Bajo, respetando la atribución | Permitido; anotar la fuente y la licencia en el README |
 | Video de stock con licencia que permite uso comercial (por ejemplo, la Free License de Mixkit) | Bajo | **Excepción permitida para el demo y el pitch**, con las condiciones de [Video de stock](#video-de-stock-mixkit-y-similares) |
