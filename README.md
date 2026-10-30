@@ -35,7 +35,8 @@ The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/RE
 | App, API (Node and PHP) and worker | Built, with automated tests passing (app 48, Node 23, PHP 25, worker 87) |
 | SAM 3.1 and Muse Spark | Written against the documented formats and tested with synthetic streams; **first runs with the real API on October 29** |
 | Lines with SAM (`PP_PITCH_SAM`) | Off until verified with the real API |
-| Production API at https://ppcoachtracker.pepemxl.com and hosted worker | Not deployed yet |
+| Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 (`/health` reports the database) |
+| Hosted worker | Not deployed yet |
 | Per-player statistics | Not built: metrics are per team and per track |
 
 ## Running it locally

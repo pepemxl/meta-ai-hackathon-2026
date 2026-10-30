@@ -54,4 +54,8 @@ Las mismas variables que Node (`.env.example`), en el `.env` de la raíz de la a
 
 ## Despliegue
 
-El paquete y la instalación en https://ppcoachtracker.pepemxl.com están en la etapa 9 ([docs/prompts/09-despliegue.md](../../docs/prompts/09-despliegue.md)): la app fuera de `public_html`, `public/` en la carpeta web con un `root.php` que apunta a la app, y una base nueva con el prefijo de la cuenta.
+```bash
+APP_ROOT=/home/<usuario>/ppcoachtracker_api \nWEB_DIR=/home/<usuario>/domains/pepemxl.com/public_html/ppcoachtracker \n[ENV_FILE=<.env del servidor>] [USER_ENV=<user.env>] bash api/php/tools/package.sh
+```
+
+Deja en `dist/` el zip, `install.php` y `deny.htaccess`. Solo la primera instalación lleva `ENV_FILE` (secretos); `USER_ENV` (EMAIL, NAME, PASSWORD) crea una cuenta si no existe. El paquete y la instalación en https://ppcoachtracker.pepemxl.com están en la etapa 9 ([docs/prompts/09-despliegue.md](../../docs/prompts/09-despliegue.md)): la app fuera de `public_html`, `public/` en la carpeta web con un `root.php` que apunta a la app, y una base nueva con el prefijo de la cuenta.

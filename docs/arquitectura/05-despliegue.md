@@ -1,6 +1,6 @@
 # Entornos y despliegue
 
-Hoy todo corre en la máquina de desarrollo. La API de producción y el worker desplegado son la etapa 9 ([prompts/09-despliegue.md](../prompts/09-despliegue.md)), todavía **pendiente**.
+La API PHP está en producción desde el 30 de octubre en https://ppcoachtracker.pepemxl.com (etapa 9, [prompts/09-despliegue.md](../prompts/09-despliegue.md)). El worker desplegado sigue **pendiente**: hoy corre en la máquina de desarrollo.
 
 ## Entorno local
 
@@ -56,10 +56,10 @@ Ninguna prueba llama a Meta ni al simulador. Las pruebas de la app y del worker 
 
 - **Nada de secretos en el repo.** `.env.example` solo tiene los nombres; el `.env` de la raíz no se versiona y nunca se imprime.
 - **Local:** la API Node y el worker leen el `.env` de la raíz; `docker-compose.yml` trae valores de prueba para la PHP y el worker (`WORKER_CALLBACK_SECRET` de prueba, `PP_COACH_TRACKER_ALLOW_HTTP=1`).
-- **Producción (pendiente):** el `.env` del servidor se genera desde los `PROD_*` del `.env` de la raíz, vive fuera de la carpeta web con permisos 600 y la API lo lee con `Config::load()` (`getenv` gana). Lleva `PP_COACH_TRACKER_REQUIRE_META=1` y `PP_COACH_TRACKER_ALLOW_HTTP` vacío.
+- **Producción:** el `.env` del servidor se genera desde los `PROD_*` del `.env` de la raíz, vive fuera de la carpeta web con permisos 600 y la API lo lee con `Config::load()` (`getenv` gana). Lleva `PP_COACH_TRACKER_REQUIRE_META=1` y `PP_COACH_TRACKER_ALLOW_HTTP` vacío.
 - **Worker:** `MODEL_API_KEY` y `WORKER_CALLBACK_SECRET` como secretos de la plataforma donde corra; `SAM_API_BASE_URL` vacío en producción (SAM real).
 
-## Producción (pendiente, etapa 9)
+## Producción (etapa 9; el worker, pendiente)
 
 ```mermaid
 flowchart LR
@@ -71,7 +71,7 @@ flowchart LR
     worker --> meta["Meta Model API<br/>SAM 3.1 + Muse Spark"]
 ```
 
-- **API:** PHP en el hosting compartido, en la raíz del subdominio. Sin SSH: un paquete (`package.sh`, sin secretos en las actualizaciones), subido por la API de archivos del hosting y un instalador que corre un cron de una sola vez (reemplaza el código, aplica el esquema, copia `public/` y borra lo temporal).
+- **API:** PHP en el hosting compartido, en la raíz del subdominio; la app vive en `~/ppcoachtracker_api` y la carpeta web es `~/domains/pepemxl.com/public_html/ppcoachtracker`. Sin SSH: un paquete (`api/php/tools/package.sh`, sin secretos en las actualizaciones), subido por la API de archivos del hosting a `_deploy/` (protegida con un `.htaccess` que niega todo) y un instalador (`install_cloud_provider.php`) que corre un cron de una sola vez: reemplaza el código, aplica el esquema, copia `public/` y borra `_deploy`. El cron se borra al terminar.
 - **Worker:** el hosting no corre procesos largos ni Docker, así que la imagen de `worker/` va en Modal o en un VPS con `PP_COACH_TRACKER_API_URL=https://ppcoachtracker.pepemxl.com`. El simulador nunca se despliega.
 - **Retención:** falta el cron que borre los chunks y las imágenes después del análisis, como promete el aviso de privacidad.
 
