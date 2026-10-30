@@ -1,11 +1,11 @@
-# CV local (YOLOv8n) contra SAM 3.1 en 15 minutos de partido
+# CV local (YOLOv8n) contra SAM 3.1 en dos clips de 15 minutos
 
 **Fecha:** 30 de octubre de 2026.
-**Qué se midió:** el mismo clip de 15 min, analizado una vez con el segmentador local de desarrollo y otra con SAM 3.1 real por la Meta Model API.
+**Qué se midió:** dos clips de 15 min del mismo partido, cada uno analizado una vez con el segmentador local de desarrollo y otra con SAM 3.1 real por la Meta Model API. El clip 1 es la toma normal de la transmisión. El clip 2 es una cámara panorámica que muestra la cancha entera, reescalada a 16:9 como si la hubiera grabado un teléfono ([más abajo](#clip-2-cámara-panorámica-reescalada)).
 
 > **La versión local no es SAM.** Es **YOLOv8n** (detector de COCO, en ONNX con OpenCV), con un tracker por IoU con compensación del movimiento de la cámara y el equipo por k-means del color del torso. Es el mismo motor que, en desarrollo, está detrás del simulador de la API de SAM ([13-entorno-desarrollo.md](../13-entorno-desarrollo.md)): el simulador responde con el formato de SAM, pero por dentro corre YOLO. Aquí se corrió directo, sin el simulador, y en los resultados aparece como `local_cv`. YOLOv8n es AGPL-3.0: vive fuera del repo, solo en la máquina de desarrollo, y nunca va a la app, a la API ni a producción. Producción usa solo SAM 3.1.
 
-## El clip
+## Clip 1: la toma de la transmisión
 
 - **Duración:** 15 min 02 s de la transmisión de TV de un partido profesional. Cámara alta en la tribuna, que sigue la jugada; sin cortes ni repeticiones en este tramo.
 - **Equipos anonimizados:**
@@ -94,7 +94,39 @@ Se revisaron cuatro cuadros con las cajas de las dos corridas encima. Las imáge
 - **Jugada en el área:** SAM separa a los 22 jugadores amontonados frente a la portería. CV local ve 16 y, en cambio, marca al personal de la banda y a los fotógrafos.
 - **Medio campo:** las dos corridas coinciden en casi todo. SAM cuenta como equipo B a un juez de línea y a un oficial de la banda con ropa oscura. CV local pone en el equipo A a un jugador del equipo B.
 
+## Clip 2: cámara panorámica reescalada
+
+Otro tramo de 15 min 02 s del mismo partido, con los mismos equipos y colores, pero desde una cámara panorámica que muestra la cancha completa de portería a portería. El original mide 3840×800, una proporción de 4.8:1. Para que se pareciera a una grabación del teléfono, se reescaló a 1920 de ancho y se rellenó con franjas negras hasta 1920×1080: el panorama queda en una franja de 400 px de alto en el centro. Después se cortó y se corrió exactamente igual que el clip 1, con los mismos chunks para las dos corridas.
+
+Al bajarlo a 720p, como hace la app, la franja mide unos 267 px de alto y **un jugador mide unos 8 a 10 px**. En el clip 1, los jugadores que encontró SAM medían 39 px en promedio, y el 10 % más chico, menos de 29 px.
+
+![Jugadores por cuadro (promedio por segundo) de CV local y SAM 3.1 en el clip 2, y segundos con balón](01-cv-local-vs-sam31-clip2.svg)
+
+| Métrica | CV local (YOLOv8n) | SAM 3.1 |
+|---|---|---|
+| Tiempo de proceso | 1,869 s (2.07 veces el video) | 855 s (0.95 veces el video) |
+| Costo | US$0 | 27,240 cuadros enviados: **US$5.45** si Meta cobra igual las respuestas vacías (está por confirmar en el panel) |
+| Personas por cuadro | 7.0: A 4.7, B 2.3 | **0** |
+| Alto de la caja (mediana) | 21 px a 720p | – |
+| Tracks | 844 (mediana 2.4 s) | 0 |
+| Balón visto | 0.4 % de los cuadros | 0 % |
+| Posesión | No se pudo calcular | No se pudo calcular |
+| Hallazgos | 3, de reglas, sobre ruido | 1, de Muse Spark: "Sin jugadores ni balón detectados en la imagen" |
+
+Lo que pasó:
+
+- **SAM 3.1 no encontró nada.** Las 9 respuestas (3 chunks × 3 conceptos) llegaron completas y sin error, pero con 0 objetos. Así responde SAM cuando no hay coincidencias. Muse Spark recibió las métricas en cero y dijo que no había juego que analizar; no inventó nada.
+- **CV local tampoco sirve aquí.** Ve 7 personas por cuadro de unas 22 en la cancha.
+  - El 55 % de sus cajas tiene los pies en los 38 px de abajo de la franja: es la orilla cercana, con jueces de línea, personal de la banda, fotógrafos y los pocos jugadores que pasan cerca.
+  - Con tan poco pasto en el cuadro (las franjas negras y la tribuna ocupan casi todo), no aplicó la máscara de la cancha, así que tampoco pudo separar a los jugadores del público.
+  - Sus cajas miden unos 21 px: encuentra a las personas más grandes, no a los jugadores lejanos.
+- **Revisión a ojo** (4 cuadros, sin publicar): SAM no tiene ninguna caja. CV local marca a 10 personas en el saque desde el centro, la mitad en la banda de abajo, y se le escapan los jugadores del medio campo.
+
+**Conclusión del clip 2:** con jugadores de 8 a 10 px, ninguno de los dos sirve. SAM 3.1 tiene un tamaño mínimo por debajo del cual no reporta nada, en algún punto entre 10 px (aquí) y unos 29 px (los jugadores más chicos que encontró en el clip 1). CV local, con sus mosaicos 2×2, todavía ve algo, pero sobre todo gente de la orilla. Para la app, esto quiere decir que **el teléfono debe grabar lo bastante cerca para que un jugador mida unos 30 px a 720p**, o que esta clase de video hay que mandarla a 1080p o recortada. Falta medirlo.
+
 ## Conclusiones
+
+Del clip 1, la toma normal:
 
 1. **La identidad de los jugadores es para SAM.** Tiene 53 tracks en 15 min, casi uno por jugador en cada chunk; CV local tiene 1,231 pedazos de unos 7 s. Con CV local, las métricas por jugador (distancia, minutos, mapas) salen partidas.
 2. **El balón también es para SAM:** 85 % de los cuadros contra 17 %. Por eso la posesión de CV local no sirve (10 cambios en 15 min y posesiones de 8 s como máximo). La de SAM es creíble: 139 cambios y posesiones de hasta 23 s.
@@ -102,17 +134,26 @@ Se revisaron cuatro cuadros con las cajas de las dos corridas encima. Las imáge
 4. **Tiempo parecido, uso de la máquina opuesto.** Los dos tardan entre 1.5 y 1.7 veces la duración del video. CV local ocupa toda la CPU; SAM casi no usa la máquina y pasa el tiempo subiendo chunks y esperando a Meta.
 5. **Costo de SAM:** unos **US$0.36 por minuto** de video (3 conceptos a 10 fps). Un partido de 90 min costaría unos US$33.
 
+Del clip 2, la panorámica:
+
+6. **Hay un tamaño mínimo.** Con jugadores de 8 a 10 px de alto a 720p, SAM 3.1 no devuelve nada y CV local ve sobre todo a la gente de la orilla. El clip 1 funcionó con jugadores de 30 px o más.
+7. **El costo no depende de lo que encuentra.** Una corrida vacía envía los mismos 27,240 cuadros, así que conviene revisar la escala antes de mandar un clip largo.
+
 ## Qué sigue
 
 - **El inicio de chunk de SAM.** Hay que confirmar en el visor por qué un concepto no encuentra a nadie durante los primeros segundos. Dos soluciones baratas, que habría que medir antes y después con esta misma corrida:
   - repetir el concepto a mitad del chunk;
   - en el traslape, sembrar el chunk nuevo con los jugadores del anterior.
 - **El personal de la banda con ropa del color de un equipo.** Revisar si la máscara de la cancha, ampliada 0.02, deja pasar los pies de la banda, o si conviene un tercer concepto para descartarlos (`referee`, `staff`).
+- **Medir el tamaño mínimo de SAM.** Usar el original panorámico de 3840×800 de dos formas, con unos pocos minutos (US$0.36 por minuto):
+  - recortado a 16:9 por el centro, para que los jugadores midan unos 30 px;
+  - en chunks a 1080p sin recortar.
+- **Avisar en la app antes de gastar.** Si los jugadores se ven muy chicos, avisar o pedir que se grabe más cerca antes de subir el clip. Falta definir cómo medirlo en el teléfono.
 - **Repetirlo con un partido amateur grabado con tripié**, que es el uso real de la app: una transmisión no es el producto ([learnings/01](../learnings/01-analisis-de-video.md)).
 
 ## Cómo reproducirlo
 
-1. Cortar el video: `worker/tools/make_chunks.py VIDEO SALIDA --profile demo --pitch`, y recodificar los chunks a H.264 con `ffmpeg -c:v libx264 -b:v 1500k`.
+1. Cortar el video: `worker/tools/make_chunks.py VIDEO SALIDA --profile demo --pitch`, y recodificar los chunks a H.264 con `ffmpeg -c:v libx264 -b:v 1500k`. Para el clip 2, antes se reescaló el panorama con `ffmpeg -vf "scale=1920:400,pad=1920:1080:0:340"`.
 2. Correr SAM 3.1: `analyze SALIDA --home-color white --away-color black --debug-dir …` con `MODEL_API_KEY` y `SAM_API_BASE_URL` vacío ([worker/README.md](../../worker/README.md)).
 3. Correr el segmentador local (fuera del repo) sobre los mismos chunks, guardando su corrida.
 4. Comparar las dos en el visor ([viewer/README.md](../../viewer/README.md#comparar-dos-corridas)): marca las dos corridas y toca **Comparar**. Muestra esta misma gráfica, las cajas lado a lado o solo sus diferencias, y la tabla de coincidencia.

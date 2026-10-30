@@ -4,4 +4,4 @@ Mediciones del análisis sobre video real: qué se corrió, con qué números y 
 
 | Documento | Qué compara |
 |---|---|
-| [01-cv-local-vs-sam31.md](01-cv-local-vs-sam31.md) | 15 min de partido con el segmentador local de desarrollo (YOLOv8n, no SAM) contra SAM 3.1: jugadores, identidad, balón, posesión, tiempo y costo |
+| [01-cv-local-vs-sam31.md](01-cv-local-vs-sam31.md) | Dos clips de 15 min del mismo partido (la toma de TV y una panorámica reescalada) con el segmentador local de desarrollo (YOLOv8n, no SAM) contra SAM 3.1: jugadores, identidad, balón, posesión, tiempo, costo y el tamaño mínimo de un jugador |
