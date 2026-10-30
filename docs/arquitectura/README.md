@@ -80,7 +80,7 @@ flowchart LR
 | Pestaña de estadísticas con filtros, alineación inicial | **Pendiente** | etapa 10 |
 | Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
 | API en producción y worker desplegado | Listo: API en Hostinger; worker en Docker dentro de WSL en la máquina de desarrollo (se detiene si la laptop se suspende) | etapa 9, [05-despliegue.md](05-despliegue.md) |
-| Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo (`bin/retention.php`); falta el cron diario en producción | `api/php/bin/retention.php` |
+| Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo: cron diario en producción a las 04:30 desde el 30 de octubre | `api/php/bin/retention.php` |
 
 ## Decisiones que dan forma a todo
 
