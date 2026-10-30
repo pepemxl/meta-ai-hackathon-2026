@@ -1,6 +1,6 @@
 # Pipeline de análisis
 
-El worker está en `worker/`: Python 3.12 con OpenCV, numpy y PyYAML, en Docker. **Solo usa Meta:** SAM 3.1 sigue a jugadores y balón y Muse Spark escribe los hallazgos; no hay detector, tracker ni reglas locales. Sin `MODEL_API_KEY` no arranca. Los dos backends están escritos según el formato documentado, pero **sin verificar** contra la API real: las pruebas usan streams sintéticos (`tests/fakes.py`). Cómo correrlo, las variables y el formato del resultado: [`worker/README.md`](../../worker/README.md).
+El worker está en `worker/`: Python 3.12 con OpenCV, numpy y PyYAML, en Docker. **Solo usa Meta:** SAM 3.1 sigue a jugadores y balón y Muse Spark escribe los hallazgos; no hay detector, tracker ni reglas locales. Sin `MODEL_API_KEY` no arranca. Los dos backends se **verificaron con la API real** el 30 de octubre, con dos clips de 15 min de principio a fin ([results/01](../results/01-cv-local-vs-sam31.md)); las máscaras de SAM se decodifican con `meta-sam-parser`, de Meta. Las pruebas automáticas usan streams sintéticos (`tests/fakes.py`). Cómo correrlo, las variables y el formato del resultado: [`worker/README.md`](../../worker/README.md).
 
 ## Dónde corre
 
@@ -8,8 +8,8 @@ El worker está en `worker/`: Python 3.12 con OpenCV, numpy y PyYAML, en Docker.
 |---|---|
 | `run` en Docker junto a la API local (`npm run worker:up`) | Desarrollo: consulta la cola de la API PHP local |
 | `once` | Un solo trabajo y termina |
-| `analyze DIR` sobre una carpeta de chunks, sin API (`--touches`, `--pitch-mode`, `--debug-dir`) | Medir cambios con videos locales y verlos en el visor |
-| Modal o un VPS, con la misma imagen | Producción, contra `https://ppcoachtracker.pepemxl.com` (pendiente, etapa 9) |
+| `analyze DIR` sobre una carpeta de chunks, sin API (`--touches`, `--pitch-mode`, `--camera`, `--debug-dir`) | Medir cambios con videos locales y verlos en el visor |
+| `docker-compose.prod.yml` en Docker dentro de WSL, en la máquina de desarrollo (`npm run worker:prod:up`) | **Producción** desde el 30 de octubre, contra `https://ppcoachtracker.pepemxl.com`. Se puede mover a un VPS o a Modal con la misma imagen |
 
 En todos los casos el worker **pide** trabajo (`GET /internal/jobs/next`) en lugar de recibir un webhook, así que la API en hosting compartido no llama a nadie. En desarrollo, `SAM_API_BASE_URL` apunta al simulador local (fuera del repo, [13-entorno-desarrollo.md](../13-entorno-desarrollo.md)); lo que sale de ahí se marca `sam_simulator`.
 
@@ -121,19 +121,22 @@ flowchart LR
   - Los del worker: `player in <color> jersey` por equipo, `soccer player` si los colores no distinguen a los equipos, `soccer ball` y `white line` para las líneas (antes `white line on a soccer field`, que llevaba relleno). Se pueden cambiar con `SAM_PLAYER_CONCEPT`, `SAM_BALL_CONCEPT` y `SAM_LINE_CONCEPT`.
   - Las cajas y los puntos van como tokens dentro del texto (`<Nf>1<|point;x;y;w;h|>`, con `-` para un punto negativo), hasta 16 objetos, y **no se pueden combinar con una frase**. Por eso las líneas van en dos peticiones: el concepto y los trazos como puntos (`sam_lines.object_prompt`). Cada petición cobra al menos 50 cuadros.
 - **Muse Spark** (`MUSE_SPARK_MODEL`, por omisión `muse-spark-1.3`): Responses con salida estructurada (`json_schema` estricto).
-- **Costo de SAM:** US$0.20 por cada 1,000 cuadros y concepto. Un minuto a 10 fps son ~600 cuadros por concepto, con 3 conceptos ~US$0.37; las líneas suman las referencias y un cuadro clave por segundo. El resultado lo cuenta en `backends.usage.frames_sent` y en `calibration.sam`. **El costo medido está pendiente** (falta la key).
+- **Costo de SAM:** US$0.20 por cada 1,000 cuadros y concepto. Un minuto a 10 fps son ~600 cuadros por concepto, con 3 conceptos ~US$0.37; las líneas suman las referencias y un cuadro clave por segundo. El resultado lo cuenta en `backends.usage.frames_sent` y en `calibration.sam`. **Costo medido** el 30 de octubre: US$5.45 por 15 min en el perfil `demo` (27,240 cuadros), unos US$0.36 por minuto. Una respuesta vacía también se cobra (`video_frames_processed`). Un video ancho partido en 3 videos de 1024 px cuesta el triple.
+- **Lo que ve SAM:** reduce cada cuadro a 1024 px por el lado largo y lo rellena hasta un cuadrado. Por debajo de unos 30 px de jugador después de esa reducción no reporta nada, así que una panorámica o un video 4K completos dan cero; partidos con `tools/make_tiles.py`, sí ([learnings/04](../learnings/04-video-ancho-y-sam.md)).
 
 ## Lo que falta
 
 | Hoy | Falta |
 |---|---|
-| SAM 3.1 y Muse Spark escritos con el formato documentado y streams sintéticos | Con la key: capturar el stream real de un clip propio, ajustar el parser y las pruebas, y medir el costo |
-| Conceptos `player in <color> jersey` y `soccer ball` | Medirlos con SAM real (`compare_runs.py`) contra otros conceptos |
+| SAM 3.1 y Muse Spark verificados con la API real y el costo medido; las pruebas usan streams sintéticos | Guardar el stream real de un clip propio como fixture de las pruebas |
+| Conceptos `player in <color> jersey` y `soccer ball`, medidos con SAM real: un track por jugador en cada chunk y balón en el 85 % de los cuadros | Un concepto para los porteros y el árbitro, que ningún color describe; que SAM encuentre a los dos equipos desde el inicio del chunk (a veces tarda de 5 a 30 s) |
+| Video ancho o 4K: `tools/make_tiles.py` lo parte en videos de 1024 px con traslape y une los tracks, a mano | Partir y unir dentro del worker, y mandar solo las partes con cancha |
+| Cámara fija (`options.camera = static`): una homografía para todo el video, sin pasada de movimiento | Probarlo con un video de tripié propio |
 | SAM para las líneas, apagado: el concepto y los trazos como puntos, en dos peticiones con el formato documentado; el concepto y las máscaras ya probados con SAM real | Ver si SAM sigue un trazo de una foto a los cuadros del video y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige, y cuánto cuesta |
 | Metros donde el entrenador marcó la cancha | Probarlo con un video de tripié propio; con 5 marcas a ojo el error en la imagen no dice cuánto se corre la cancha |
 | Resultado con métricas por equipo | Estadísticas por dorsal: requiere etiquetar los tracks en la app |
-| El worker corre en local; el simulador no existe todavía | El simulador (etapa 8a, fuera del repo) y el worker desplegado (etapa 9) |
-| El visor dibuja cajas, posesión y la cancha calculada | Que dibuje las líneas pintadas y las máscaras de SAM |
+| El worker de producción corre en la máquina de desarrollo; el simulador no existe | Un servidor que no se suspenda; el simulador (etapa 8a, fuera del repo) |
+| El visor dibuja cajas, posesión y la cancha calculada, y compara dos corridas | Que dibuje las líneas pintadas y las máscaras de SAM |
 | Los chunks se quedan en el servidor | Cron de retención que los borre después del análisis |
 
 ## Estados mientras analiza

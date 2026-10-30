@@ -4,7 +4,7 @@ Un contrato HTTP+JSON con dos implementaciones que pasan las mismas pruebas. El 
 
 | | API Node (`api/src/`) | API PHP (`api/php/`) |
 |---|---|---|
-| Para qué | Desarrollo y pruebas rápidas | **Producción** en `https://ppcoachtracker.pepemxl.com` (pendiente de desplegar, etapa 9) |
+| Para qué | Desarrollo y pruebas rápidas | **Producción** en `https://ppcoachtracker.pepemxl.com` (desplegada el 30 de octubre, etapa 9) |
 | Stack | Express, multer, mysql2, jsonwebtoken | PHP 8.3 sin Composer ni dependencias (autoload propio, PDO) |
 | Repositorio | Memoria (`REPO=memory`) o MySQL | MySQL / MariaDB |
 | Contraseñas | scrypt | bcrypt (`password_hash`) |

@@ -164,6 +164,8 @@ stateDiagram-v2
 ## La cancha en la app
 
 - **"Calcular la cancha"** es un interruptor por video. Al enviar el primer video de un partido, `PitchDialog` pregunta si las líneas se ven bien (`lines`), se ven poco o no hay (`no_lines`) o no calcular (`off`); la respuesta vale para los demás videos del partido.
+- **"La cámara queda fija todo el video":** casilla junto a "Calcular la cancha". Marcada (tripié o panorámica), el worker usa una sola homografía; sin marcar, la sigue cuadro por cuadro. Se guarda en el clip y en el partido y viaja como `analysis.camera`.
+- **Canchas guardadas:** en `PitchTouchesScreen` un menú (`PitchPicker`) elige una cancha guardada con su largo y ancho en metros, fútbol 11 o 7 sin guardar, o crea una nueva. El partido recuerda su cancha y las medidas viajan como `length_m` y `width_m`.
 - **Puntos:** en `PitchTouchesScreen` se elige un cuadro con la barra, se toca un punto de la imagen y luego cuál es en el dibujo de la cancha (11 o 7).
 - **Líneas pintadas:** en el modo "Pintar líneas" el dedo pasa sobre una línea tenue o borrada y luego se toca cuál es en el dibujo, o "No sé cuál, solo es una línea". Una línea con nombre cuenta como marca; una sin nombre solo le enseña a SAM cómo se ve una línea.
 - Con 4 marcas o más, `Homography.fitPointsAndLines` dibuja la cancha calculada en violeta sobre el cuadro; con 4 exactas pide una quinta, porque con 4 cualquier nombre encaja.

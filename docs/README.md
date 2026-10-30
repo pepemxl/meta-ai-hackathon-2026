@@ -4,7 +4,7 @@ Un celular que mide la cancha en metros: SAM 3.1 sigue a los jugadores y la cali
 
 **Para construirlo, empieza por [prompts/](prompts/README.md).** Ahí está el orden de las etapas, el contexto que se pega en cada sesión del agente y el texto para declarar en la entrega qué es previo y qué se hizo durante el hackathon.
 
-La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. Mientras se desarrolla, el worker usa un simulador local de SAM ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)); el demo y producción usan SAM 3.1. Usa solo dependencias con licencia permisiva, y la API de producción vive en **https://ppcoachtracker.pepemxl.com**.
+La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. SAM 3.1 y Muse Spark ya se verificaron con la API real ([results/](results/README.md)); el simulador local de SAM previsto para desarrollar sin gastar créditos ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)) no se construyó. Usa solo dependencias con licencia permisiva (más `meta-sam-parser`, de Meta, para las máscaras de SAM). La API de producción vive en **https://ppcoachtracker.pepemxl.com** y el worker de producción corre en Docker en la máquina de desarrollo.
 
 ## Para construir
 

@@ -6,7 +6,7 @@ Built for the **Meta Global AI Developer Hackathon** (October 26 – November 4,
 
 ## How it differs from a common sports analyzer
 
-1. **Meters, not pixels, from one phone.** The coach taps a few points or paints a few lines of the pitch on one frame. The worker solves the camera (homography) and follows it frame by frame as the phone pans, tilts or zooms, so every player's feet land in meters on the pitch. Common analyzers give pixel heatmaps, or need fixed installations, several cameras or GPS vests.
+1. **Meters, not pixels, from one phone.** The coach taps a few points or paints a few lines of the pitch on one frame. The worker solves the camera (homography) and follows it frame by frame as the phone pans, tilts or zooms (or keeps it fixed when the coach says the camera stays still), so every player's feet land in meters on the pitch. Common analyzers give pixel heatmaps, or need fixed installations, several cameras or GPS vests.
 2. **Works on real, bad pitches.** When the lines are faded or the light is poor, the coach paints over a reference photo or a video frame: "this is a line". Each stroke goes to SAM 3.1 as a point-prompted object that it follows through the video, next to a separate `white line` concept request; the masks confirm or correct the camera.
 3. **Nothing to train, nothing to label.** SAM 3.1 finds each team with a short noun-phrase prompt from the jersey color (`player in red jersey`) and tracks it through the video. A new league, new kits or a new pitch need no dataset and no model.
 4. **It measures; the coach decides.** Muse Spark turns the measurements (possession, meters per minute, sprints, team width and length) into short findings linked to the exact moment of the video. It never sees player names.
@@ -28,16 +28,21 @@ Android app ──chunks──▶ API (PHP + MySQL) ◀──jobs── Worker (
 
 The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/README.md) (in Spanish).
 
-## Status (October 28, 2026)
+## Status (October 30, 2026)
 
 | | |
 |---|---|
-| App, API (Node and PHP) and worker | Built, with automated tests passing (app 48, Node 23, PHP 25, worker 87) |
-| SAM 3.1 and Muse Spark | Written against the documented formats and tested with synthetic streams; **first runs with the real API on October 29** |
-| Lines with SAM (`PP_PITCH_SAM`) | Off until verified with the real API |
-| Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 (`/health` reports the database) |
+| App, API (Node and PHP) and worker | Built, with automated tests passing (app 55, Node 23, PHP 25, worker 89) |
+| SAM 3.1 and Muse Spark | **Verified with the real Meta Model API** on October 30: two 15-minute clips end to end, masks decoded with Meta's `meta-sam-parser`. Measured cost: about US$0.36 per minute of video (3 concepts at 10 fps) |
+| Results | [docs/results/](docs/results/README.md) (in Spanish): SAM 3.1 against a local detector and tracker used only during development (never shipped). SAM keeps one track per player and sees the ball in 85 % of frames, against 17 % |
+| Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. `worker/tools/make_tiles.py` splits it into overlapping 1024 px tiles and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama. Done by hand for now, not yet inside the worker |
+| Still or moving camera | The coach ticks "the camera stays still the whole video" (tripod or panorama) and the worker uses one homography for the whole video; otherwise it follows the camera frame by frame |
+| Saved pitches | A pitch is saved once with its length and width in meters and reused on every visit |
+| Lines with SAM (`PP_PITCH_SAM`) | Off: the `white line` concept and its masks work with the real API; whether SAM follows a painted stroke from a photo into the video is still unmeasured |
+| Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 and updated the same day (`/health` reports the database) |
 | Production worker | Running on the development host (Docker in WSL) since October 30 |
-| Per-player statistics | Not built: metrics are per team and per track |
+| Run viewer (local only) | Shows a run over its video, and compares two runs of the same video side by side, overlaid or only where they differ |
+| Not built yet | Per-player statistics (metrics are per team and per track), splitting wide video inside the worker, the chunk-retention cron |
 
 ## Running it locally
 
@@ -49,7 +54,7 @@ From `api/`: `npm run db:up`, `npm run php:up && npm run php:migrate`, `npm run 
 
 **During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this repository was written from scratch with an AI coding agent driven by those prompts: the Android app, the API, the analysis worker with SAM 3.1 and Muse Spark and no local model fallback, the pitch calibration and the metrics in meters. The git history shows every step.
 
-**Third-party components:** permissive licenses only (MIT, BSD, Apache-2.0); see [THIRD_PARTY.md](THIRD_PARTY.md). The vision and language models are Meta's, used through the Meta Model API.
+**Third-party components:** permissive licenses only (MIT, BSD, Apache-2.0), plus Meta's own `meta-sam-parser` (SAM License) to decode SAM 3.1 masks; see [THIRD_PARTY.md](THIRD_PARTY.md). The vision and language models are Meta's, used through the Meta Model API.
 
 ---
 

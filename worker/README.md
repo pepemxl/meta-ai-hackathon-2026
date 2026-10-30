@@ -127,7 +127,7 @@ Todos los tiempos (`t_ms`, `t_start_ms`…) son del video **original**, traducid
 
 ## Costo
 
-SAM cobra US$0.20 por cada 1,000 cuadros y concepto (3 conceptos por chunk). Un minuto de video a 10 fps en el perfil `dev` son ~600 cuadros por concepto: **~US$0.37 estimado**. **Costo medido: pendiente** (requiere la key; `backends.usage.frames_sent` lo da por corrida).
+SAM cobra US$0.20 por cada 1,000 cuadros y concepto (3 conceptos por chunk). Un minuto de video a 10 fps son ~600 cuadros por concepto. **Costo medido** el 30 de octubre: US$5.45 por 15 min en el perfil `demo` (27,240 cuadros), **unos US$0.36 por minuto**; `backends.usage.frames_sent` lo da por corrida. Una respuesta vacía también se cobra (`video_frames_processed`), y un video ancho partido en 3 con `tools/make_tiles.py` cuesta el triple ([docs/results](../docs/results/01-cv-local-vs-sam31.md)).
 
 ## Herramientas
 

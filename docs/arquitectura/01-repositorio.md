@@ -50,8 +50,9 @@ android_native/
 │   │   │   │   ├── StorageLocations.kt memoria del teléfono, interna privada, SD
 │   │   │   │   ├── Chunks.kt           perfiles dev/demo, cortes, mapa de cuadros, YAML y rutas de la versión para análisis
 │   │   │   │   ├── PitchMask.kt        la máscara de la cancha de un cuadro (la misma regla que pitch.py)
-│   │   │   │   ├── PitchTouches.kt     respuesta de la cancha, plantilla de 11 y 7, puntos y líneas, homografía de vista previa
+│   │   │   │   ├── PitchTouches.kt     respuesta de la cancha, cámara fija o en movimiento, plantilla de 11 y 7, puntos y líneas, homografía de vista previa
 │   │   │   │   ├── PitchReferences.kt  líneas pintadas, trazos, imágenes de referencia y el cuerpo de POST calibration
+│   │   │   │   ├── SavedPitches.kt     canchas guardadas con su largo y ancho en metros
 │   │   │   │   ├── ClipAnalysis.kt     el análisis del worker (también en metros) y su copia local
 │   │   │   │   ├── ApiClient.kt        cliente HTTP (OkHttp) y el plan de partes que faltan
 │   │   │   │   ├── Consent.kt          versión del consentimiento, enlaces legales y motivos de rechazo
@@ -59,7 +60,7 @@ android_native/
 │   │   │   └── ui/
 │   │   │       ├── AppRoot.kt          pila de pantallas, barra inferior, mensajes y diálogos
 │   │   │       ├── CoachViewModel.kt   todo el estado y las acciones
-│   │   │       ├── components/         Components (botones, tarjetas, chips, mapa de calor), ConsentDialog, Pitch (pregunta y cancha desde arriba)
+│   │   │       ├── components/         Components (botones, tarjetas, chips, mapa de calor), ConsentDialog, Pitch (pregunta y cancha desde arriba), PitchPicker (menú y editor de canchas)
 │   │   │       ├── i18n/Strings.kt     cada texto en español e inglés
 │   │   │       ├── screens/            una pantalla por archivo
 │   │   │       └── theme/              Tokens (colores tipo Meta, claro y oscuro) y Theme
@@ -126,14 +127,14 @@ worker/
 │       ├── sam_lines.py        líneas con SAM guiado por los trazos del entrenador (apagado)
 │       └── __init__.py         cuadros tocados, propagación y reporte
 ├── tests/                  pytest: streams de SAM sintéticos, canchas sintéticas (pitchscene.py), una API falsa; fixtures compartidos con la app
-├── tools/                  make_chunks.py, submit_clip.py, overlay.py, compare_runs.py, rescore.py
+├── tools/                  make_chunks.py, submit_clip.py, overlay.py, compare_runs.py, rescore.py, make_tiles.py (video ancho en partes de 1024 px)
 ├── Dockerfile, requirements*.txt
 └── README.md               cómo correrlo, variables, formato de SAM y del resultado, costo
 ```
 
 ## `viewer/`: el visor de corridas
 
-Página local (Vite + React + TypeScript, servida por `server.mjs`) para revisar a ojo una corrida del worker: las cajas de SAM sobre el video, la posesión en una línea de tiempo, las métricas, los hallazgos y el `result.json`. Corre en Docker con `npm run viewer:up` desde `api/` en el puerto 8098 y lee `worker/.local/runs/`, que no se versiona. No se despliega.
+Página local (Vite + React + TypeScript, servida por `server.mjs`) para revisar a ojo una corrida del worker: las cajas de SAM sobre el video, la posesión en una línea de tiempo, las métricas, los hallazgos y el `result.json`. También compara dos corridas del mismo video (`src/Compare.tsx`, `src/runDiff.ts`): lado a lado, superpuestas o solo sus diferencias, con la gráfica de jugadores por segundo y la coincidencia cuadro por cuadro. Corre en Docker con `npm run viewer:up` desde `api/` en el puerto 8098 y lee `worker/.local/runs/` y `LOCAL_DATA/Results/`, que no se versionan. No se despliega.
 
 ## `docs/`
 
@@ -145,7 +146,8 @@ Página local (Vite + React + TypeScript, servida por `server.mjs`) para revisar
 | `01`–`13-*.md` | Evento, propuesta, planes, uso de video, privacidad, estadísticas, chunks y entorno de desarrollo |
 | `rules/` | Reglas oficiales del hackathon |
 | `legal/` | Aviso de privacidad, consentimiento y formato para jugadores; `legal/en/` en inglés |
-| `learnings/` | Lo aprendido en el prototipo previo (antecedente) |
+| `learnings/` | Lo aprendido en el prototipo previo (antecedente) y durante el hackathon (04: video ancho y SAM) |
+| `results/` | Resultados medidos sobre video real, con los equipos anonimizados |
 | `versions/<versión>/` | Capturas y notas de cada versión de esta construcción |
 
 ## Lo que no se versiona
