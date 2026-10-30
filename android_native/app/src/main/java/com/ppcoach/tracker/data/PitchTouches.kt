@@ -113,9 +113,30 @@ data class Touch(val name: String, val x: Double, val y: Double)
 /**
  * The coach's marks on one frame; [size] 11 or 7: points, and lines painted
  * over a line of the pitch (named, or null = "this is a line" for SAM).
+ * [pitchId] is the saved pitch they were made on (0 = none) and [lengthM],
+ * [widthM] its meters when measured (null = the typical size).
  */
-data class PitchTouches(val size: Int = 11, val tMs: Long = 0, val points: List<Touch> = emptyList(), val lines: List<PaintedLine> = emptyList()) {
+data class PitchTouches(
+    val size: Int = 11,
+    val tMs: Long = 0,
+    val points: List<Touch> = emptyList(),
+    val lines: List<PaintedLine> = emptyList(),
+    val pitchId: Int = 0,
+    val lengthM: Double? = null,
+    val widthM: Double? = null,
+) {
     enum class State { NEED_MORE, NEED_FIFTH, READY }
+
+    val dimensions: Pair<Double, Double> get() = PitchTemplate.dimensions(size, lengthM, widthM)
+
+    /**
+     * The same frame on pitch [p] (null = unsaved, of [size]): its size and
+     * meters. The marks stay when the size is the same (the names do not change).
+     */
+    fun on(p: SavedPitch?, size: Int = p?.size ?: this.size): PitchTouches {
+        val keep = size == this.size
+        return PitchTouches(size, tMs, if (keep) points else emptyList(), if (keep) lines else emptyList(), p?.id ?: 0, p?.lengthM, p?.widthM)
+    }
 
     /** Points and named lines: what fixes the pitch. */
     val marks: Int get() = points.size + lines.count { it.name != null }
@@ -143,7 +164,8 @@ data class PitchTouches(val size: Int = 11, val tMs: Long = 0, val points: List<
         })
     }
 
-    fun toJson(): JSONObject = JSONObject().put("size", size).put("tMs", tMs).put("points", JSONArray().apply {
+    fun toJson(): JSONObject = JSONObject().put("size", size).put("tMs", tMs).put("pitchId", pitchId)
+        .put("lengthM", lengthM ?: JSONObject.NULL).put("widthM", widthM ?: JSONObject.NULL).put("points", JSONArray().apply {
         points.forEach { put(JSONObject().put("name", it.name).put("x", it.x).put("y", it.y)) }
     }).put("lines", JSONArray().apply {
         lines.forEach { put(JSONObject().put("name", it.name ?: JSONObject.NULL).put("points", Strokes.toJson(it.points))) }
@@ -151,8 +173,8 @@ data class PitchTouches(val size: Int = 11, val tMs: Long = 0, val points: List<
 
     /** Preview homography (pitch meters → normalized image) with 4 or more marks, or null. */
     fun homography(): DoubleArray? {
-        val tpl = PitchTemplate.points(size)
-        val named = PitchTemplate.namedLines(size)
+        val tpl = PitchTemplate.points(size, lengthM, widthM)
+        val named = PitchTemplate.namedLines(size, lengthM, widthM)
         val known = points.filter { it.name in tpl }
         val lns = lines.filter { it.name in named && it.points.size >= 2 }
         if (known.size + lns.size < 4) return null
@@ -171,7 +193,9 @@ data class PitchTouches(val size: Int = 11, val tMs: Long = 0, val points: List<
             val lines = (0 until la.length()).mapNotNull { la.optJSONObject(it) }
                 .map { PaintedLine(if (it.isNull("name")) null else it.optString("name").ifEmpty { null }, Strokes.fromJson(it.optJSONArray("points"))) }
                 .filter { it.points.size >= 2 }
-            return PitchTouches(size, o.optLong("tMs", 0), pts, lines)
+            // The meters as a saved pitch reads them (both or neither, in range).
+            val measures = SavedPitch.fromJson(JSONObject().put("id", 1).put("size", size).put("lengthM", o.opt("lengthM")).put("widthM", o.opt("widthM")))
+            return PitchTouches(size, o.optLong("tMs", 0), pts, lines, o.optInt("pitchId", 0).coerceAtLeast(0), measures?.lengthM, measures?.widthM)
         }
     }
 }

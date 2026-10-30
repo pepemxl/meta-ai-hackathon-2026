@@ -42,10 +42,13 @@ import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.PaintedLine
 import com.ppcoach.tracker.data.PitchTemplate
 import com.ppcoach.tracker.data.PitchTouches
-
+import com.ppcoach.tracker.data.SavedPitch
 import com.ppcoach.tracker.data.Touch
 import com.ppcoach.tracker.ui.CoachViewModel
 import com.ppcoach.tracker.ui.components.FilterChips
+import com.ppcoach.tracker.ui.components.PitchChoice
+import com.ppcoach.tracker.ui.components.PitchEditorDialog
+import com.ppcoach.tracker.ui.components.PitchPicker
 import com.ppcoach.tracker.ui.components.PpCard
 import com.ppcoach.tracker.ui.components.PpTextButton
 import com.ppcoach.tracker.ui.components.PpTopBar
@@ -61,7 +64,9 @@ private const val MARGIN_M = 3.0 // roughly what the margin adds, to keep the dr
 
 /**
  * The coach's points: a bar picks the frame; tap a point of the image, then
- * which one it is on the drawing of the pitch (11 or 7). In "Paint lines" the
+ * which one it is on the drawing of the pitch. The pitch comes from a
+ * dropdown of saved pitches (name, 11 or 7 and its meters, measured once and
+ * reused) or an unsaved 11 or 7 with the typical size. In "Paint lines" the
  * finger runs over a line (faint, worn out or in poor light) and then the line
  * is tapped on the drawing, or left unnamed ("just a line", for SAM). From 4
  * marks the computed pitch is drawn in violet over the frame; with exactly 4 a
@@ -72,27 +77,36 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
     val s = LocalStrings.current
     val c = PpTheme.colors
     val clip = lib.clip(clipId) ?: return
-    var touches by remember(clipId) { mutableStateOf(clip.touches ?: PitchTouches(size = 11, tMs = minOf(1000L, clip.durationMs / 2))) }
+    var touches by remember(clipId) { mutableStateOf(vm.startTouches(clip)) }
+    var editing by remember { mutableStateOf<SavedPitch?>(null) }
     var pending by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var painting by remember { mutableStateOf(false) }
     var pendingLine by remember { mutableStateOf<com.ppcoach.tracker.data.Stroke?>(null) }
-    val namedLines = PitchTemplate.namedLines(touches.size)
+    val namedLines = PitchTemplate.namedLines(touches.size, touches.lengthM, touches.widthM)
     var frame by remember { mutableStateOf<Bitmap?>(null) }
     var sliderMs by remember { mutableStateOf(touches.tMs.toFloat()) }
     LaunchedEffect(touches.tMs) { frame = vm.frameAt(clip, touches.tMs) }
     val violet = SparkColors[1]
-    val template = PitchTemplate.points(touches.size)
-    val (length, width) = PitchTemplate.dimensions(touches.size)
+    val template = PitchTemplate.points(touches.size, touches.lengthM, touches.widthM)
+    val (length, width) = touches.dimensions
     val h = touches.homography()
 
     Column(Modifier.fillMaxSize()) {
         PpTopBar(s.pitchTouchesTitle, onBack = { vm.back() })
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilterChips(listOf("11" to s.football11, "7" to s.football7), touches.size.toString()) { k ->
-                // Another pitch: the names change, so the points start over.
-                touches = PitchTouches(size = k.toInt(), tMs = touches.tMs)
-                pending = null
-                pendingLine = null
+            PitchPicker(lib.pitchesByUse, lib.pitch(touches.pitchId), touches.size) { choice ->
+                val before = touches.size
+                when (choice) {
+                    is PitchChoice.Saved -> touches = touches.on(choice.pitch)
+                    is PitchChoice.Unsaved -> touches = touches.on(null, choice.size)
+                    PitchChoice.New -> editing = SavedPitch(0, lib.match(clip.matchId)?.venue.orEmpty(), touches.size)
+                    is PitchChoice.Edit -> editing = choice.pitch
+                }
+                // Another size: the names change, so the points started over.
+                if (touches.size != before) {
+                    pending = null
+                    pendingLine = null
+                }
             }
             FilterChips(listOf("points" to s.modePoints, "lines" to s.modeLines), if (painting) "lines" else "points") { k ->
                 painting = k == "lines"
@@ -104,13 +118,13 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             val aspect = if (bmp != null && bmp.height > 0) bmp.width.toFloat() / bmp.height else 16f / 9f
             Box(Modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
                 if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
-                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, painting) {
+                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, touches.dimensions, painting) {
                     if (!painting) detectTapGestures { o -> pending = (o.x / size.width).toDouble().coerceIn(0.0, 1.0) to (o.y / size.height).toDouble().coerceIn(0.0, 1.0) }
                 }) {
                     if (h != null) {
                         val stroke = 2.dp.toPx()
                         fun px(x: Double, y: Double) = Homography.apply(h, x, y)?.let { Offset((it.first * size.width).toFloat(), (it.second * size.height).toFloat()) }
-                        for ((a, b) in PitchTemplate.lines(touches.size)) {
+                        for ((a, b) in PitchTemplate.lines(touches.size, touches.lengthM, touches.widthM)) {
                             val p = px(a.first, a.second)
                             val q = px(b.first, b.second)
                             if (p != null && q != null) drawLine(violet, p, q, stroke)
@@ -167,7 +181,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
 
             // The drawing of the pitch: tap which mark the pending point is.
             PpCard {
-                Canvas(Modifier.fillMaxWidth().aspectRatio(((length + 2 * MARGIN_M) / (width + 2 * MARGIN_M)).toFloat()).clip(RoundedCornerShape(8.dp)).background(c.surfaceHigh).pointerInput(touches.size, pending, pendingLine) {
+                Canvas(Modifier.fillMaxWidth().aspectRatio(((length + 2 * MARGIN_M) / (width + 2 * MARGIN_M)).toFloat()).clip(RoundedCornerShape(8.dp)).background(c.surfaceHigh).pointerInput(touches.size, touches.dimensions, pending, pendingLine) {
                     detectTapGestures { tap ->
                         // The marks on the outer lines sit inside a margin, so their whole tap area is on the drawing.
                         val m = DIAGRAM_MARGIN.toPx()
@@ -216,6 +230,27 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             }
             PrimaryButton(s.save, { vm.saveTouches(clipId, touches); vm.back() }, Modifier.fillMaxWidth())
         }
+    }
+    editing?.let { p ->
+        PitchEditorDialog(
+            initial = p,
+            onDismiss = { editing = null },
+            onSave = { edited ->
+                val saved = vm.savePitch(edited)
+                val before = touches.size
+                touches = touches.on(saved)
+                if (touches.size != before) {
+                    pending = null
+                    pendingLine = null
+                }
+                editing = null
+            },
+            onDelete = if (p.id > 0) ({
+                vm.deletePitch(p.id)
+                touches = touches.on(null, touches.size)
+                editing = null
+            }) else null,
+        )
     }
 }
 

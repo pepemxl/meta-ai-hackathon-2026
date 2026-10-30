@@ -86,7 +86,17 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             // registering; if the server rejects them, the video goes anyway.
             val match = AppGraph.library.value.match(clip.matchId)
             val references = match?.references.orEmpty().take(PitchReference.MAX)
-            val calibration = if (clip.pitchMode != PitchMode.OFF) CalibrationRequest.build(clip.touches, references) else null
+            // The saved pitch as it is now (the coach may have measured it after marking the points).
+            val touches = clip.touches
+            val saved = AppGraph.library.value.pitch(touches?.pitchId?.takeIf { it > 0 } ?: match?.pitchId ?: 0)
+                ?.takeIf { touches == null || it.size == touches.size }
+            val calibration = if (clip.pitchMode != PitchMode.OFF) {
+                CalibrationRequest.build(
+                    touches, references, size = touches?.size ?: saved?.size ?: 11,
+                    lengthM = if (saved != null) saved.lengthM else touches?.lengthM,
+                    widthM = if (saved != null) saved.widthM else touches?.widthM,
+                )
+            } else null
             if (calibration != null) {
                 try {
                     api.calibration(remote.id, calibration)

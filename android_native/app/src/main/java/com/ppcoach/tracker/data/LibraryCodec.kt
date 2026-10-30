@@ -15,6 +15,8 @@ object LibraryCodec {
         root.put("version", VERSION)
         root.put("nextMatchId", lib.nextMatchId)
         root.put("nextClipId", lib.nextClipId)
+        root.put("nextPitchId", lib.nextPitchId)
+        root.put("pitches", JSONArray().apply { lib.pitches.forEach { put(it.toJson()) } })
         root.put("matches", JSONArray().apply { lib.matches.forEach { put(encodeMatch(it)) } })
         root.put("clips", JSONArray().apply { lib.clips.forEach { put(encodeClip(it)) } })
         return root.toString(2)
@@ -28,7 +30,9 @@ object LibraryCodec {
         // Ids are never reused, even if the counters were lost.
         val nextMatch = maxOf(root.optInt("nextMatchId", 1), (matches.maxOfOrNull { it.id } ?: 0) + 1)
         val nextClip = maxOf(root.optInt("nextClipId", 1), (clips.maxOfOrNull { it.id } ?: 0) + 1)
-        return Library(matches, clips, nextMatch, nextClip)
+        val pitches = root.optJSONArray("pitches")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(SavedPitch::fromJson) } } ?: emptyList()
+        val nextPitch = maxOf(root.optInt("nextPitchId", 1), (pitches.maxOfOrNull { it.id } ?: 0) + 1)
+        return Library(matches, clips, nextMatch, nextClip, pitches, nextPitch)
     }
 
     private fun encodeMatch(m: Match) = JSONObject().apply {
@@ -43,6 +47,7 @@ object LibraryCodec {
         put("createdAt", m.createdAt)
         put("pitchMode", m.pitchMode)
         put("references", JSONArray().apply { m.references.forEach { put(it.toJson()) } })
+        put("pitchId", m.pitchId)
     }
 
     private fun decodeMatch(o: JSONObject): Match? {
@@ -60,6 +65,7 @@ object LibraryCodec {
             createdAt = o.optLong("createdAt", 0),
             pitchMode = o.optString("pitchMode", "").takeIf { PitchMode.valid(it) } ?: "",
             references = o.optJSONArray("references")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(PitchReference::fromJson) } } ?: emptyList(),
+            pitchId = o.optInt("pitchId", 0).coerceAtLeast(0),
         )
     }
 

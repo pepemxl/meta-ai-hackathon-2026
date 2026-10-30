@@ -1,6 +1,8 @@
 package com.ppcoach.tracker.ui.i18n
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.ppcoach.tracker.data.SavedPitch
+import com.ppcoach.tracker.ui.components.formatMeters
 
 /** Every text of the app. Es and En implement all of it (StringsTest checks). */
 interface Strings {
@@ -215,6 +217,20 @@ interface Strings {
     val pitchTouchesTitle: String
     val football11: String
     val football7: String
+    val pitchLabel: String
+    val newPitch: String
+    val newPitchTitle: String
+    val editPitch: String
+    val deletePitch: String
+    val pitchName: String
+    val pitchLengthM: String
+    val pitchWidthM: String
+    val pitchMetersHelp: String
+    fun pitchOption(name: String, size: Int): String
+    fun pitchUnsaved(size: Int): String
+    fun pitchMeasured(length: Double, width: Double): String
+    fun pitchTypical(length: Double, width: Double): String
+    fun pitchMeasuresError(e: SavedPitch.MeasuresError): String
     val touchStepImage: String
     val touchStepName: String
     val touchNeedFifth: String
@@ -460,6 +476,24 @@ object Es : Strings {
     override val pitchTouchesTitle = "Puntos de la cancha"
     override val football11 = "Fútbol 11"
     override val football7 = "Fútbol 7"
+    override val pitchLabel = "Cancha"
+    override val newPitch = "Nueva cancha…"
+    override val newPitchTitle = "Nueva cancha"
+    override val editPitch = "Editar cancha"
+    override val deletePitch = "Borrar esta cancha"
+    override val pitchName = "Nombre (por ejemplo, Deportivo Norte, cancha 3)"
+    override val pitchLengthM = "Largo (m)"
+    override val pitchWidthM = "Ancho (m)"
+    override val pitchMetersHelp = "Mídela una vez: queda guardada en el teléfono y sirve para las siguientes visitas. Vacío = medidas típicas."
+    override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
+    override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · sin guardar"
+    override fun pitchMeasured(length: Double, width: Double) = "Medida: ${formatMeters(length)} × ${formatMeters(width)} m"
+    override fun pitchTypical(length: Double, width: Double) = "Medidas típicas (${formatMeters(length)} × ${formatMeters(width)} m). Guarda la cancha con sus medidas para medir en metros reales."
+    override fun pitchMeasuresError(e: SavedPitch.MeasuresError) = when (e) {
+        SavedPitch.MeasuresError.BOTH -> "Escribe el largo y el ancho, o deja los dos vacíos."
+        SavedPitch.MeasuresError.RANGE -> "El largo va de 20 a 130 m y el ancho de 15 a 100 m."
+        SavedPitch.MeasuresError.LONGER -> "El largo debe ser mayor que el ancho."
+    }
     override val touchStepImage = "Toca un punto de la cancha en la imagen"
     override val touchStepName = "Ahora toca cuál es en el dibujo"
     override val touchNeedFifth = "Con 4 puntos cualquier nombre encaja: marca un quinto"
@@ -708,6 +742,24 @@ object En : Strings {
     override val pitchTouchesTitle = "Pitch points"
     override val football11 = "11-a-side"
     override val football7 = "7-a-side"
+    override val pitchLabel = "Pitch"
+    override val newPitch = "New pitch…"
+    override val newPitchTitle = "New pitch"
+    override val editPitch = "Edit pitch"
+    override val deletePitch = "Delete this pitch"
+    override val pitchName = "Name (for example, North Sports Club, pitch 3)"
+    override val pitchLengthM = "Length (m)"
+    override val pitchWidthM = "Width (m)"
+    override val pitchMetersHelp = "Measure it once: it stays on the phone for your next visits. Empty = typical size."
+    override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
+    override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · not saved"
+    override fun pitchMeasured(length: Double, width: Double) = "Measured: ${formatMeters(length)} × ${formatMeters(width)} m"
+    override fun pitchTypical(length: Double, width: Double) = "Typical size (${formatMeters(length)} × ${formatMeters(width)} m). Save the pitch with its measures to get real meters."
+    override fun pitchMeasuresError(e: SavedPitch.MeasuresError) = when (e) {
+        SavedPitch.MeasuresError.BOTH -> "Type the length and the width, or leave both empty."
+        SavedPitch.MeasuresError.RANGE -> "Length goes from 20 to 130 m and width from 15 to 100 m."
+        SavedPitch.MeasuresError.LONGER -> "The length must be longer than the width."
+    }
     override val touchStepImage = "Tap a point of the pitch in the image"
     override val touchStepName = "Now tap which one it is in the drawing"
     override val touchNeedFifth = "With 4 points any names fit: mark a fifth"

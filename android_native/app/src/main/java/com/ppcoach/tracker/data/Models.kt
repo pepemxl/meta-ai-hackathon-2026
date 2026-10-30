@@ -96,6 +96,8 @@ data class Match(
     val pitchMode: String = "",
     /** Pictures of the pitch with the coach's strokes over its lines (sent with every clip of the match). */
     val references: List<PitchReference> = emptyList(),
+    /** The saved pitch where it is played (SavedPitch.id), 0 = none: the next clips start on it. */
+    val pitchId: Int = 0,
 ) {
     val folder: String get() = "match_%04d".format(id)
     val nextReferenceId: Int get() = (references.maxOfOrNull { it.id } ?: 0) + 1
@@ -140,8 +142,28 @@ data class Library(
     val clips: List<Clip> = emptyList(),
     val nextMatchId: Int = 1,
     val nextClipId: Int = 1,
+    /** Pitches the coach saved to reuse them (name, 11 or 7, meters). */
+    val pitches: List<SavedPitch> = emptyList(),
+    val nextPitchId: Int = 1,
 ) {
     fun match(id: Int): Match? = matches.firstOrNull { it.id == id }
+    fun pitch(id: Int): SavedPitch? = if (id > 0) pitches.firstOrNull { it.id == id } else null
+
+    /** Most recently used first, then by name. */
+    val pitchesByUse: List<SavedPitch> get() = pitches.sortedWith(compareByDescending<SavedPitch> { it.lastUsedAt }.thenBy { it.name.lowercase() })
+
+    /** Adds [p] (id 0) or replaces the one with its id. */
+    fun savePitch(p: SavedPitch): Pair<Library, SavedPitch> {
+        if (p.id > 0 && pitch(p.id) != null) return copy(pitches = pitches.map { if (it.id == p.id) p else it }) to p
+        val added = p.copy(id = nextPitchId)
+        return copy(pitches = pitches + added, nextPitchId = nextPitchId + 1) to added
+    }
+
+    /** Deletes a saved pitch; matches that pointed to it are left without one. */
+    fun removePitch(id: Int): Library = copy(
+        pitches = pitches.filterNot { it.id == id },
+        matches = matches.map { if (it.pitchId == id) it.copy(pitchId = 0) else it },
+    )
     fun clip(id: Int): Clip? = clips.firstOrNull { it.id == id }
     fun clipsOf(matchId: Int): List<Clip> = clips.filter { it.matchId == matchId }.sortedByDescending { it.createdAt }
 

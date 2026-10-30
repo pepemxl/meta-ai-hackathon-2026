@@ -98,12 +98,20 @@ data class PitchReference(
 
 /** The body of POST /clips/:id/calibration: the coach's frame (points and lines) and the match's reference pictures. */
 object CalibrationRequest {
-    /** Null when there is nothing to send. References are numbered 1..6 in order (PUT /clips/:id/references/:n). */
-    fun build(touches: PitchTouches?, references: List<PitchReference>, size: Int = touches?.size ?: 11): JSONObject? {
+    /**
+     * Null when there is nothing to send. References are numbered 1..6 in order
+     * (PUT /clips/:id/references/:n). The pitch's meters go when measured.
+     */
+    fun build(
+        touches: PitchTouches?, references: List<PitchReference>, size: Int = touches?.size ?: 11,
+        lengthM: Double? = touches?.lengthM, widthM: Double? = touches?.widthM,
+    ): JSONObject? {
         val frame = touches?.takeIf { it.points.isNotEmpty() || it.lines.isNotEmpty() }
         val refs = references.take(PitchReference.MAX)
         if (frame == null && refs.isEmpty()) return null
-        val body = JSONObject().put("pitch", JSONObject().put("size", size))
+        val pitch = JSONObject().put("size", size)
+        if (lengthM != null && widthM != null) pitch.put("length_m", lengthM).put("width_m", widthM)
+        val body = JSONObject().put("pitch", pitch)
         body.put("frames", JSONArray().apply { frame?.let { put(it.frameJson()) } })
         if (refs.isNotEmpty()) body.put("references", JSONArray().apply {
             refs.forEachIndexed { i, r ->

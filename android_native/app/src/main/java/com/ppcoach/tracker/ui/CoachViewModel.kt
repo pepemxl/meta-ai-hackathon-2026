@@ -31,6 +31,7 @@ import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
 import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.PitchReference
+import com.ppcoach.tracker.data.SavedPitch
 import com.ppcoach.tracker.data.Stroke
 import com.ppcoach.tracker.analysis.ReferenceImages
 import androidx.core.content.FileProvider
@@ -348,7 +349,49 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveTouches(clipId: Int, touches: com.ppcoach.tracker.data.PitchTouches?) {
-        updateClip(clipId) { it.copy(touches = touches?.takeIf { t -> !t.isEmpty }) }
+        val kept = touches?.takeIf { t -> !t.isEmpty }
+        val clip = library.value.clip(clipId) ?: return
+        val pitchId = touches?.pitchId ?: 0
+        AppGraph.commit { lib ->
+            var next = lib.updateClip(clipId) { it.copy(touches = kept) }
+            // The match remembers its pitch and the pitch moves to the top of the list.
+            lib.pitch(pitchId)?.let { p ->
+                next = next.updateMatch(clip.matchId) { it.copy(pitchId = p.id) }.savePitch(p.copy(lastUsedAt = System.currentTimeMillis())).first
+            }
+            next
+        }
+    }
+
+    // ── saved pitches ────────────────────────────────────────────────────────
+
+    /** Saves a new pitch (id 0) or the edited one; returns it with its id. */
+    fun savePitch(p: SavedPitch): SavedPitch {
+        var saved = p
+        AppGraph.commit { lib ->
+            val (next, sp) = lib.savePitch(p.copy(createdAt = lib.pitch(p.id)?.createdAt ?: System.currentTimeMillis()))
+            saved = sp
+            next
+        }
+        return saved
+    }
+
+    fun deletePitch(id: Int) {
+        AppGraph.commit { it.removePitch(id) }
+    }
+
+    /**
+     * Where a clip's marks start: its own, else on the match's pitch, else on
+     * the most recently used one, else an unsaved 11-a-side pitch.
+     */
+    fun startTouches(clip: Clip): com.ppcoach.tracker.data.PitchTouches {
+        val lib = library.value
+        clip.touches?.let { t ->
+            // On a saved pitch, with its meters as they are now.
+            val p = lib.pitch(t.pitchId)
+            return if (p != null && p.size == t.size) t.on(p) else t
+        }
+        val p = lib.pitch(lib.match(clip.matchId)?.pitchId ?: 0) ?: lib.pitchesByUse.firstOrNull()
+        return com.ppcoach.tracker.data.PitchTouches(tMs = minOf(1000L, clip.durationMs / 2)).on(p, p?.size ?: 11)
     }
 
     // ── reference pictures of the pitch ─────────────────────────────────────
