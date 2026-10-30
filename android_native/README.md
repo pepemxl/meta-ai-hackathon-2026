@@ -10,7 +10,11 @@ Requiere el JDK 17 y el SDK de Android (compileSdk 35). Desde Windows:
 make.bat            :: pruebas JVM + APK de debug
 make.bat test       :: solo pruebas
 make.bat install    :: instala el APK de debug en el emulador o teléfono
+make.bat keystore   :: crea la llave de firma y keystore.properties (una sola vez)
+make.bat release    :: APK de release, firmado si existe keystore.properties
 ```
+
+**Firma del release:** `make.bat keystore` pide la contraseña sin mostrarla (o la toma de `PP_COACH_TRACKER_KEYSTORE_PASSWORD`), crea `keystore/pp-coach-tracker-release.jks` y escribe `keystore.properties`; ninguno se versiona y nunca pisa uno existente. [`keystore.properties.example`](keystore.properties.example) explica cómo hacerlo a mano. Respalda los dos fuera del repo: sin la llave no se puede actualizar la app instalada.
 
 O con Gradle: `gradlew testDebugUnitTest assembleDebug`. El build debug se instala aparte (`com.ppcoach.tracker.debug`), empieza con chunks de 1 min (perfil `dev`) y permite HTTP para la API local (`http://10.0.2.2:3000` desde el emulador). El release empieza en el perfil `demo` (chunks de 5 min) y exige HTTPS.
 
