@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.ppcoach.tracker.data.ClipSource
+import com.ppcoach.tracker.data.ProxyResolution
 import com.ppcoach.tracker.ui.CoachViewModel
 import com.ppcoach.tracker.ui.components.PrimaryButton
 import com.ppcoach.tracker.ui.i18n.LocalStrings
@@ -92,8 +93,10 @@ fun RecordScreen(vm: CoachViewModel, matchId: Int) {
             }
         } else {
             val capture = remember {
+                // With "Original" the analysis keeps the recorded size: 4K when the phone can.
+                val qualities = if (vm.settings.resolution == ProxyResolution.ORIGINAL) listOf(Quality.UHD, Quality.FHD, Quality.HD, Quality.SD) else listOf(Quality.FHD, Quality.HD, Quality.SD)
                 val recorder = Recorder.Builder()
-                    .setQualitySelector(QualitySelector.fromOrderedList(listOf(Quality.FHD, Quality.HD, Quality.SD), FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+                    .setQualitySelector(QualitySelector.fromOrderedList(qualities, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
                     .build()
                 VideoCapture.withOutput(recorder)
             }
