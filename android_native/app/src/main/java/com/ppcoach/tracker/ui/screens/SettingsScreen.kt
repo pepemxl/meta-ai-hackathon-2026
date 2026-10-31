@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ppcoach.tracker.data.ChunkProfile
+import com.ppcoach.tracker.data.ProxyResolution
 import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.StorageKind
 import com.ppcoach.tracker.data.ThemeMode
@@ -184,13 +185,11 @@ fun SettingsScreen(vm: CoachViewModel) {
                     Text(s.showTechnical, style = MaterialTheme.typography.titleMedium, color = c.textPrimary, modifier = Modifier.weight(1f))
                     Switch(st.technical, { v -> vm.updateSettings { it.copy(technical = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.accent))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(s.highResolution, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
-                        Text(s.highResolutionHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-                    }
-                    Switch(st.highResolution, { v -> vm.updateSettings { it.copy(highResolution = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.accent))
+                Text(s.analysisResolution, style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
+                    FilterChips(ProxyResolution.ALL.map { it to s.resolutionLabel(it) }, st.resolution) { r -> vm.updateSettings { it.copy(resolution = r) } }
                 }
+                Text(s.resolutionHelp(st.resolution), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
                 if (st.technical) {
                     SectionTitle(s.chunkProfile)
                     Row(Modifier.horizontalScroll(rememberScrollState())) {

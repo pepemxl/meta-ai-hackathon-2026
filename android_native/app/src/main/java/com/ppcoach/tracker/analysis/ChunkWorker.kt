@@ -61,8 +61,9 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val clip = lib.clip(clipId) ?: return Result.failure()
         val match = lib.match(clip.matchId) ?: return Result.failure()
         val settings = AppGraph.settings.load()
-        val profile = settings.profile
-        val spec = ProxySpec.of(settings.highResolution)
+        val spec = ProxySpec.of(settings.resolution, clip.width, clip.height)
+        // A large copy (4K) goes in shorter chunks so each one fits in the API's limit.
+        val profile = ChunkProfile.forSpec(settings.profile, spec)
         val source = AppGraph.storage(applicationContext).videoFile(match, clip) ?: return Result.failure()
         if (!source.exists()) return Result.failure()
         val dir = AppGraph.proxyDir(applicationContext, ProxyPaths.clipDir(match, clip))

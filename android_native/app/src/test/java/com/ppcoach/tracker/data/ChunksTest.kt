@@ -104,5 +104,18 @@ class ChunksTest {
         assertEquals(640 to 360, ProxySpec.outputSize(640, 360, 720))
         assertEquals(11.25, ProxySpec.STANDARD.mbPerMinute, 0.01)
         assertEquals(22.5, ProxySpec.HIGH.mbPerMinute, 0.01)
+        // The original: its own size up to 4K, at 1080p's bits per pixel, between 1.5 and 12 Mbps.
+        assertEquals(ProxySpec(2160, 12_000_000), ProxySpec.of(ProxyResolution.ORIGINAL, 3840, 2160))
+        assertEquals(ProxySpec(2160, 12_000_000), ProxySpec.of(ProxyResolution.ORIGINAL, 7680, 4320))
+        assertEquals(ProxySpec(800, 4_444_444), ProxySpec.of(ProxyResolution.ORIGINAL, 3840, 800))
+        assertEquals(ProxySpec(360, 1_500_000), ProxySpec.of(ProxyResolution.ORIGINAL, 640, 360))
+        assertEquals(ProxySpec.HIGH, ProxySpec.of(ProxyResolution.ORIGINAL, 0, 0))
+        assertEquals(ProxySpec.HIGH, ProxySpec.of(ProxyResolution.HIGH, 3840, 2160))
+        assertEquals(ProxySpec.STANDARD, ProxySpec.of("anything", 3840, 2160))
+        // Chunks short enough for the API's 160 MB: 4K in 1-minute chunks, a panorama in 4, 720p untouched.
+        assertEquals(60, ChunkProfile.forSpec(ChunkProfile.DEMO, ProxySpec.of(ProxyResolution.ORIGINAL, 3840, 2160)).chunkSeconds)
+        assertEquals(240, ChunkProfile.forSpec(ChunkProfile.DEMO, ProxySpec.of(ProxyResolution.ORIGINAL, 3840, 800)).chunkSeconds)
+        assertEquals(300, ChunkProfile.forSpec(ChunkProfile.DEMO, ProxySpec.HIGH).chunkSeconds)
+        assertEquals(60, ChunkProfile.forSpec(ChunkProfile.DEV, ProxySpec.STANDARD).chunkSeconds)
     }
 }

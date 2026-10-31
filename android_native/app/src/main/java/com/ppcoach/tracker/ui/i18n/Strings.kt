@@ -114,8 +114,9 @@ interface Strings {
     val profileDev: String
     val profileDemo: String
     fun overlapLabel(seconds: Int): String
-    val highResolution: String
-    val highResolutionHelp: String
+    val analysisResolution: String
+    fun resolutionLabel(key: String): String
+    fun resolutionHelp(key: String): String
     fun proxySpec(height: Int, mbps: String, mbMin: String): String
     val tempCopies: String
 
@@ -417,8 +418,17 @@ object Es : Strings {
     override val profileDev = "Chunks de 1 min (desarrollo)"
     override val profileDemo = "Chunks de 5 min (demo)"
     override fun overlapLabel(seconds: Int) = "Traslape: $seconds s"
-    override val highResolution = "Alta resolución (1080p)"
-    override val highResolutionHelp = "Más detalle para jugadores lejanos; pesa el doble."
+    override val analysisResolution = "Video para el análisis"
+    override fun resolutionLabel(key: String) = when (key) {
+        "1080" -> "1080p"
+        "original" -> "Original"
+        else -> "720p"
+    }
+    override fun resolutionHelp(key: String) = when (key) {
+        "1080" -> "Más detalle para jugadores lejanos; pesa el doble que 720p."
+        "original" -> "A la resolución del video (4K o panorámica, hasta 2160p). El análisis parte el video ancho para que se vean los jugadores lejanos: sube más y cada parte cuesta un análisis."
+        else -> "Lo más ligero: ~11 MB por minuto. Suficiente con la cámara cerca de la cancha."
+    }
     override fun proxySpec(height: Int, mbps: String, mbMin: String) = "${height}p · $mbps Mbps · ~$mbMin MB por minuto"
     override val tempCopies = "Copias temporales"
 
@@ -755,8 +765,17 @@ object En : Strings {
     override val profileDev = "1-min chunks (development)"
     override val profileDemo = "5-min chunks (demo)"
     override fun overlapLabel(seconds: Int) = "Overlap: $seconds s"
-    override val highResolution = "High resolution (1080p)"
-    override val highResolutionHelp = "More detail for distant players; twice the size."
+    override val analysisResolution = "Video for the analysis"
+    override fun resolutionLabel(key: String) = when (key) {
+        "1080" -> "1080p"
+        "original" -> "Original"
+        else -> "720p"
+    }
+    override fun resolutionHelp(key: String) = when (key) {
+        "1080" -> "More detail for distant players; twice the size of 720p."
+        "original" -> "At the video's own resolution (4K or a panorama, up to 2160p). The analysis cuts wide video so distant players show: it uploads more and each part costs an analysis."
+        else -> "The lightest: ~11 MB per minute. Enough with the camera close to the pitch."
+    }
     override fun proxySpec(height: Int, mbps: String, mbMin: String) = "${height}p · $mbps Mbps · ~$mbMin MB per minute"
     override val tempCopies = "Temporary copies"
 

@@ -85,7 +85,7 @@ flowchart LR
     PS --> MS
 ```
 
-**Ajustes:** idioma (español o inglés), apariencia (sistema, claro, oscuro), sistema de análisis (servidor, iniciar y cerrar sesión), privacidad y consentimiento (enlaces legales, retirar), ubicación de los videos (con "Mover N clips aquí"), vista técnica, alta resolución (1080p) y perfil de chunks (`dev` o `demo`).
+**Ajustes:** idioma (español o inglés), apariencia (sistema, claro, oscuro), sistema de análisis (servidor, iniciar y cerrar sesión), privacidad y consentimiento (enlaces legales, retirar), ubicación de los videos (con "Mover N clips aquí"), vista técnica, video para el análisis (720p, 1080p u original) y perfil de chunks (`dev` o `demo`).
 
 ## Dónde guarda cada cosa
 
@@ -113,10 +113,10 @@ flowchart LR
 |---|---|---|
 | Partidos y clips | `library.json` | Tolerante a campos desconocidos. Cada clip guarda su respuesta sobre la cancha (`pitchMode`), sus puntos y líneas pintadas (`touches`) y qué parte de sus cuadros tiene cancha (`pitchShare`); el partido, la última respuesta y sus imágenes de referencia con sus trazos |
 | Videos originales | MP4 (H.264/AAC, 1080p o 720p, 30 fps) | Cada clip recuerda su ubicación. El tipo de clip (jugada, medio tiempo, partido) se propone por la duración |
-| Versión para análisis | Chunks MP4 de 10 fps, máx. 720p (1080p con "Alta resolución"), sin audio, más un YAML por chunk (con la máscara de la cancha de cada cuadro) y `chunks.yaml` | Perfil `dev`: 1 min con 2 s de traslape; `demo`: 5 min con 3 s. En la caché: se regenera si Android la borra |
+| Versión para análisis | Chunks MP4 de 10 fps, a 720p, 1080p o la resolución original hasta 2160p ("Video para el análisis"), sin audio, más un YAML por chunk (con la máscara de la cancha de cada cuadro) y `chunks.yaml` | Perfil `dev`: 1 min con 2 s de traslape; `demo`: 5 min con 3 s. En la caché: se regenera si Android la borra |
 | Imágenes de referencia | JPEG enderezado según el EXIF, lado mayor de 1600 px | De la cámara del teléfono (FileProvider) o de un cuadro del clip. Hasta 6 por partido; sirven para todos sus videos |
 | Análisis de cada clip | JSON tal como lo devuelve la API | Copia para verlo sin conexión; se reemplaza cada vez que se abre con red; se borra con el clip |
-| Ajustes | SharedPreferences | Idioma, tema, ubicación, vista técnica, alta resolución, perfil, servidor, correo, consentimiento |
+| Ajustes | SharedPreferences | Idioma, tema, ubicación, vista técnica, resolución del video para el análisis, perfil, servidor, correo, consentimiento |
 | Sesión (JWT) | AES-256-GCM, llave en el Keystore (`SecretBox`) | Nunca va en los datos de entrada de WorkManager, que se guardan en claro |
 
 ## Trabajos en segundo plano
@@ -140,7 +140,7 @@ flowchart LR
 
 | Worker | Qué hace | Reintentos |
 |---|---|---|
-| `ChunkWorker` | Corta el original en chunks con traslape, los convierte con Media3 Transformer a 10 fps y máx. 720p (o 1080p) sin audio, mide el tiempo real de cada cuadro y escribe el YAML con el mapa al original y el `sha256`. `PitchSampler` decodifica cada chunk con MediaCodec y mide la cancha por cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, conserva los chunks con YAML válido y sigue | Lo relanza la cadena |
+| `ChunkWorker` | Corta el original en chunks con traslape, los convierte con Media3 Transformer a 10 fps y a la resolución elegida (720p, 1080p u original; los chunks se acortan para no pasar de 140 MB) sin audio, mide el tiempo real de cada cuadro y escribe el YAML con el mapa al original y el `sha256`. `PitchSampler` decodifica cada chunk con MediaCodec y mide la cancha por cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, conserva los chunks con YAML válido y sigue | Lo relanza la cadena |
 | `UploadWorker` | Registra el clip (consentimiento, `pitch_mode` y `camera`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
 | `ConsentWorker` | Manda cada aceptación o retiro a `POST /consent` | Con red; espera también a que haya sesión (`401`); hasta 20 intentos |
 

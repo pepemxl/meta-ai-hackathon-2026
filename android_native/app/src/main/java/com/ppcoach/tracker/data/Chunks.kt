@@ -21,6 +21,15 @@ data class ChunkProfile(val name: String, val chunkSeconds: Int, val overlapMs: 
         val DEV = ChunkProfile("dev", 60, 2000)
         val DEMO = ChunkProfile("demo", 300, 3000)
 
+        /**
+         * [profile] with chunks short enough that one fits in [ProxySpec.CHUNK_BYTES_BUDGET]
+         * at [spec]'s bitrate, in whole minutes (a 4K copy goes in 1-minute chunks).
+         */
+        fun forSpec(profile: ChunkProfile, spec: ProxySpec): ChunkProfile {
+            val fits = (ProxySpec.CHUNK_BYTES_BUDGET * 8 / spec.bitrate / 60).toInt() * 60
+            return profile.copy(chunkSeconds = minOf(profile.chunkSeconds, fits.coerceAtLeast(MIN_SECONDS)))
+        }
+
         /** The named profile, with the overlap chosen in Settings (clamped to 2..5 s). */
         fun of(name: String?, overlapMs: Int? = null): ChunkProfile {
             val base = if (name == DEMO.name) DEMO else DEV
@@ -192,7 +201,17 @@ object Chunks {
     }
 }
 
-/** The analysis copy's size: 720p at 1.5 Mbps, or 1080p at 3 Mbps with "high resolution". */
+/** The size of the analysis copy (Settings → video for analysis): 720p, 1080p or the video's own. */
+object ProxyResolution {
+    const val STANDARD = "720"
+    const val HIGH = "1080"
+    /** The recorded size (4K, a panorama): the worker cuts wide video in tiles for SAM. */
+    const val ORIGINAL = "original"
+    val ALL = listOf(STANDARD, HIGH, ORIGINAL)
+    fun valid(r: String?) = r in ALL
+}
+
+/** The analysis copy's size: 720p at 1.5 Mbps, 1080p at 3 Mbps, or the original at the same bits per pixel. */
 data class ProxySpec(val maxHeight: Int, val bitrate: Int) {
     /** Approximate MB per minute of video (video bitrate only). */
     val mbPerMinute: Double get() = bitrate / 8.0 * 60 / 1_000_000
@@ -200,7 +219,25 @@ data class ProxySpec(val maxHeight: Int, val bitrate: Int) {
     companion object {
         val STANDARD = ProxySpec(720, 1_500_000)
         val HIGH = ProxySpec(1080, 3_000_000)
-        fun of(highResolution: Boolean) = if (highResolution) HIGH else STANDARD
+        /** The phone encoders handle up to 4K; 8K is brought down to it. */
+        const val MAX_ORIGINAL_HEIGHT = 2160
+        const val MAX_BITRATE = 12_000_000
+        /** A chunk stays under this, with margin below the API's 160 MB (MAX_CHUNK_BYTES). */
+        const val CHUNK_BYTES_BUDGET = 140L * 1024 * 1024
+
+        fun of(resolution: String, width: Int = 0, height: Int = 0): ProxySpec = when (resolution) {
+            ProxyResolution.HIGH -> HIGH
+            ProxyResolution.ORIGINAL -> original(width, height)
+            else -> STANDARD
+        }
+
+        /** The video's own height (up to 4K) at 1080p's bits per pixel, between 1.5 and 12 Mbps. */
+        fun original(width: Int, height: Int): ProxySpec {
+            if (width <= 0 || height <= 0) return HIGH
+            val (w, h) = outputSize(width, height, MAX_ORIGINAL_HEIGHT)
+            val bitrate = Math.round(HIGH.bitrate * (w.toDouble() * h) / (1920.0 * 1080.0)).toInt().coerceIn(STANDARD.bitrate, MAX_BITRATE)
+            return ProxySpec(h, bitrate)
+        }
 
         /** Output size keeping the aspect ratio, even dimensions, at most [maxHeight] tall. */
         fun outputSize(width: Int, height: Int, maxHeight: Int): Pair<Int, Int> {

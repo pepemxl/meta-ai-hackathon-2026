@@ -25,7 +25,8 @@ data class Settings(
     val technical: Boolean = false,
     val chunkProfile: String = "dev",
     val overlapMs: Int = 2000,
-    val highResolution: Boolean = false,
+    /** Size of the analysis copy (ProxyResolution): 720, 1080 or original. */
+    val resolution: String = ProxyResolution.STANDARD,
     val serverUrl: String = "",
     val sessionEmail: String = "",
     val sessionName: String = "",
@@ -53,7 +54,9 @@ class SettingsStore(context: Context, private val defaultProfile: String) {
             technical = prefs.getBoolean("technical", false),
             chunkProfile = profile,
             overlapMs = prefs.getInt("overlapMs", ChunkProfile.of(profile).overlapMs),
-            highResolution = prefs.getBoolean("highResolution", false),
+            // Before 0.3: a "high resolution" switch.
+            resolution = prefs.getString("resolution", null)?.takeIf { ProxyResolution.valid(it) }
+                ?: if (prefs.getBoolean("highResolution", false)) ProxyResolution.HIGH else ProxyResolution.STANDARD,
             serverUrl = prefs.getString("serverUrl", "") ?: "",
             sessionEmail = prefs.getString("sessionEmail", "") ?: "",
             sessionName = prefs.getString("sessionName", "") ?: "",
@@ -71,7 +74,7 @@ class SettingsStore(context: Context, private val defaultProfile: String) {
             .putBoolean("technical", s.technical)
             .putString("chunkProfile", s.chunkProfile)
             .putInt("overlapMs", s.overlapMs)
-            .putBoolean("highResolution", s.highResolution)
+            .putString("resolution", s.resolution)
             .putString("serverUrl", s.serverUrl)
             .putString("consentVersion", s.consentVersion)
             .putString("consentAt", s.consentAt)

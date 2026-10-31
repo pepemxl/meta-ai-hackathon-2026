@@ -54,6 +54,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.ppcoach.tracker.analysis.UploadWorker
+import com.ppcoach.tracker.data.ChunkProfile
 import com.ppcoach.tracker.data.Chunks
 import com.ppcoach.tracker.data.Clip
 import com.ppcoach.tracker.data.ClipKind
@@ -299,11 +300,11 @@ fun errorText(code: String, s: Strings): String = when (code) {
 @Composable
 private fun TechnicalCard(vm: CoachViewModel, clip: Clip, s: Strings) {
     val dir = vm.proxyDir(clip)
-    val profile = vm.settings.profile
+    val spec = ProxySpec.of(vm.settings.resolution, clip.width, clip.height)
+    val profile = ChunkProfile.forSpec(vm.settings.profile, spec)
     val planned = Chunks.plan(clip.durationMs, profile)
     val frames = planned.sumOf { (it.durationMs / 100).toInt() }
     val bytes = dir?.listFiles()?.filter { it.name.endsWith(".mp4") }?.sumOf { it.length() } ?: 0
-    val spec = ProxySpec.of(vm.settings.highResolution)
     PpCard {
         SectionTitle(s.chunkProfile)
         KeyValue(if (profile.name == "demo") s.profileDemo else s.profileDev, s.overlapLabel(profile.overlapMs / 1000))
