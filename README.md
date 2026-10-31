@@ -32,7 +32,7 @@ The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/RE
 
 | | |
 |---|---|
-| App, API (Node and PHP) and worker | Built, with automated tests passing (app 62, Node 23, PHP 26, worker 92) |
+| App, API (Node and PHP) and worker | Built, with automated tests passing (app 68, Node 23, PHP 26, worker 92) |
 | SAM 3.1 and Muse Spark | **Verified with the real Meta Model API** on October 30: two 15-minute clips end to end, masks decoded with Meta's `meta-sam-parser`. Measured cost: about US$0.36 per minute of video (3 concepts at 10 fps) |
 | Results | [docs/results/](docs/results/README.md) (in Spanish): SAM 3.1 against a local detector and tracker used only during development (never shipped). SAM keeps one track per player and sees the ball in 85 % of frames, against 17 % |
 | Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. The worker now splits wide video (a panorama, or a long side over 2048 px) into overlapping tiles of up to 1024 px over the pitch and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama, at one SAM request per tile. The app still sends at most 1080p, which is not split |
