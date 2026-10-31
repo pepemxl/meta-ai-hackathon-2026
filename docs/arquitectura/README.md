@@ -1,6 +1,6 @@
 # Arquitectura de pp-coach-tracker
 
-Cómo está construido pp-coach-tracker durante el hackathon (app 0.2.0, API 0.2.0, worker 0.2.0) y qué falta. Describe lo que **existe en el código**; lo que todavía no, va marcado como *pendiente*. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
+Cómo está construido pp-coach-tracker durante el hackathon (app 0.3.0, API 0.2.0, worker 0.2.0) y qué falta. Describe lo que **existe en el código**; lo que todavía no, va marcado como *pendiente*. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
 
 Las reglas de la construcción (sin respaldo local, solo licencias permisivas, un commit por función) están en [prompts/00-contexto.md](../prompts/00-contexto.md), y el detalle de cada pieza, en el prompt de su etapa.
 
