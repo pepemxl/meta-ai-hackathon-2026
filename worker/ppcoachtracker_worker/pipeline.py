@@ -123,8 +123,10 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
 
     notes = warnings_of(m) + mask_notes + cal_notes
     if tile_plan is not None:
-        notes.append(f"Video ancho: SAM lo vio en {len(tile_plan.tiles)} partes de {tiles_mod.SIZE} px (escala {tile_plan.scale:g}); "
-                     f"{segmenter.tile_joins} tracks se unieron entre partes.")
+        why = (f"los jugadores miden unos {segmenter.player_px:.0f} px y SAM los vería de {segmenter.player_px * tiles_mod.SIZE / max(clip.width, clip.height):.0f}"
+               if segmenter.tile_reason == "small" else "video ancho")
+        notes.append(f"SAM vio el video en {len(tile_plan.tiles)} parte(s) de hasta {tiles_mod.SIZE} px sobre la cancha (escala {tile_plan.scale:g}; {why}), "
+                     f"con lo que no es cancha en negro; {segmenter.tile_joins} tracks se unieron entre partes.")
     if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
         notes.append(f"Se descartaron {len(trackset.frames) - len(shots.counted)} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.")
     if pitch is not None:
@@ -167,7 +169,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "closeups": shots.closeups,
             **({"play_area": {"points": len(area.polygon) // 2, "margin": area.margin, "removed": outside}} if area is not None else {}),
             **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
-                          "joins": segmenter.tile_joins}} if tile_plan is not None else {}),
+                          "joins": segmenter.tile_joins, "reason": segmenter.tile_reason,
+                          "player_px": round(segmenter.player_px, 1) if segmenter.player_px else None, "masked": True}} if tile_plan is not None else {}),
         },
         "coordinates": "screen",
         "frames": m["frames"],

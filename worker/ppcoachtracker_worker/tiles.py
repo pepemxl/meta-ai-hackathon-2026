@@ -7,6 +7,18 @@ side by side with some overlap, keep the players at the size they were
 recorded; the tracks of neighbouring tiles are joined again in their overlap
 (docs/learnings/04-video-ancho-y-sam.md).
 
+A 16:9 video can need it too: a high tactical camera shows the whole pitch
+with players of 30–40 px, about 20 once SAM shrinks 1920 to 1024.
+- player_heights: how tall the players are, without detecting them: the
+  non-grass blobs inside the pitch that are taller than wide. It only decides
+  whether to tile; the players still come only from SAM.
+- reason: "wide" (a panorama, or a long side over twice SAM's), "small"
+  (the median player under MIN_SAM_PLAYER_PX once SAM shrinks the frame) or
+  None. Results (docs/results/01): SAM found nobody at 10 px, worked at 28.
+- mask_outside: what is not the pitch (stands, benches, the press area) goes
+  black in the tiles, so SAM does not track it. The pitch is widened by more
+  than a player's height: the heads of the far players and a ball in the air
+  stay in.
 - plan: the fewest tiles (2 to MAX_TILES) that cover the pitch with the
   video scaled down at most to MIN_SCALE; no tiles if the pitch fits one.
 - join_tracks: two tracks of neighbouring tiles are the same player when
@@ -35,6 +47,13 @@ TRIGGER_LONG_SIDE = 2048
 TRIGGER_ASPECT = 2.2
 JOIN_IOU = 0.5
 JOIN_MIN_FRAMES = 5
+# A player SAM sees smaller than this (median, in the 1024 px it works at) goes in tiles.
+MIN_SAM_PLAYER_PX = 24
+MIN_PLAYER_BLOBS = 30  # fewer over the sampled frames: no measure, no tiles for size
+SAMPLE_FRAMES = 12
+# The black outside the pitch starts this many player heights (or MIN_MASK_MARGIN of the height) out.
+MASK_PLAYER_HEIGHTS = 2.0
+MIN_MASK_MARGIN = 0.03
 
 
 @dataclass(frozen=True)
@@ -73,6 +92,121 @@ def should_tile(mode: str, width: int, height: int) -> bool:
     if mode == "on":
         return True
     return max(width, height) > TRIGGER_LONG_SIDE or width / height >= TRIGGER_ASPECT
+
+
+def reason(mode: str, width: int, height: int, player_px: float | None) -> str | None:
+    """Why this video goes in tiles: "on", "wide", "small" (players too small for SAM) or None."""
+    if mode == "off" or width <= 0 or height <= 0:
+        return None
+    if mode == "on":
+        return "on"
+    if should_tile(mode, width, height):
+        return "wide"
+    # Only a video larger than what SAM sees loses detail when SAM shrinks it: tiles cannot enlarge.
+    if player_px is not None and max(width, height) > SIZE and player_px * SIZE / max(width, height) < MIN_SAM_PLAYER_PX:
+        return "small"
+    return None
+
+
+def _pitch_pixels(shape: tuple[int, int], polygon, grow_px: float = 0.0, aspect: float | None = None) -> np.ndarray:
+    """255 inside the (normalized) polygon, widened [grow_px] outward (negative: shrunk)."""
+    import cv2
+
+    h, w = shape
+    out = np.zeros((h, w), np.uint8)
+    pts = np.array([[x * w, y * h] for x, y in zip(polygon[0::2], polygon[1::2])], np.int32)
+    cv2.fillPoly(out, [pts], 255)
+    r = int(round(abs(grow_px)))
+    if r > 0:
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1))
+        out = cv2.dilate(out, k) if grow_px > 0 else cv2.erode(out, k)
+    return out
+
+
+def player_heights(image_bgr: np.ndarray, polygon) -> list[int]:
+    """Heights in pixels of the non-grass blobs inside the pitch shaped like a
+    standing person (taller than wide, fairly solid). Lines, the circle and
+    the grass stripes are not."""
+    import cv2
+
+    h, w = image_bgr.shape[:2]
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    grass = cv2.inRange(hsv, (35, 60, 40), (85, 255, 255))  # pitch.py's thresholds
+    inside = _pitch_pixels((h, w), polygon, -7)  # away from the edge of the pitch
+    fg = cv2.bitwise_and(cv2.bitwise_not(grass), inside)
+    fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+    fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, np.ones((5, 3), np.uint8))
+    _, _, stats, _ = cv2.connectedComponentsWithStats(fg)
+    return [int(bh) for _, _, bw, bh, area in stats[1:] if 8 <= bh <= 0.3 * h and 0.2 <= bw / bh <= 0.8 and area >= 0.3 * bw * bh]
+
+
+def median_player(heights: list[int]) -> float | None:
+    return float(np.median(heights)) if len(heights) >= MIN_PLAYER_BLOBS else None
+
+
+def mask_margin(player_px: float | None, height: int, coach_margin: float = 0.0) -> float:
+    """How far out the black starts, as a fraction of the height."""
+    heads = MASK_PLAYER_HEIGHTS * player_px / height if player_px else 0.0
+    return max(MIN_MASK_MARGIN, coach_margin + heads)
+
+
+def mask_outside(image_bgr: np.ndarray, polygon, margin: float) -> np.ndarray:
+    """The frame with what is farther than [margin] (fraction of the height) from the pitch polygon in black."""
+    keep = _pitch_pixels(image_bgr.shape[:2], polygon, margin * image_bgr.shape[0])
+    out = image_bgr.copy()
+    out[keep == 0] = 0
+    return out
+
+
+def grass_region(image_bgr: np.ndarray, scale: int = 4) -> np.ndarray | None:
+    """The pitch as the grass really is (not its convex hull, which takes in a
+    press area between two corners): the largest grass blob with its holes
+    (the players, the lines) filled, at full size. None when there is none."""
+    import cv2
+
+    h, w = image_bgr.shape[:2]
+    small = cv2.resize(image_bgr, (max(1, w // scale), max(1, h // scale)), interpolation=cv2.INTER_AREA)
+    grass = cv2.inRange(cv2.cvtColor(small, cv2.COLOR_BGR2HSV), (35, 60, 40), (85, 255, 255))
+    grass = cv2.morphologyEx(grass, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(grass)
+    if n < 2:
+        return None
+    best = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    if stats[best, cv2.CC_STAT_AREA] < 0.05 * grass.size:
+        return None
+    blob = np.where(labels == best, 255, 0).astype(np.uint8)
+    # Holes: what is not grass and not reachable from the border.
+    outside = cv2.bitwise_not(blob)
+    pad = cv2.copyMakeBorder(outside, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=255)
+    cv2.floodFill(pad, None, (0, 0), 0)
+    blob = cv2.bitwise_or(blob, pad[1:-1, 1:-1])
+    return cv2.resize(blob, (w, h), interpolation=cv2.INTER_NEAREST)
+
+
+def grass_margins(player_px: float | None, height: int) -> tuple[int, int]:
+    """(up, around) in pixels: above the grass the far players' heads and a
+    ball in the air (MASK_PLAYER_HEIGHTS players); elsewhere the feet are on
+    the grass and half a player is enough."""
+    p = player_px or MIN_MASK_MARGIN * height / MASK_PLAYER_HEIGHTS
+    return int(round(max(MIN_MASK_MARGIN * height, MASK_PLAYER_HEIGHTS * p))), int(round(max(0.015 * height, p / 2)))
+
+
+def mask_outside_grass(image_bgr: np.ndarray, up: int, around: int) -> np.ndarray:
+    """The frame with what is not near the grass in black: [up] pixels above
+    it, [around] to the sides and below. As it is when there is no pitch."""
+    import cv2
+
+    region = grass_region(image_bgr)
+    if region is None:
+        return image_bgr
+    if up > 0:
+        # Each pixel takes the grass up to [up] below it: the region grows upward only.
+        region = cv2.dilate(region, np.ones((up + 1, 1), np.uint8), anchor=(0, 0))
+    if around > 0:
+        region = cv2.dilate(region, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * around + 1, 2 * around + 1)))
+    out = image_bgr.copy()
+    out[region == 0] = 0
+    return out
 
 
 def pitch_box(polygons: list[list[float] | tuple[float, ...]], width: int, height: int, margin: float = 0.0) -> tuple[float, float, float, float]:
@@ -127,8 +261,9 @@ def plan(width: int, height: int, pitch: tuple[float, float, float, float], size
     return TilePlan(round(scale, 4), tuple(out), (x0, y0, x0 + pw, y1))
 
 
-def write_tiles(video: Path, tile_plan: TilePlan, out_dir: Path, stem: str, fps: float) -> list[Path]:
-    """Writes each tile of [video] as its own MP4 (MPEG-4, which SAM accepts) in [out_dir]."""
+def write_tiles(video: Path, tile_plan: TilePlan, out_dir: Path, stem: str, fps: float, mask=None) -> list[Path]:
+    """Writes each tile of [video] as its own MP4 (MPEG-4, which SAM accepts) in [out_dir].
+    [mask](image) gives the frame with what is not the pitch in black (None: as it is)."""
     import cv2
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -140,6 +275,8 @@ def write_tiles(video: Path, tile_plan: TilePlan, out_dir: Path, stem: str, fps:
             ok, img = cap.read()
             if not ok:
                 break
+            if mask is not None:
+                img = mask(img)
             for w, t in zip(writers, tile_plan.tiles):
                 crop = img[int(t.y):int(round(t.y + t.h)), int(t.x):int(round(t.x + t.w))]
                 w.write(cv2.resize(crop, (t.out_w, t.out_h), interpolation=cv2.INTER_AREA))

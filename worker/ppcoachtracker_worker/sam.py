@@ -195,6 +195,9 @@ class SamSegmenter:
         # Set by plan_tiles(): None = whole chunks, as always.
         self.tile_plan: tiles.TilePlan | None = None
         self.tile_joins = 0
+        self.tile_reason: str | None = None  # wide | small | on
+        self.player_px: float | None = None  # median player height in the video, measured on a few frames
+        self._tile_mask = None  # image → image with what is not the pitch in black
         self.player_concept = player_concept
         self.ball_concept = ball_concept
         self.client = client
@@ -206,24 +209,53 @@ class SamSegmenter:
     # ── one chunk ────────────────────────────────────────────────────────────
 
     def plan_tiles(self, clip: Clip, area=None) -> tiles.TilePlan | None:
-        """Whether this clip goes in tiles, and which: over the play area the
-        coach marked ([area], a pitch.PitchMask), else over the pitch the app
-        measured (or measured here on a few frames when it did not come)."""
-        self.tile_plan = None
-        if not clip.chunks or not tiles.should_tile(self.tile_mode, clip.width, clip.height):
+        """Whether this clip goes in tiles, and which: a wide video, or one whose
+        players SAM would see too small (measured on a few frames across it).
+        The tiles go over the play area the coach marked ([area], a
+        pitch.PitchMask), else over the pitch the app measured (or measured
+        here); what is not the pitch goes black in them."""
+        from .pitch import measure
+
+        self.tile_plan, self.tile_reason, self.player_px, self._tile_mask = None, None, None, None
+        if not clip.chunks or self.tile_mode == "off":
+            return None
+        sampled = []  # polygons of the sampled frames
+        heights: list[int] = []
+        for img in self._sample_frames(clip):
+            m = area if area is not None else measure(img)
+            if m.has_pitch:
+                sampled.append(list(m.polygon))
+                heights += tiles.player_heights(img, m.polygon)
+        self.player_px = tiles.median_player(heights)
+        self.tile_reason = tiles.reason(self.tile_mode, clip.width, clip.height, self.player_px)
+        if self.tile_reason is None:
             return None
         if area is not None:
-            self.tile_plan = tiles.plan(clip.width, clip.height, area.box(clip.width, clip.height))
-            return self.tile_plan
-        polygons = [list(m.polygon) for m in clip.pitch_masks() if m is not None and m.has_pitch]
-        if not polygons:
-            from .pitch import measure
-
-            first = clip.chunks[0]
-            wanted = set(range(0, first.frame_count, max(1, first.frame_count // 12)))
-            polygons = [list(m.polygon) for _, img in read_frames(first, wanted) if (m := measure(img)).has_pitch]
-        self.tile_plan = tiles.plan(clip.width, clip.height, tiles.pitch_box(polygons, clip.width, clip.height))
+            box = area.box(clip.width, clip.height)
+            margin = tiles.mask_margin(self.player_px, clip.height, area.margin)
+            self._tile_mask = lambda img: tiles.mask_outside(img, area.polygon, margin)
+        else:
+            polygons = [list(m.polygon) for m in clip.pitch_masks() if m is not None and m.has_pitch] or sampled
+            box = tiles.pitch_box(polygons, clip.width, clip.height)
+            up, around = tiles.grass_margins(self.player_px, clip.height)
+            # A camera that may move: the grass of each frame.
+            self._tile_mask = lambda img: tiles.mask_outside_grass(img, up, around)
+        if self.tile_reason == "small":
+            # The fewest tiles that bring the median player to what SAM sees; one crop of the pitch may do.
+            need = min(1.0, tiles.MIN_SAM_PLAYER_PX / self.player_px)
+            self.tile_plan = tiles.plan(clip.width, clip.height, box, min_scale=need) or tiles.plan(clip.width, clip.height, box, tiles=1)
+        else:
+            self.tile_plan = tiles.plan(clip.width, clip.height, box)
         return self.tile_plan
+
+    def _sample_frames(self, clip: Clip):
+        """About tiles.SAMPLE_FRAMES frames spread over the clip (a few per chunk)."""
+        per_chunk = max(1, -(-tiles.SAMPLE_FRAMES // len(clip.chunks)))
+        step = max(1, len(clip.chunks) // tiles.SAMPLE_FRAMES)
+        for chunk in clip.chunks[::step]:
+            wanted = {int((k + 0.5) * chunk.frame_count / per_chunk) for k in range(per_chunk)}
+            for _, img in read_frames(chunk, wanted):
+                yield img
 
     def _call(self, chunk: Chunk | TileVideo, concept: Concept) -> str:
         key = cache_key(self.client.base_url, chunk.sha256, self.model, concept.text)
@@ -272,7 +304,7 @@ class SamSegmenter:
         w, h = chunk.width or 1280, chunk.height or 720
         paths = [chunk.video.parent / "tiles" / f"chunk_{chunk.number:03d}_t{t.index}.mp4" for t in plan.tiles]
         if not all(p.exists() for p in paths):
-            paths = tiles.write_tiles(chunk.video, plan, chunk.video.parent / "tiles", f"chunk_{chunk.number:03d}", chunk.fps)
+            paths = tiles.write_tiles(chunk.video, plan, chunk.video.parent / "tiles", f"chunk_{chunk.number:03d}", chunk.fps, mask=self._tile_mask)
         videos = [TileVideo(chunk.number, t.index, p, chunk.frame_count) for t, p in zip(plan.tiles, paths)]
         edges = plan.edges(w)
         rows: list[LocalRow] = []
