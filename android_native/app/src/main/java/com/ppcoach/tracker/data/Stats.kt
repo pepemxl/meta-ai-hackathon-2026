@@ -78,6 +78,18 @@ data class AnalysisReport(val receivedAt: Long, val via: String, val source: Str
     }
 }
 
+/**
+ * What the video says of one player, from their tagged tracks: seconds seen,
+ * meters run and top speed (m/s). Meters and speed exist only where the
+ * worker computed the pitch; [metersSeconds] is the time they cover.
+ */
+data class PlayerVideo(val seconds: Int, val meters: Int?, val metersSeconds: Int, val topSpeed: Double?) {
+    /** Meters per minute over the time with meters, or null. */
+    val metersPerMinute: Double? get() = meters?.takeIf { metersSeconds > 0 }?.let { it * 60.0 / metersSeconds }
+    val topSpeedKmh: Double? get() = topSpeed?.let { it * 3.6 }
+    val isEmpty: Boolean get() = seconds == 0 && meters == null
+}
+
 /** What the coach sees after an import: which numbers were added to the squad and what was ignored. */
 data class ImportSummary(val players: Int, val addedNumbers: List<Int>, val unknownKeys: List<String>, val coachKeysIgnored: List<String>)
 
@@ -113,6 +125,14 @@ object StatsCalc {
 
     /** Stats from the video are locked in a match until it has a report; the coach's are always open. */
     fun locked(s: Stat, match: Match): Boolean = s.fromAnalysis && match.analysis == null
+
+    /** Meters each tagged number ran in a clip's tracks; numbers without meters are left out. */
+    fun metersByNumber(tracks: List<ClipAnalysis.TrackInfo>, tags: Map<Int, Int>): Map<Int, Int> =
+        tracks.mapNotNull { t -> tags[t.id]?.let { n -> t.distanceM?.let { n to it } } }.groupBy({ it.first }, { it.second }).mapValues { (_, v) -> Math.round(v.sum()).toInt() }
+
+    /** Each tagged number's top speed over its tracks, in tenths of m/s. */
+    fun topSpeedByNumber(tracks: List<ClipAnalysis.TrackInfo>, tags: Map<Int, Int>): Map<Int, Int> =
+        tracks.mapNotNull { t -> tags[t.id]?.let { n -> t.topSpeed?.let { n to it } } }.groupBy({ it.first }, { it.second }).mapValues { (_, v) -> Math.round(v.max() * 10).toInt() }
 
     /** Seconds each tagged number was seen in a clip's tracks (several tracks can be one player). */
     fun secondsByNumber(tracks: List<ClipAnalysis.TrackInfo>, tags: Map<Int, Int>): Map<Int, Int> =

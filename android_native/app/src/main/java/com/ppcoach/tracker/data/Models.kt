@@ -143,6 +143,10 @@ data class Clip(
     val trackTags: Map<Int, Int> = emptyMap(),
     /** Seconds each tagged number was seen in this clip, from its analysis (StatsCalc.secondsByNumber). */
     val playerSeconds: Map<Int, Int> = emptyMap(),
+    /** Meters each tagged number ran in this clip (only with the pitch computed). */
+    val playerMeters: Map<Int, Int> = emptyMap(),
+    /** Each tagged number's top speed in this clip, in tenths of m/s (only with the pitch computed). */
+    val playerTopSpeed: Map<Int, Int> = emptyMap(),
 ) {
     val fileName: String get() = "clip_%04d.mp4".format(id)
 }
@@ -264,6 +268,17 @@ data class Library(
         }
         lib = lib.updateMatch(matchId) { it.copy(analysis = AnalysisReport(now, via, parsed.source, parsed.generatedAt)) }
         return lib to ImportSummary(parsed.players.size, added, parsed.unknownKeys, parsed.coachKeys)
+    }
+
+    /** What the video says of [number] over the clips of [matchIds]: time seen, meters and top speed. */
+    fun videoOf(number: Int, matchIds: Set<Int>): PlayerVideo {
+        val cs = clips.filter { it.matchId in matchIds }
+        return PlayerVideo(
+            seconds = cs.sumOf { it.playerSeconds[number] ?: 0 },
+            meters = cs.mapNotNull { it.playerMeters[number] }.takeIf { it.isNotEmpty() }?.sum(),
+            metersSeconds = cs.filter { number in it.playerMeters }.sumOf { it.playerSeconds[number] ?: 0 },
+            topSpeed = cs.mapNotNull { it.playerTopSpeed[number] }.maxOrNull()?.let { it / 10.0 },
+        )
     }
 
     /** The minutes of each tagged number over every clip of the match, from the video (via "video"). */

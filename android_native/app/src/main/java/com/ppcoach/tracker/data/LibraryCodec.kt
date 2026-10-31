@@ -140,6 +140,8 @@ object LibraryCodec {
         put("camera", c.camera)
         put("trackTags", intMap(c.trackTags))
         put("playerSeconds", intMap(c.playerSeconds))
+        put("playerMeters", intMap(c.playerMeters))
+        put("playerTopSpeed", intMap(c.playerTopSpeed))
     }
 
     private fun decodeClip(o: JSONObject): Clip? {
@@ -174,6 +176,8 @@ object LibraryCodec {
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
             trackTags = intMapFrom(o.optJSONObject("trackTags")).filterValues { it in Player.NUMBERS },
             playerSeconds = intMapFrom(o.optJSONObject("playerSeconds")).filter { (k, v) -> k in Player.NUMBERS && v >= 0 },
+            playerMeters = intMapFrom(o.optJSONObject("playerMeters")).filter { (k, v) -> k in Player.NUMBERS && v >= 0 },
+            playerTopSpeed = intMapFrom(o.optJSONObject("playerTopSpeed")).filter { (k, v) -> k in Player.NUMBERS && v in 0..150 },
         )
     }
 }

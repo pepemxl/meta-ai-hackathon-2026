@@ -119,6 +119,34 @@ class StatsTest {
     }
 
     @Test
+    fun taggedTracksGiveMetersAndTopSpeedPerPlayerOnlyWithThePitch() {
+        val tracks = listOf(
+            ClipAnalysis.TrackInfo(1, "A", 600.0, 0, 600_000, 1200.4, 6.25),
+            ClipAnalysis.TrackInfo(2, "A", 300.0, 600_000, 900_000, 610.0, 7.04), // the same player, faster
+            ClipAnalysis.TrackInfo(3, "A", 300.0, 0, 300_000, null, null), // no pitch in this stretch
+        )
+        val tags = mapOf(1 to 8, 2 to 8, 3 to 4)
+        assertEquals(mapOf(8 to 1810), StatsCalc.metersByNumber(tracks, tags))
+        assertEquals(mapOf(8 to 70), StatsCalc.topSpeedByNumber(tracks, tags))
+        var lib = Library().addMatch { Match(it, "A", "B", date = "2026-10-30") }.first.addMatch { Match(it, "A", "C", date = "2026-11-01") }.first
+        lib = lib.addClip { Clip(it, 1, "c1", playerSeconds = mapOf(8 to 900, 4 to 300), playerMeters = mapOf(8 to 1810), playerTopSpeed = mapOf(8 to 70)) }.first
+        lib = lib.addClip { Clip(it, 2, "c2", playerSeconds = mapOf(8 to 600), playerMeters = mapOf(8 to 1000), playerTopSpeed = mapOf(8 to 81)) }.first
+        val both = lib.videoOf(8, setOf(1, 2))
+        assertEquals(1500, both.seconds)
+        assertEquals(2810, both.meters)
+        assertEquals(112.4, both.metersPerMinute!!, 0.01)
+        assertEquals(8.1, both.topSpeed!!, 1e-9)
+        assertEquals(29.16, both.topSpeedKmh!!, 0.01)
+        assertEquals(1810, lib.videoOf(8, setOf(1)).meters)
+        val keeper = lib.videoOf(4, setOf(1, 2))
+        assertEquals(300, keeper.seconds)
+        assertNull(keeper.meters)
+        assertNull(keeper.metersPerMinute)
+        assertTrue(lib.videoOf(10, setOf(1, 2)).isEmpty)
+        assertEquals(lib, LibraryCodec.decode(LibraryCodec.encode(lib)))
+    }
+
+    @Test
     fun theLibraryKeepsSquadStatsAndTagsAndAVersion1LibraryStillOpens() {
         var lib = withSquad()
         val id = lib.playerByNumber(8)!!.id

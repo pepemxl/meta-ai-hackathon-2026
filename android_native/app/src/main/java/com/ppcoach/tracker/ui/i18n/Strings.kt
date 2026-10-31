@@ -252,6 +252,13 @@ interface Strings {
     val tagsToMatch: String
     fun minutesSynced(players: Int, added: List<Int>): String
     val tagsNeedSquad: String
+    val fromVideo: String
+    fun timeSeen(seconds: Int): String
+    val distanceRun: String
+    val playerMetersPerMinute: String
+    val topSpeed: String
+    fun videoLine(meters: Int?, kmh: Double?): String
+    val videoNoPitch: String
     val pitchAnswerLines: String
     val pitchAnswerNoLines: String
     val pitchAnswerAsk: String
@@ -592,6 +599,13 @@ object Es : Strings {
     override val tagsToMatch = "Pasar los minutos al partido"
     override fun minutesSynced(players: Int, added: List<Int>) = "Minutos de $players jugadores en el partido." + (if (added.isNotEmpty()) " Dorsales nuevos en el plantel: ${added.joinToString(", ")}." else "")
     override val tagsNeedSquad = "Agrega jugadores al plantel para ligar los tracks."
+    override val fromVideo = "Desde el video"
+    override fun timeSeen(seconds: Int) = "${seconds / 60}:${"%02d".format(seconds % 60)}"
+    override val distanceRun = "Distancia recorrida"
+    override val playerMetersPerMinute = "Metros por minuto"
+    override val topSpeed = "Velocidad máxima"
+    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { "${"%.1f".format(it / 1000.0)} km" }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
+    override val videoNoPitch = "Sin cancha calculada: sin metros ni velocidad."
     override val pitchAnswerLines = "Líneas bien marcadas"
     override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
     override val pitchAnswerAsk = "Se pregunta al enviar"
@@ -939,6 +953,13 @@ object En : Strings {
     override val tagsToMatch = "Send the minutes to the match"
     override fun minutesSynced(players: Int, added: List<Int>) = "Minutes of $players players in the match." + (if (added.isNotEmpty()) " New numbers in the squad: ${added.joinToString(", ")}." else "")
     override val tagsNeedSquad = "Add players to the squad to link the tracks."
+    override val fromVideo = "From the video"
+    override fun timeSeen(seconds: Int) = "${seconds / 60}:${"%02d".format(seconds % 60)}"
+    override val distanceRun = "Distance run"
+    override val playerMetersPerMinute = "Meters per minute"
+    override val topSpeed = "Top speed"
+    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { "${"%.1f".format(it / 1000.0)} km" }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
+    override val videoNoPitch = "No pitch computed: no meters or speed."
     override val pitchAnswerLines = "Clear lines"
     override val pitchAnswerNoLines = "No lines: with the marked points"
     override val pitchAnswerAsk = "Asked when sending"

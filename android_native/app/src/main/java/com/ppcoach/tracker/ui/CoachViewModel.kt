@@ -613,9 +613,11 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         val s = strings()
         val clip = library.value.clip(clipId) ?: return
         val seconds = StatsCalc.secondsByNumber(analysis.tracks, clip.trackTags)
+        val meters = StatsCalc.metersByNumber(analysis.tracks, clip.trackTags)
+        val top = StatsCalc.topSpeedByNumber(analysis.tracks, clip.trackTags)
         var summary: ImportSummary? = null
         AppGraph.commit { lib ->
-            lib.updateClip(clipId) { it.copy(playerSeconds = seconds) }
+            lib.updateClip(clipId) { it.copy(playerSeconds = seconds, playerMeters = meters, playerTopSpeed = top) }
                 .syncVideoMinutes(clip.matchId, analysis.segmenter, System.currentTimeMillis())
                 .also { summary = it.second }.first
         }

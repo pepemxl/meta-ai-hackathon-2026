@@ -163,6 +163,8 @@ fun PlayerStatsScreen(vm: CoachViewModel, lib: Library, playerId: Int) {
             if (sheets.isEmpty()) {
                 item { Text(s.noStatsYet, style = MaterialTheme.typography.bodyLarge, color = c.textSecondary) }
             } else {
+                val video = lib.videoOf(p.number, sheets.map { it.matchId }.toSet())
+                if (!video.isEmpty) item { VideoCard(video, s) }
                 item {
                     PpCard {
                         SectionTitle(s.totals)
@@ -228,6 +230,10 @@ fun MatchStatsScreen(vm: CoachViewModel, lib: Library, matchId: Int) {
                 PpCard(onClick = { editing = p.id }) {
                     Text(playerLabel(p) + " · " + s.positionLabel(p.position.key), style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
                     Text(sheetLine(sheet, match, s), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                    val video = lib.videoOf(p.number, setOf(matchId))
+                    if (video.meters != null || video.topSpeed != null) {
+                        Text("${s.fromVideo}: ${s.videoLine(video.meters, video.topSpeedKmh)}", style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                    }
                 }
             }
             if (sheets.isNotEmpty()) {
@@ -245,6 +251,22 @@ fun MatchStatsScreen(vm: CoachViewModel, lib: Library, matchId: Int) {
         val p = lib.player(pid)
         val sheet = lib.sheet(matchId, pid)
         if (p != null && sheet != null) StatEditorDialog(vm, match, p, sheet, onDismiss = { editing = null })
+    }
+}
+
+/** A player's time, meters and top speed from their tagged tracks. */
+@Composable
+private fun VideoCard(video: com.ppcoach.tracker.data.PlayerVideo, s: Strings) {
+    val c = PpTheme.colors
+    PpCard {
+        SectionTitle(s.fromVideo)
+        KeyValue(s.trackTagsTitle, s.timeSeen(video.seconds))
+        if (video.meters != null) {
+            KeyValue(s.distanceRun, "${"%.1f".format(video.meters / 1000.0)} km")
+            video.metersPerMinute?.let { KeyValue(s.playerMetersPerMinute, "${Math.round(it)}") }
+        }
+        video.topSpeedKmh?.let { KeyValue(s.topSpeed, "${"%.1f".format(it)} km/h") }
+        if (video.meters == null) Text(s.videoNoPitch, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
     }
 }
 
