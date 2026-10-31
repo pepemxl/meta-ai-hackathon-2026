@@ -100,6 +100,7 @@ dependencies {
 
     // Upload to the API (api/ in the repo).
     implementation(libs.okhttp)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.org.json)

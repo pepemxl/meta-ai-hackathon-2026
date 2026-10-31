@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -42,8 +45,11 @@ import com.ppcoach.tracker.data.ProxyResolution
 import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.StorageKind
 import com.ppcoach.tracker.data.ThemeMode
+import com.ppcoach.tracker.data.SetupQr
 import com.ppcoach.tracker.ui.CoachViewModel
+import com.ppcoach.tracker.ui.Screen
 import com.ppcoach.tracker.ui.components.FilterChips
+import com.ppcoach.tracker.ui.components.KeyValue
 import com.ppcoach.tracker.ui.components.PpCard
 import com.ppcoach.tracker.ui.components.PpTextButton
 import com.ppcoach.tracker.ui.components.PpTopBar
@@ -90,6 +96,7 @@ fun SettingsScreen(vm: CoachViewModel) {
                 var password by remember { mutableStateOf("") }
                 var status by remember { mutableStateOf<String?>(null) }
                 var busy by remember { mutableStateOf(false) }
+                SecondaryButton(s.scanSetupQr, { vm.push(Screen.ScanQr) }, Modifier.fillMaxWidth().padding(bottom = 8.dp), icon = Icons.Rounded.QrCodeScanner)
                 if (st.loggedIn) {
                     Text(s.loggedInAs(st.sessionName.ifBlank { st.sessionEmail }), style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
                     Text(st.serverUrl, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
@@ -118,6 +125,22 @@ fun SettingsScreen(vm: CoachViewModel) {
                     }
                 }
                 status?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (it == s.connectionOk) c.positive else c.negative, modifier = Modifier.padding(top = 6.dp)) }
+                vm.pendingSetup?.let { qr ->
+                    SetupQrDialog(qr, busy, onDismiss = { vm.pendingSetup = null }) { pw ->
+                        busy = true
+                        scope.launch {
+                            // A new setup replaces the session there was.
+                            if (st.loggedIn) vm.logout()
+                            status = vm.login(qr.server, qr.email, pw)
+                            if (status == null) {
+                                server = qr.server
+                                email = qr.email
+                            }
+                            vm.pendingSetup = null
+                            busy = false
+                        }
+                    }
+                }
             }
 
             // ── privacy and consent ──
@@ -211,6 +234,36 @@ fun SettingsScreen(vm: CoachViewModel) {
             }
         }
     }
+}
+
+/** What the setup QR brings, to confirm before logging in; the password is typed when the QR has none. */
+@Composable
+private fun SetupQrDialog(qr: SetupQr, busy: Boolean, onDismiss: () -> Unit, onLogin: (String) -> Unit) {
+    val s = LocalStrings.current
+    val c = PpTheme.colors
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = c.surface,
+        title = { Text(s.setupQrTitle, color = c.textPrimary) },
+        text = {
+            Column {
+                KeyValue(s.serverUrl, qr.server)
+                KeyValue(s.email, qr.email)
+                if (qr.password.isNotEmpty()) {
+                    KeyValue(s.password, "••••••••")
+                } else {
+                    OutlinedTextField(password, { password = it }, label = { Text(s.password) }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
+                Text(s.setupQrHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.padding(top = 8.dp))
+            }
+        },
+        confirmButton = {
+            PrimaryButton(s.login, { onLogin(qr.password.ifEmpty { password }) }, enabled = !busy && (qr.password.isNotEmpty() || password.isNotBlank()))
+        },
+        dismissButton = { PpTextButton(s.cancel, onDismiss) },
+    )
 }
 
 private fun open(context: Context, url: String) {

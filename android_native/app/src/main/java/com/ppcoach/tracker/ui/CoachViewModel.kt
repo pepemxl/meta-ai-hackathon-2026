@@ -34,6 +34,7 @@ import com.ppcoach.tracker.data.AnalysisReportParser
 import com.ppcoach.tracker.data.ImportSummary
 import com.ppcoach.tracker.data.Player
 import com.ppcoach.tracker.data.Stat
+import com.ppcoach.tracker.data.SetupQr
 import com.ppcoach.tracker.data.StartingLineup
 import com.ppcoach.tracker.data.StatsCalc
 import com.ppcoach.tracker.data.StatsFilter
@@ -69,6 +70,7 @@ sealed interface Screen {
     data class PlayerStats(val playerId: Int) : Screen
     data class MatchStats(val matchId: Int) : Screen
     data object Stats : Screen
+    data object ScanQr : Screen
 }
 
 /** Progress of a clip's chain as the UI shows it. */
@@ -567,6 +569,21 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun testConnection(server: String): Boolean = withContext(Dispatchers.IO) {
         runCatching { ApiClient(server).health().optBoolean("ok") }.getOrDefault(false)
+    }
+
+    /** A setup QR read and checked, waiting for the coach to confirm the login (Settings shows it). */
+    var pendingSetup by mutableStateOf<SetupQr?>(null)
+
+    /** What the scanner read: a valid setup goes back to Settings to confirm; anything else says why and lets it scan again. */
+    fun onSetupQr(text: String, scanAgain: () -> Unit) {
+        val s = com.ppcoach.tracker.ui.i18n.stringsFor(settings.language.ifEmpty { java.util.Locale.getDefault().language })
+        try {
+            pendingSetup = SetupQr.parse(text)
+            back()
+        } catch (e: SetupQr.Invalid) {
+            toast(s.qrInvalid(e.reason.name))
+            scanAgain()
+        }
     }
 
     fun logout() {

@@ -60,6 +60,7 @@ import com.ppcoach.tracker.ui.screens.PaintReferenceScreen
 import com.ppcoach.tracker.ui.screens.PitchReferencesScreen
 import com.ppcoach.tracker.ui.screens.PitchTouchesScreen
 import com.ppcoach.tracker.ui.screens.RecordScreen
+import com.ppcoach.tracker.ui.screens.ScanQrScreen
 import com.ppcoach.tracker.ui.screens.SettingsScreen
 import com.ppcoach.tracker.ui.theme.PpTheme
 import kotlinx.coroutines.delay
@@ -106,6 +107,7 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
                 is Screen.PlayerStats -> PlayerStatsScreen(vm, lib, top.playerId)
                 is Screen.MatchStats -> MatchStatsScreen(vm, lib, top.matchId)
                 Screen.Stats -> StatsTabScreen(vm, lib)
+                Screen.ScanQr -> ScanQrScreen(vm)
             }
         }
         if (isRoot) {

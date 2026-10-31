@@ -8,6 +8,8 @@ rem    make.bat debug      debug APK only
 rem    make.bat release    release APK (signed if keystore.properties exists)
 rem    make.bat keystore   creates the release key and keystore.properties (once)
 rem    make.bat install    installs the debug APK on the connected device/emulator
+rem    make.bat setupqr OUT.png SERVER EMAIL_VAR [PASSWORD_VAR] [ENV_FILE]
+rem                        setup QR the app scans (tools\setupqr.ps1; variable names, never values)
 rem    make.bat clean      deletes build\
 rem ============================================================================
 setlocal
@@ -21,8 +23,9 @@ if /i "%TARGET%"=="release" goto :release
 if /i "%TARGET%"=="install" goto :install
 if /i "%TARGET%"=="keystore" goto :keystore
 if /i "%TARGET%"=="clean" goto :clean
+if /i "%TARGET%"=="setupqr" goto :setupqr
 if /i "%TARGET%"=="all" goto :all
-echo Unknown target "%TARGET%". Use: test, debug, release, keystore, install, clean
+echo Unknown target "%TARGET%". Use: test, debug, release, keystore, install, setupqr, clean
 exit /b 1
 
 :all
@@ -49,6 +52,17 @@ exit /b 0
 
 :keystore
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\keystore.ps1 || exit /b 1
+exit /b 0
+
+:setupqr
+if "%~4"=="" (
+  echo Usage: make.bat setupqr OUT.png SERVER EMAIL_VAR [PASSWORD_VAR] [ENV_FILE]
+  exit /b 1
+)
+set "QR_ARGS=-Out "%~2" -Server "%~3" -EmailVar "%~4""
+if not "%~5"=="" set "QR_ARGS=%QR_ARGS% -PasswordVar "%~5""
+if not "%~6"=="" set "QR_ARGS=%QR_ARGS% -EnvFile "%~6""
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\setupqr.ps1 %QR_ARGS% || exit /b 1
 exit /b 0
 
 :install

@@ -36,6 +36,7 @@ La imagen base es `python:3.12-slim` (PSF y licencias de Debian). No hay modelos
 | Media3 (ExoPlayer, UI, Transformer, Effect) | 1.5.1 | Apache-2.0 | Reproducir y generar los chunks de 10 fps |
 | WorkManager | 2.9.1 | Apache-2.0 | Chunks, subida y consentimiento en segundo plano |
 | OkHttp (+ MockWebServer en pruebas) | 4.12.0 | Apache-2.0 | HTTP con la API |
+| ZXing core | 3.5.3 | Apache-2.0 | Leer el QR de configuración en la app y generarlo con `android_native/tools/SetupQr.java` |
 | JUnit | 4.13.2 | EPL-1.0 | Pruebas (solo desarrollo, no se distribuye) |
 | org.json | 20240303 | Public Domain | Pruebas JVM del códec (en el teléfono es el de Android) |
 | Gradle wrapper | 8.11.1 | Apache-2.0 | Compilar |

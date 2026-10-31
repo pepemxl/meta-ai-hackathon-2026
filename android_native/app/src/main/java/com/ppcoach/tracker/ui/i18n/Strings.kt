@@ -281,6 +281,14 @@ interface Strings {
     val typeNumber: String
     val emptySlot: String
     fun positionShort(key: String): String
+    val scanSetupQr: String
+    val scanSetupQrHelp: String
+    val qrFromImage: String
+    val qrNotFound: String
+    fun qrInvalid(reason: String): String
+    val qrSecretWarning: String
+    val setupQrTitle: String
+    val setupQrHelp: String
     val pitchAnswerLines: String
     val pitchAnswerNoLines: String
     val pitchAnswerAsk: String
@@ -656,6 +664,19 @@ object Es : Strings {
         "FW" -> "DEL"
         else -> "MED"
     }
+    override val scanSetupQr = "Escanear QR de configuración"
+    override val scanSetupQrHelp = "Apunta la cámara al QR que te dio el administrador: trae el servidor, tu correo y, si quieres, tu contraseña."
+    override val qrFromImage = "Leer el QR de una imagen"
+    override val qrNotFound = "No se encontró un QR en la imagen."
+    override fun qrInvalid(reason: String) = when (reason) {
+        "VERSION" -> "Este QR es de otra versión de la app."
+        "SERVER" -> "El QR no trae una dirección de servidor válida."
+        "EMAIL" -> "El QR no trae un correo válido."
+        else -> "Este QR no es de configuración de pp-coach-tracker."
+    }
+    override val qrSecretWarning = "Un QR con contraseña es una llave: no lo compartas y bórralo después de usarlo. La app no guarda la contraseña, solo la sesión."
+    override val setupQrTitle = "Configurar el sistema de análisis"
+    override val setupQrHelp = "Se inicia sesión en este servidor; la contraseña no se guarda en el teléfono."
     override val pitchAnswerLines = "Líneas bien marcadas"
     override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
     override val pitchAnswerAsk = "Se pregunta al enviar"
@@ -1038,6 +1059,19 @@ object En : Strings {
         "FW" -> "FWD"
         else -> "MID"
     }
+    override val scanSetupQr = "Scan setup QR"
+    override val scanSetupQrHelp = "Point the camera at the QR your administrator gave you: it holds the server, your email and, optionally, your password."
+    override val qrFromImage = "Read the QR from a picture"
+    override val qrNotFound = "No QR found in the picture."
+    override fun qrInvalid(reason: String) = when (reason) {
+        "VERSION" -> "This QR is for another version of the app."
+        "SERVER" -> "The QR has no valid server address."
+        "EMAIL" -> "The QR has no valid email."
+        else -> "This is not a pp-coach-tracker setup QR."
+    }
+    override val qrSecretWarning = "A QR with a password is a key: do not share it and delete it after use. The app does not keep the password, only the session."
+    override val setupQrTitle = "Set up the analysis system"
+    override val setupQrHelp = "It logs in to this server; the password is not kept on the phone."
     override val pitchAnswerLines = "Clear lines"
     override val pitchAnswerNoLines = "No lines: with the marked points"
     override val pitchAnswerAsk = "Asked when sending"
