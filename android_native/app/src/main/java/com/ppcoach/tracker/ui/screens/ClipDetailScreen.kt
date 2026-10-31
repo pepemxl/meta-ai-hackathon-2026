@@ -260,7 +260,8 @@ private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: String
             Switch(on, { vm.setPitchEnabled(clip.id, it) }, enabled = !locked, colors = SwitchDefaults.colors(checkedTrackColor = c.accent))
         }
         // Still or moving camera: one homography for the whole video, or carried frame by frame.
-        val static = vm.library.collectAsState().value.cameraOf(clip) == CameraMode.STATIC
+        // Once sent it shows what was sent (a clip sent before this answer went as moving).
+        val static = if (locked) clip.camera == CameraMode.STATIC else vm.library.collectAsState().value.cameraOf(clip) == CameraMode.STATIC
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
             Checkbox(static, { vm.setCameraStatic(clip.id, it) }, enabled = !locked, colors = CheckboxDefaults.colors(checkedColor = c.accent))
             Column(Modifier.weight(1f)) {

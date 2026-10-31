@@ -79,11 +79,12 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                         .put("venue", match.venue.take(160)),
                 )
                 .put("consent", Consent.clipBlock(settings.consentAt, BuildConfig.VERSION_NAME))
-            val analysis = JSONObject().put("camera", AppGraph.library.value.cameraOf(clip))
+            val camera = AppGraph.library.value.cameraOf(clip)
+            val analysis = JSONObject().put("camera", camera)
             if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
             body.put("analysis", analysis)
             val remote = api.register(body)
-            AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id) } }
+            AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id, camera = camera) } }
             // The coach's points, painted lines and reference pictures right after
             // registering; if the server rejects them, the video goes anyway.
             val match = AppGraph.library.value.match(clip.matchId)
