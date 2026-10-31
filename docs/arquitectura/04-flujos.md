@@ -79,7 +79,7 @@ sequenceDiagram
     end
     VM->>UW: encola tras ChunkWorker (con red, backoff)
     UW->>UW: lee la sesión cifrada
-    UW->>API: POST /clips {clip, match, consent, analysis: {pitch_mode, camera}}
+    UW->>API: POST /clips {clip, match, consent, analysis: {pitch_mode, camera, play_area}}
     alt sin consentimiento o retirado
         API-->>UW: 428 consent required / consent withdrawn
         UW-->>VM: falla sin reintentar
@@ -218,7 +218,7 @@ sequenceDiagram
             API-->>W: 204
         else hay
             API->>DB: clip segmenting
-            API-->>W: {job_id, clip: {files, references, …}, match, options: {pitch_mode, camera}, calibration}
+            API-->>W: {job_id, clip: {files, references, …}, match, options: {pitch_mode, camera, play_area}, calibration}
         end
     end
     loop cada archivo del clip

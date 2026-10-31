@@ -41,6 +41,32 @@ def test_a_full_job_against_a_fake_api(meta, tmp_path, config_for):
     json.dumps(a)
 
 
+def test_the_play_area_drops_the_people_outside_it_with_a_still_camera(meta, tmp_path, config_for):
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS, ordinal_offsets={2: 5})
+    # The left 65 % of the frame: blue 2 and 3 (feet at x ≈ 0.70 and 0.82) stay out, even with the margin.
+    area = {"points": [{"x": 0.0, "y": 0.0}, {"x": 0.65, "y": 0.0}, {"x": 0.65, "y": 1.0}, {"x": 0.0, "y": 1.0}], "margin": 0.02}
+    results = {}
+    for camera in ("static", "moving"):
+        job = {**job_for(clip_dir, 2), "options": {"camera": camera, "play_area": area}}
+        pp = FakePpApi(clip_dir, job).start()
+        try:
+            api = PpApi(pp.url, "worker-secret")
+            assert run_job(api, config_for(meta.url, api_url=pp.url), api.next_job(), sleep=lambda s: None) == "done"
+        finally:
+            pp.stop()
+        results[camera] = pp.results[0]["analysis"]
+    a = results["static"]
+    assert a["teams"]["A"]["tracks"] == 3 and a["teams"]["B"]["tracks"] == 1
+    assert a["video"]["play_area"]["points"] == 4 and a["video"]["play_area"]["margin"] == 0.02
+    assert a["video"]["play_area"]["removed"] > 0
+    assert any("Zona de juego marcada" in n for n in a["notes"]) and not any("Máscara de la cancha" in n for n in a["notes"])
+    # A moving camera: the area means nothing on the next frames, so it is not used.
+    m = results["moving"]
+    assert m["teams"]["B"]["tracks"] == 3 and "play_area" not in m["video"]
+    assert any("solo se usa con la cámara fija" in n for n in m["notes"])
+
+
 def test_a_job_with_a_missing_chunk_fails_and_keeps_its_files(meta, tmp_path, config_for):
     clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
     (clip_dir / "video_part_002.mp4").unlink()

@@ -205,12 +205,16 @@ class SamSegmenter:
 
     # ── one chunk ────────────────────────────────────────────────────────────
 
-    def plan_tiles(self, clip: Clip) -> tiles.TilePlan | None:
-        """Whether this clip goes in tiles, and which: over the pitch the app
+    def plan_tiles(self, clip: Clip, area=None) -> tiles.TilePlan | None:
+        """Whether this clip goes in tiles, and which: over the play area the
+        coach marked ([area], a pitch.PitchMask), else over the pitch the app
         measured (or measured here on a few frames when it did not come)."""
         self.tile_plan = None
         if not clip.chunks or not tiles.should_tile(self.tile_mode, clip.width, clip.height):
             return None
+        if area is not None:
+            self.tile_plan = tiles.plan(clip.width, clip.height, area.box(clip.width, clip.height))
+            return self.tile_plan
         polygons = [list(m.polygon) for m in clip.pitch_masks() if m is not None and m.has_pitch]
         if not polygons:
             from .pitch import measure

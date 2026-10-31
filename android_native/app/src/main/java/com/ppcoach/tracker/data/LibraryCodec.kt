@@ -87,6 +87,7 @@ object LibraryCodec {
         put("references", JSONArray().apply { m.references.forEach { put(it.toJson()) } })
         put("pitchId", m.pitchId)
         put("camera", m.camera)
+        m.playArea?.let { put("playArea", it.toJson()) }
         m.analysis?.let { put("analysis", it.toJson()) }
         m.startingLineup?.let { put("startingLineup", it.toJson()) }
     }
@@ -108,6 +109,7 @@ object LibraryCodec {
             references = o.optJSONArray("references")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(PitchReference::fromJson) } } ?: emptyList(),
             pitchId = o.optInt("pitchId", 0).coerceAtLeast(0),
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
+            playArea = PlayArea.fromJson(o.optJSONObject("playArea")),
             analysis = AnalysisReport.fromJson(o.optJSONObject("analysis")),
             startingLineup = StartingLineup.fromJson(o.optJSONObject("startingLineup")),
         )
@@ -140,6 +142,7 @@ object LibraryCodec {
         c.touches?.let { put("touches", it.toJson()) }
         put("pitchShare", c.pitchShare)
         put("camera", c.camera)
+        c.playArea?.let { put("playArea", it.toJson()) }
         put("trackTags", intMap(c.trackTags))
         put("playerSeconds", intMap(c.playerSeconds))
         put("playerMeters", intMap(c.playerMeters))
@@ -176,6 +179,7 @@ object LibraryCodec {
             touches = PitchTouches.fromJson(o.optJSONObject("touches")),
             pitchShare = o.optDouble("pitchShare", -1.0).let { if (it.isNaN() || it > 1.0) -1.0 else it },
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
+            playArea = PlayArea.fromJson(o.optJSONObject("playArea")),
             trackTags = intMapFrom(o.optJSONObject("trackTags")).filterValues { it in Player.NUMBERS },
             playerSeconds = intMapFrom(o.optJSONObject("playerSeconds")).filter { (k, v) -> k in Player.NUMBERS && v >= 0 },
             playerMeters = intMapFrom(o.optJSONObject("playerMeters")).filter { (k, v) -> k in Player.NUMBERS && v >= 0 },

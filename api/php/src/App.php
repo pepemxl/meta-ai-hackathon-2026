@@ -133,6 +133,7 @@ final class App
             'overlap_ms' => $clip['overlap_ms'],
             'pitch_mode' => $clip['pitch_mode'] ?? null,
             'camera' => $clip['camera'] ?? null,
+            'play_area' => empty($clip['play_area']) ? null : json_decode($clip['play_area']),
             'video_deleted' => !empty($clip['video_deleted_at']),
             'received' => array_map(fn($c) => ['number' => $c['number'], 'sha256' => $c['sha256']], $this->repo()->chunks($clip['id'])),
             'partial' => $this->storage->partials($clip['id']),
@@ -230,6 +231,11 @@ final class App
         if (!$cameraOk) {
             $bad[] = 'analysis.camera';
         }
+        [$playAreaOk, $playArea] = Calibration::playArea($b['analysis'] ?? null);
+        if (!$playAreaOk) {
+            $bad[] = 'analysis.play_area';
+        }
+        $playAreaJson = $playArea === null ? null : json_encode($playArea, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
         if ($bad) {
             throw new HttpError(400, 'invalid fields', ['fields' => $bad]);
         }
@@ -256,7 +262,7 @@ final class App
             $id = $this->repo()->createClip([
                 'coach_id' => $coach, 'client_clip_id' => $b['client_clip_id'], 'match_id' => $matchId, 'title' => $b['title'],
                 'duration_ms' => $b['duration_ms'], 'chunk_count' => $b['chunk_count'], 'chunk_seconds' => $b['chunk_seconds'], 'overlap_ms' => $b['overlap_ms'],
-                'pitch_mode' => $pitchMode, 'camera' => $camera,
+                'pitch_mode' => $pitchMode, 'camera' => $camera, 'play_area' => $playAreaJson,
             ]);
         } else {
             $id = $clip['id'];
@@ -265,6 +271,7 @@ final class App
             if (!in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
                 $fields['pitch_mode'] = $pitchMode;
                 $fields['camera'] = $camera;
+                $fields['play_area'] = $playAreaJson;
             }
             $changed = $clip['chunk_count'] !== $b['chunk_count'] || $clip['chunk_seconds'] !== $b['chunk_seconds'] || $clip['overlap_ms'] !== $b['overlap_ms'];
             if ($changed && !in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
@@ -558,7 +565,10 @@ final class App
                 'dir' => Storage::clipDirName($clip['id']), 'index' => Storage::INDEX, 'files' => $files,
                 'references' => $this->storage->references($clip['id']),
             ],
-            'options' => ['pitch_mode' => $clip['pitch_mode'] ?? null, 'camera' => $clip['camera'] ?? null],
+            'options' => [
+                'pitch_mode' => $clip['pitch_mode'] ?? null, 'camera' => $clip['camera'] ?? null,
+                'play_area' => empty($clip['play_area']) ? null : json_decode($clip['play_area']),
+            ],
             'calibration' => empty($clip['calibration']) ? null : json_decode($clip['calibration']),
             'match' => $match === null ? null : [
                 'home' => $match['home'], 'away' => $match['away'], 'home_color' => $match['home_color'],

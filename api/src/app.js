@@ -7,7 +7,7 @@ const multer = require('multer');
 const storage = require('./storage');
 const { verifyPassword, signToken, verifyToken, matchStaticToken, safeEqual } = require('./auth');
 const { CONSENT_VERSION, parseClipConsent, parseConsentEvent, currentState, iso } = require('./consent');
-const { MAX_REFERENCES, parsePitchMode, parseCamera, parseCalibration } = require('./calibration');
+const { MAX_REFERENCES, parsePitchMode, parseCamera, parsePlayArea, parseCalibration } = require('./calibration');
 
 const VERSION = require('../package.json').version;
 
@@ -35,7 +35,8 @@ const MAX_REFERENCE_BYTES = 2 * 1024 * 1024;
  *   POST /auth/login                       email + password → JWT (30 days)
  *   POST /clips                            register (idempotent), needs consent → what is already here;
  *                                          analysis.pitch_mode: whether to compute the pitch;
- *                                          analysis.camera: static (one homography) or moving
+ *                                          analysis.camera: static (one homography) or moving;
+ *                                          analysis.play_area: the coach's polygon + margin (still camera)
  *   POST /clips/:id/calibration            the coach's points and painted lines on the pitch; 409 once the worker took the clip
  *   PUT  /clips/:id/references/:n          a reference picture of the pitch (JPEG, n = 1..6); 409 once the worker took the clip
  *   PUT  /clips/:id/chunks/:n/video        one raw part of a chunk at ?offset=
@@ -133,6 +134,7 @@ function createApp({
       overlap_ms: clip.overlap_ms,
       pitch_mode: clip.pitch_mode ?? null,
       camera: clip.camera ?? null,
+      play_area: clip.play_area ? JSON.parse(clip.play_area) : null,
       video_deleted: Boolean(clip.video_deleted_at),
       received: chunks.map((c) => ({ number: c.number, sha256: c.sha256 })),
       partial: storage.partials(storageDir, clip.id),
@@ -201,6 +203,9 @@ function createApp({
     if (pitchMode.error) bad.push('analysis.pitch_mode');
     const camera = parseCamera(b.analysis);
     if (camera.error) bad.push('analysis.camera');
+    const playArea = parsePlayArea(b.analysis);
+    if (playArea.error) bad.push('analysis.play_area');
+    const playAreaJson = playArea.value ? JSON.stringify(playArea.value) : null;
     if (bad.length) return fail(res, 400, 'invalid fields', { fields: bad });
 
     const consent = parseClipConsent(b.consent, now());
@@ -218,14 +223,14 @@ function createApp({
       const id = await repo.createClip({
         coach_id: req.coachId, client_clip_id: b.client_clip_id, match_id: matchId, title: b.title,
         duration_ms: b.duration_ms, chunk_count: b.chunk_count, chunk_seconds: b.chunk_seconds, overlap_ms: b.overlap_ms,
-        pitch_mode: pitchMode.value, camera: camera.value,
+        pitch_mode: pitchMode.value, camera: camera.value, play_area: playAreaJson,
       });
       clip = await repo.getClip(id);
     } else {
       const profileChanged = clip.chunk_count !== b.chunk_count || clip.chunk_seconds !== b.chunk_seconds || clip.overlap_ms !== b.overlap_ms;
       const fields = { title: b.title, duration_ms: b.duration_ms, match_id: matchId };
       // The answer is fixed once the worker took the clip.
-      if (!UPLOAD_BLOCKED.includes(clip.status)) Object.assign(fields, { pitch_mode: pitchMode.value, camera: camera.value });
+      if (!UPLOAD_BLOCKED.includes(clip.status)) Object.assign(fields, { pitch_mode: pitchMode.value, camera: camera.value, play_area: playAreaJson });
       if (profileChanged && !UPLOAD_BLOCKED.includes(clip.status)) {
         // The app regenerated the chunks with another profile: the old ones are useless.
         await repo.deleteChunks(clip.id);
@@ -400,7 +405,7 @@ function createApp({
         chunk_seconds: clip.chunk_seconds, overlap_ms: clip.overlap_ms,
         dir: path.basename(storage.clipDir(storageDir, clip.id)), index: storage.INDEX, files, references,
       },
-      options: { pitch_mode: clip.pitch_mode ?? null, camera: clip.camera ?? null },
+      options: { pitch_mode: clip.pitch_mode ?? null, camera: clip.camera ?? null, play_area: clip.play_area ? JSON.parse(clip.play_area) : null },
       calibration: clip.calibration ? JSON.parse(clip.calibration) : null,
       match: match ? { home: match.home, away: match.away, home_color: match.home_color, away_color: match.away_color, date: match.match_date, venue: match.venue } : null,
     });

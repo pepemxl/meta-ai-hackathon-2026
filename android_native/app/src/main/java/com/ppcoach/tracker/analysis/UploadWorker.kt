@@ -9,6 +9,7 @@ import com.ppcoach.tracker.BuildConfig
 import com.ppcoach.tracker.data.ApiClient
 import com.ppcoach.tracker.data.ApiException
 import com.ppcoach.tracker.data.CalibrationRequest
+import com.ppcoach.tracker.data.CameraMode
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Consent
 import com.ppcoach.tracker.data.PitchMode
@@ -82,6 +83,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val camera = AppGraph.library.value.cameraOf(clip)
             val analysis = JSONObject().put("camera", camera)
             if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
+            // The play area only means something on a camera that does not move.
+            clip.playArea?.takeIf { camera == CameraMode.STATIC && it.isValid }?.let { analysis.put("play_area", it.apiJson()) }
             body.put("analysis", analysis)
             val remote = api.register(body)
             AppGraph.commit { l -> l.updateClip(clipId) { it.copy(remoteId = remote.id, camera = camera) } }

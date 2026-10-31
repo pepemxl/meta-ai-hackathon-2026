@@ -128,3 +128,34 @@ def test_shots_discard_frames_without_pitch_and_feet_off_the_polygon():
     # Fewer than half the frames with pitch: the mask is not used at all.
     s2 = shots.apply(TrackSet(rows=rows, frames=frames), [full] * 4 + [none] * 6)
     assert not s2.used_mask and len(s2.counted) == 10 and len(s2.trackset.rows) == 20
+
+
+def test_the_play_area_is_a_mask_whose_margin_is_the_same_across_and_along():
+    import pytest
+
+    square = [{"x": 0.25, "y": 0.25}, {"x": 0.75, "y": 0.25}, {"x": 0.75, "y": 0.75}, {"x": 0.25, "y": 0.75}]
+    # A panorama 4 times wider than tall, margin 5 % of the height (40 px of 800).
+    m = pitch.from_play_area({"points": square, "margin": 0.05}, 3200, 800)
+    assert m.has_pitch and m.margin == 0.05 and m.aspect == 4.0
+    assert m.contains(0.5, 0.5)
+    assert m.contains(0.5, 0.79) and not m.contains(0.5, 0.81)  # 32 px below; 48 px
+    assert m.contains(0.76, 0.5) and not m.contains(0.77, 0.5)  # 32 px right; 64 px
+    assert not m.contains(0.76, 0.5, margin=0.0)
+    assert m.box(3200, 800) == (pytest.approx(760.0), pytest.approx(160.0), pytest.approx(2440.0), pytest.approx(640.0))
+    # Not usable: too few points, out of the frame, a margin the API would not accept.
+    assert pitch.from_play_area({"points": square[:2]}, 3200, 800) is None
+    assert pitch.from_play_area({"points": square[:3] + [{"x": 1.5, "y": 0.5}]}, 3200, 800) is None
+    assert pitch.from_play_area({"points": square, "margin": 0.5}, 3200, 800) is None
+    assert pitch.from_play_area(None, 3200, 800) is None
+    # The masks measured from the video keep their margin as a fraction of each side.
+    assert pitch.PitchMask(0.5, (0.25, 0.25, 0.75, 0.25, 0.75, 0.75, 0.25, 0.75)).contains(0.765, 0.5)
+
+
+def test_tiles_go_over_the_play_area():
+    import pytest
+
+    from ppcoachtracker_worker import tiles
+
+    area = pitch.from_play_area({"points": [{"x": 0.05, "y": 0.1}, {"x": 0.95, "y": 0.1}, {"x": 0.95, "y": 0.9}, {"x": 0.05, "y": 0.9}]}, 3840, 800)
+    plan = tiles.plan(3840, 800, area.box(3840, 800))
+    assert plan is not None and plan.tiles[0].x == pytest.approx(192.0) and plan.tiles[0].y == pytest.approx(80.0)

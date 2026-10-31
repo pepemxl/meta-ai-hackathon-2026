@@ -211,6 +211,15 @@ interface Strings {
     val cameraStatic: String
     val cameraStaticHelp: String
     val cameraMovingHelp: String
+    val playAreaTitle: String
+    val markPlayArea: String
+    val playAreaHelp: String
+    fun playAreaMargin(pct: Int): String
+    val playAreaMarginHelp: String
+    fun playAreaSummary(points: Int, pct: Int): String
+    val playAreaNone: String
+    val playAreaReset: String
+    val playAreaRemove: String
 
     // squad and stats (docs/11-stats-jugadores.md)
     val navSquad: String
@@ -560,6 +569,15 @@ object Es : Strings {
     override val cameraStatic = "La cámara queda fija todo el video"
     override val cameraStaticHelp = "Tripié o cámara panorámica: la cancha se calcula una vez para todo el video."
     override val cameraMovingHelp = "La cámara se mueve o hace zoom: la cancha se sigue cuadro por cuadro."
+    override val playAreaTitle = "Zona de juego"
+    override val markPlayArea = "Marcar la zona de juego"
+    override val playAreaHelp = "Arrastra los puntos a las esquinas de la cancha. Toca un + para agregar un punto donde la línea se curva y mantén presionado un punto para quitarlo. Arrastra fuera de los puntos para mover la imagen."
+    override fun playAreaMargin(pct: Int) = "Margen alrededor: $pct % del alto"
+    override val playAreaMarginHelp = "Las personas con los pies fuera de la zona (tribuna, bancas, pista) no se analizan. El margen deja entrar a quien va por la línea."
+    override fun playAreaSummary(points: Int, pct: Int) = "Zona de juego: $points puntos, margen de $pct %"
+    override val playAreaNone = "Sin zona de juego: la cancha se detecta por el color del pasto."
+    override val playAreaReset = "Volver a 4 esquinas"
+    override val playAreaRemove = "Quitar la zona"
 
     override val navSquad = "Plantel"
     override val squadTitle = "Plantel"
@@ -955,6 +973,15 @@ object En : Strings {
     override val cameraStatic = "The camera stays still the whole video"
     override val cameraStaticHelp = "Tripod or panoramic camera: the pitch is computed once for the whole video."
     override val cameraMovingHelp = "The camera pans or zooms: the pitch is followed frame by frame."
+    override val playAreaTitle = "Play area"
+    override val markPlayArea = "Mark the play area"
+    override val playAreaHelp = "Drag the points onto the corners of the pitch. Tap a + to add a point where a line bends, and press and hold a point to remove it. Drag outside the points to move the picture."
+    override fun playAreaMargin(pct: Int) = "Margin around it: $pct % of the height"
+    override val playAreaMarginHelp = "People with their feet outside the area (stands, benches, running track) are not analyzed. The margin lets in whoever runs along the line."
+    override fun playAreaSummary(points: Int, pct: Int) = "Play area: $points points, $pct % margin"
+    override val playAreaNone = "No play area: the pitch is found by the color of the grass."
+    override val playAreaReset = "Back to 4 corners"
+    override val playAreaRemove = "Remove the area"
 
     override val navSquad = "Squad"
     override val squadTitle = "Squad"

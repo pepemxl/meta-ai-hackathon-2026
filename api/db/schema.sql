@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS clips (
   pitch_mode VARCHAR(16) NULL,
   -- static | moving | NULL: la cámara quieta todo el video (una homografía) o con movimiento y zoom
   camera VARCHAR(16) NULL,
+  -- La zona de juego que marcó el entrenador con la cámara quieta (JSON: points, margin), o NULL.
+  play_area TEXT NULL,
   -- Cuándo borró el video el cron de retención (bin/retention.php), o NULL.
   video_deleted_at DATETIME NULL,
   -- Puntos de la cancha que marcó el entrenador (JSON), o NULL.

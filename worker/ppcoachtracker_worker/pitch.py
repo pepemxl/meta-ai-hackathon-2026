@@ -28,21 +28,52 @@ MAX_VERTICES = 12
 MIN_GRASS_IN_POLYGON = 0.70
 MIN_BLOB = 0.02  # of the grid: smaller blobs are noise, not a pitch
 FOOT_MARGIN = 0.02
+PLAY_AREA_MAX_MARGIN = 0.25  # as the API accepts it
 
 
 @dataclass(frozen=True)
 class PitchMask:
     fraction: float  # grass fraction of the whole frame
     polygon: tuple[float, ...]  # x1, y1, x2, y2, … in 0..1; empty = no pitch
+    margin: float = FOOT_MARGIN  # how far outside a foot still counts
+    aspect: float = 1.0  # width / height when [margin] is a fraction of the height; 1 = of each side
 
     @property
     def has_pitch(self) -> bool:
         return len(self.polygon) >= 6
 
-    def contains(self, x: float, y: float, margin: float = FOOT_MARGIN) -> bool:
-        """Inside the polygon widened [margin] outward."""
-        pts = list(zip(self.polygon[0::2], self.polygon[1::2]))
-        return point_in_polygon(x, y, pts) or distance_to_polygon(x, y, pts) <= margin
+    def contains(self, x: float, y: float, margin: float | None = None) -> bool:
+        """Inside the polygon widened [margin] (default its own) outward."""
+        a = self.aspect
+        pts = [(px * a, py) for px, py in zip(self.polygon[0::2], self.polygon[1::2])]
+        return point_in_polygon(x * a, y, pts) or distance_to_polygon(x * a, y, pts) <= (self.margin if margin is None else margin)
+
+    def box(self, width: int, height: int) -> tuple[float, float, float, float]:
+        """The polygon widened by its margin, as a box in pixels (inside the frame)."""
+        xs, ys = self.polygon[0::2], self.polygon[1::2]
+        # x is scaled by the aspect before measuring: one unit is the height across and along.
+        mx, my = self.margin * width / self.aspect, self.margin * height
+        return (max(0.0, min(xs) * width - mx), max(0.0, min(ys) * height - my),
+                min(float(width), max(xs) * width + mx), min(float(height), max(ys) * height + my))
+
+
+def from_play_area(area: dict | None, width: int, height: int) -> PitchMask | None:
+    """The play area the coach marked on a still camera ({points: [{x, y}], margin}
+    as POST /clips): a mask for every frame, its margin a fraction of the frame
+    height (the same distance across and along). None when it is not usable."""
+    if not isinstance(area, dict) or width <= 0 or height <= 0:
+        return None
+    points = area.get("points")
+    if not isinstance(points, list) or len(points) < 3:
+        return None
+    try:
+        poly = tuple(float(v) for p in points for v in (p["x"], p["y"]))
+        margin = float(area.get("margin") or 0.0)
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not all(0.0 <= v <= 1.0 for v in poly) or not 0.0 <= margin <= PLAY_AREA_MAX_MARGIN:
+        return None
+    return PitchMask(1.0, poly, margin=margin, aspect=width / height)
 
 
 def grid_points(width: int, height: int) -> tuple[np.ndarray, np.ndarray]:

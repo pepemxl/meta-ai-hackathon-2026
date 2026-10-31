@@ -135,7 +135,7 @@ flowchart LR
     pm -->|"no (primer video del partido)"| pdlg["PitchDialog"] --> send2(["envía"])
     pm -->|sí| send2
     send2 --> cw["ChunkWorker<br/>(se salta los chunks ya hechos)"] --> uw["UploadWorker"]
-    uw -->|"POST /clips (con pitch_mode y camera)<br/>POST calibration y PUT references (si hay)<br/>PUT partes de 8 MB + cierre de cada chunk<br/>POST complete"| api[("API")]
+    uw -->|"POST /clips (con pitch_mode, camera y play_area)<br/>POST calibration y PUT references (si hay)<br/>PUT partes de 8 MB + cierre de cada chunk<br/>POST complete"| api[("API")]
     acc -->|"POST /consent"| api
     wd(["Retirar consentimiento"]) --> wdw["ConsentWorker<br/>withdraw"] -->|"POST /consent"| api
     wd -.->|"cancela"| uw
@@ -144,7 +144,7 @@ flowchart LR
 | Worker | Qué hace | Reintentos |
 |---|---|---|
 | `ChunkWorker` | Corta el original en chunks con traslape, los convierte con Media3 Transformer a 10 fps y a la resolución elegida (720p, 1080p u original; los chunks se acortan para no pasar de 140 MB) sin audio, mide el tiempo real de cada cuadro y escribe el YAML con el mapa al original y el `sha256`. `PitchSampler` decodifica cada chunk con MediaCodec y mide la cancha por cuadro (`PitchMask`, la misma regla que el worker); si menos de la mitad tiene cancha, el clip lo avisa. Si se interrumpe, conserva los chunks con YAML válido y sigue | Lo relanza la cadena |
-| `UploadWorker` | Registra el clip (consentimiento, `pitch_mode` y `camera`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
+| `UploadWorker` | Registra el clip (consentimiento, `pitch_mode`, `camera` y, con la cámara fija, `play_area`). Si la respuesta no es "No calcular" y hay algo marcado, manda los puntos, las líneas pintadas y los trazos de las referencias (`CalibrationRequest`) y sube cada imagen; si el servidor los rechaza, el video se envía igual, sin metros. Sube en partes de 8 MB solo lo que falta, siguiendo el `offset` del servidor, cierra cada chunk con su YAML y `sha256`, y completa | Con red; backoff exponencial, hasta 8 intentos en errores de red, `5xx`, `408`, `429` y `422`. Se detiene con `401`, `428` y `413` |
 | `ConsentWorker` | Manda cada aceptación o retiro a `POST /consent` | Con red; espera también a que haya sesión (`401`); hasta 20 intentos |
 
 ## Estados de un clip
@@ -173,6 +173,7 @@ stateDiagram-v2
 
 - **"Calcular la cancha"** es un interruptor por video. Al enviar el primer video de un partido, `PitchDialog` pregunta si las líneas se ven bien (`lines`), se ven poco o no hay (`no_lines`) o no calcular (`off`); la respuesta vale para los demás videos del partido.
 - **"La cámara queda fija todo el video":** casilla junto a "Calcular la cancha". Marcada (tripié o panorámica), el worker usa una sola homografía; sin marcar, la sigue cuadro por cuadro. Se guarda en el clip y en el partido y viaja como `analysis.camera`.
+- **Zona de juego:** con la cámara fija, el entrenador arrastra cuatro puntos a las esquinas de la cancha (más puntos donde una panorámica curva la línea) y elige un margen. Viaja como `analysis.play_area`; el worker no analiza a quien tenga los pies fuera.
 - **Canchas guardadas:** en `PitchTouchesScreen` un menú (`PitchPicker`) elige una cancha guardada con su largo y ancho en metros, fútbol 11 o 7 sin guardar, o crea una nueva. El partido recuerda su cancha y las medidas viajan como `length_m` y `width_m`.
 - **Puntos:** en `PitchTouchesScreen` se elige un cuadro con la barra, se toca un punto de la imagen y luego cuál es en el dibujo de la cancha (11 o 7).
 - **Líneas pintadas:** en el modo "Pintar líneas" el dedo pasa sobre una línea tenue o borrada y luego se toca cuál es en el dibujo, o "No sé cuál, solo es una línea". Una línea con nombre cuenta como marca; una sin nombre solo le enseña a SAM cómo se ve una línea.

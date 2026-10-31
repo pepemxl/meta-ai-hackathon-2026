@@ -20,7 +20,7 @@ Los JWT son compatibles (HS256, `sub` = `u<id>`, 30 días): con el mismo `JWT_SE
 |---|---|---|---|
 | GET | `/health` | Cualquiera | `{ok, version, db, authenticated, consent_version}` |
 | POST | `/auth/login` | Cualquiera | Correo y contraseña → JWT de 30 días |
-| POST | `/clips` | Entrenador | Registra (idempotente) partido y clip con el consentimiento y la respuesta sobre la cancha (`analysis.pitch_mode`: `lines`, `no_lines` u `off`) y si la cámara queda quieta (`analysis.camera`: `static` o `moving`) → chunks completos y partes recibidas |
+| POST | `/clips` | Entrenador | Registra (idempotente) partido y clip con el consentimiento y la respuesta sobre la cancha (`analysis.pitch_mode`: `lines`, `no_lines` u `off`) y si la cámara queda quieta (`analysis.camera`: `static` o `moving`), con la zona de juego que marcó (`analysis.play_area`) → chunks completos y partes recibidas |
 | POST | `/clips/:id/calibration` | Entrenador | Puntos y líneas pintadas por cuadro, y los trazos de las imágenes de referencia; `409` cuando el worker ya tomó el clip |
 | PUT | `/clips/:id/references/:n` | Entrenador | Una imagen de referencia: JPEG crudo de hasta 2 MB, `n` de 1 a 6 |
 | PUT | `/clips/:id/chunks/:n/video?offset=` | Entrenador | Una parte cruda del chunk (hasta 8 MB), escrita solo si `offset` es lo que ya hay |
@@ -106,6 +106,7 @@ erDiagram
         smallint overlap_ms
         varchar pitch_mode
         varchar camera
+        text play_area
         text calibration
         varchar status
     }
@@ -165,7 +166,7 @@ erDiagram
 
 - **Idempotencia:** `matches` y `clips` son únicos por `(coach_id, client_*_id)`: registrar dos veces devuelve la misma fila, y eso permite reintentar y reanudar. Si cambia `chunk_count`, `chunk_seconds` u `overlap_ms`, se descartan los chunks y las partes, y el clip vuelve a `registered`.
 - **Historial del consentimiento:** cada aceptación y retiro es una fila; el mismo evento dos veces (misma acción, versión y hora) queda una vez.
-- **Migraciones:** `schema.sql` solo tiene `CREATE TABLE IF NOT EXISTS`. `Schema::migrate()` (PHP) agrega `clips.pitch_mode`, `clips.calibration` y `clips.camera` a una base que no las tenga.
+- **Migraciones:** `schema.sql` solo tiene `CREATE TABLE IF NOT EXISTS`. `Schema::migrate()` (PHP) agrega `clips.pitch_mode`, `clips.calibration`, `clips.camera` y `clips.play_area` a una base que no las tenga.
 - **Lo que la API no interpreta:** `clips.calibration` se valida (`calibration.js`, `Calibration.php`) y se guarda como JSON; el análisis (`clip_analyses.result`) se guarda y se devuelve tal cual, y de su bloque `backends` salen `segmenter` y `analyst`. Por eso los cambios del resultado, como las métricas en metros, no piden desplegar la API.
 - **Resultados del simulador:** con `PP_COACH_TRACKER_REQUIRE_META=1` (producción), un `segmenter` distinto de `meta_sam` se rechaza con `422` y el clip pasa a `failed`.
 

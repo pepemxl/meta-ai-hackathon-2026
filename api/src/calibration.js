@@ -29,6 +29,28 @@ function parseCamera(analysis) {
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
+// The play area the coach marks on a still camera: a polygon (the pitch's
+// corners, and more points where a panorama bends the lines) and a margin
+// around it, as a fraction of the frame height.
+const PLAY_AREA_POINTS = [3, 16];
+const PLAY_AREA_MAX_MARGIN = 0.25;
+
+/**
+ * analysis.play_area of POST /clips: {points: [{x, y}] (3..16, in 0..1, in
+ * order around it), margin?: 0..0.25} → {value} (null when absent) or {error}.
+ */
+function parsePlayArea(analysis) {
+  if (analysis === undefined || analysis === null || typeof analysis !== 'object') return { value: null };
+  const a = analysis.play_area;
+  if (a === undefined || a === null) return { value: null };
+  if (typeof a !== 'object' || !Array.isArray(a.points)) return { error: true };
+  const [lo, hi] = PLAY_AREA_POINTS;
+  if (a.points.length < lo || a.points.length > hi || !a.points.every(inUnit)) return { error: true };
+  const margin = a.margin === undefined || a.margin === null ? 0 : a.margin;
+  if (!num(margin) || margin < 0 || margin > PLAY_AREA_MAX_MARGIN) return { error: true };
+  return { value: { points: a.points.map((pt) => ({ x: pt.x, y: pt.y })), margin } };
+}
+
 const MAX_LINES = 20;
 const MAX_REFERENCES = 6;
 const MAX_STROKE_POINTS = 64;
@@ -137,4 +159,4 @@ function parseCalibration(body) {
   return { value };
 }
 
-module.exports = { PITCH_MODES, CAMERA_MODES, MAX_REFERENCES, parsePitchMode, parseCamera, parseCalibration };
+module.exports = { PITCH_MODES, CAMERA_MODES, MAX_REFERENCES, parsePitchMode, parseCamera, parsePlayArea, parseCalibration };

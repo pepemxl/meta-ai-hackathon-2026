@@ -31,7 +31,8 @@ log = logging.getLogger("ppcoachtracker_worker")
 
 
 def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep,
-            pitch_mode: str | None = None, calibration: dict | None = None, frames=None, camera: str | None = None) -> tuple[dict, TrackSet]:
+            pitch_mode: str | None = None, calibration: dict | None = None, frames=None, camera: str | None = None,
+            play_area: dict | None = None) -> tuple[dict, TrackSet]:
     started = time.monotonic()
     clip = load_clip(clip_dir)
     if clip.frames_sent_per_concept > cfg.max_frames_per_job:
@@ -44,8 +45,10 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta, player_concept=cfg.player_concept,
                              ball_concept=cfg.ball_concept, tile_mode=cfg.tile_mode)
     home_color, away_color = match.get("home_color") or "", match.get("away_color") or ""
+    # The play area the coach marked: with a still camera it is the pitch of every frame.
+    area = pitch_mod.from_play_area(play_area, clip.width, clip.height) if camera == "static" else None
     # Wide video goes to SAM in tiles: each tile costs one request per concept.
-    tile_plan = segmenter.plan_tiles(clip)
+    tile_plan = segmenter.plan_tiles(clip, area)
     if tile_plan is not None and clip.frames_sent_per_concept * len(tile_plan.tiles) > cfg.max_frames_per_job:
         raise InputError(f"{clip.frames_sent_per_concept} frames × {len(tile_plan.tiles)} tiles, more than META_MAX_FRAMES_PER_JOB={cfg.max_frames_per_job}")
 
@@ -56,6 +59,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     # histograms for the cuts and the grass around each ball candidate.
     masks = clip.pitch_masks()
     from_app = sum(1 for m in masks if m is not None)
+    if area is not None:
+        masks = [area] * len(masks)
     missing = {i for i, m in enumerate(masks) if m is None}
     histograms: list = [None] * len(masks)
     ball_grass: dict[tuple[int, int], float] = {}
@@ -75,8 +80,16 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     frames = None  # a test iterator is consumed here
     cut_frames = cuts_mod.cut_frames(histograms)
     analyze.last_raw = (trackset, sorted(cut_frames), ball_grass)
+    outside = sum(1 for r in trackset.rows if r.label == "player" and not area.contains(*r.foot)) if area is not None else 0
     shots, trackset, ball_report = post_sam(trackset, masks, cut_frames, ball_grass)
-    mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
+    if area is not None:
+        mask_notes = [f"Zona de juego marcada por el entrenador ({len(area.polygon) // 2} puntos, margen de {area.margin * 100:g} % del alto): "
+                      f"es la cancha de todo el video y se quitaron {outside} cajas de personas fuera de ella."]
+    else:
+        mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
+    if play_area and area is None:
+        mask_notes.append("Se ignoró la zona de juego marcada: solo se usa con la cámara fija todo el video." if camera != "static"
+                          else "Se ignoró la zona de juego marcada: no es un polígono válido.")
     if not shots.used_mask:
         mask_notes.append(f"Solo {shots.with_pitch} de {len(trackset.frames)} cuadros tienen cancha: no se usó la máscara y se analizó todo el video.")
     if len(shots.counted) / clip.fps < shots_mod.MIN_COUNTED_SECONDS:
@@ -152,6 +165,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "discarded": shots.discarded,
             "cuts": len(cut_frames),
             "closeups": shots.closeups,
+            **({"play_area": {"points": len(area.polygon) // 2, "margin": area.margin, "removed": outside}} if area is not None else {}),
             **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
                           "joins": segmenter.tile_joins}} if tile_plan is not None else {}),
         },
@@ -231,7 +245,8 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
             except ApiError as e:
                 raise InputError(f"cannot download {name}: {e}") from None
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
-                                   pitch_mode=options.get("pitch_mode"), camera=options.get("camera"), calibration=job.get("calibration"))
+                                   pitch_mode=options.get("pitch_mode"), camera=options.get("camera"), calibration=job.get("calibration"),
+                                   play_area=options.get("play_area"))
         if cfg.debug_dir is not None:
             run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)
             log.info("job %s: run saved in %s", job_id, run)

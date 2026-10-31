@@ -100,6 +100,8 @@ data class Match(
     val pitchId: Int = 0,
     /** Last answer to "The camera stays still" (CameraMode), used for the other videos of the match. */
     val camera: String = "",
+    /** The last play area marked in the match: where the next video's starts (same tripod, same place). */
+    val playArea: PlayArea? = null,
     /** The analysis report that unlocked the stats from the video, or null (docs/11-stats-jugadores.md). */
     val analysis: AnalysisReport? = null,
     /** The starting lineup (squad numbers only), or null. */
@@ -141,6 +143,8 @@ data class Clip(
     val pitchShare: Double = -1.0,
     /** static | moving (CameraMode); "" = the match's answer. Fixed once sent. */
     val camera: String = "",
+    /** The play area the coach marked (sent only with a still camera), or null. Fixed once sent. */
+    val playArea: PlayArea? = null,
     /** The coach's tags on the analysis: track id → squad number (a player can have several tracks). */
     val trackTags: Map<Int, Int> = emptyMap(),
     /** Seconds each tagged number was seen in this clip, from its analysis (StatsCalc.secondsByNumber). */

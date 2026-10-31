@@ -64,6 +64,7 @@ sealed interface Screen {
     data class ClipDetail(val clipId: Int, val seekMs: Long = -1) : Screen
     data class Analysis(val clipId: Int) : Screen
     data class PitchTouches(val clipId: Int) : Screen
+    data class PlayArea(val clipId: Int) : Screen
     data class PitchReferences(val matchId: Int, val clipId: Int) : Screen
     data class PaintReference(val matchId: Int, val refId: Int) : Screen
     data object Squad : Screen
@@ -368,6 +369,21 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         val mode = if (static) CameraMode.STATIC else CameraMode.MOVING
         AppGraph.commit { it.updateClip(clipId) { c -> c.copy(camera = mode) }.updateMatch(clip.matchId) { m -> m.copy(camera = mode) } }
     }
+
+    /** The clip's play area (null = none), and the match's for its next videos. */
+    fun savePlayArea(clipId: Int, area: com.ppcoach.tracker.data.PlayArea?) {
+        val clip = library.value.clip(clipId) ?: return
+        val kept = area?.takeIf { it.isValid }
+        AppGraph.commit { lib ->
+            val next = lib.updateClip(clipId) { it.copy(playArea = kept) }
+            if (kept != null) next.updateMatch(clip.matchId) { it.copy(playArea = kept) } else next
+        }
+    }
+
+    /** Where a clip's play area starts: its own, else the match's last one, else a rectangle to drag. */
+    fun startPlayArea(clip: Clip): com.ppcoach.tracker.data.PlayArea =
+        clip.playArea ?: library.value.match(clip.matchId)?.playArea?.copy(tMs = minOf(1000L, clip.durationMs / 2))
+            ?: com.ppcoach.tracker.data.PlayArea.start(minOf(1000L, clip.durationMs / 2))
 
     fun saveTouches(clipId: Int, touches: com.ppcoach.tracker.data.PitchTouches?) {
         val kept = touches?.takeIf { t -> !t.isEmpty }

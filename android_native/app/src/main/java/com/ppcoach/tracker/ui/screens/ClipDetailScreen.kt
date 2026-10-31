@@ -269,6 +269,16 @@ private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: String
                 Text(if (static) s.cameraStaticHelp else s.cameraMovingHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
             }
         }
+        // With a still camera the coach can mark the play area: what is outside it is not analyzed.
+        if (static) {
+            val area = clip.playArea
+            Text(
+                if (area != null) s.playAreaSummary(area.points.size, kotlin.math.round(area.margin * 100).toInt()) else s.playAreaNone,
+                style = MaterialTheme.typography.bodyMedium, color = if (area != null) c.textPrimary else c.textSecondary,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            if (!locked) PpTextButton(s.markPlayArea, { vm.push(Screen.PlayArea(clip.id)) })
+        }
         if (on) {
             val n = clip.touches?.points?.size ?: 0
             val lines = clip.touches?.lines?.size ?: 0

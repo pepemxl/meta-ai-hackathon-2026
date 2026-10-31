@@ -8,7 +8,7 @@ El worker está en `worker/`: Python 3.12 con OpenCV, numpy y PyYAML, en Docker.
 |---|---|
 | `run` en Docker junto a la API local (`npm run worker:up`) | Desarrollo: consulta la cola de la API PHP local |
 | `once` | Un solo trabajo y termina |
-| `analyze DIR` sobre una carpeta de chunks, sin API (`--touches`, `--pitch-mode`, `--camera`, `--debug-dir`) | Medir cambios con videos locales y verlos en el visor |
+| `analyze DIR` sobre una carpeta de chunks, sin API (`--touches`, `--pitch-mode`, `--camera`, `--play-area`, `--debug-dir`) | Medir cambios con videos locales y verlos en el visor |
 | `docker-compose.prod.yml` en Docker dentro de WSL, en la máquina de desarrollo (`npm run worker:prod:up`) | **Producción** desde el 30 de octubre, contra `https://ppcoachtracker.pepemxl.com`. Se puede mover a un VPS o a Modal con la misma imagen |
 
 En todos los casos el worker **pide** trabajo (`GET /internal/jobs/next`) en lugar de recibir un webhook, así que la API en hosting compartido no llama a nadie. En desarrollo, `SAM_API_BASE_URL` apunta al simulador local (fuera del repo, [13-entorno-desarrollo.md](../13-entorno-desarrollo.md)); lo que sale de ahí se marca `sam_simulator`.
@@ -17,7 +17,7 @@ En todos los casos el worker **pide** trabajo (`GET /internal/jobs/next`) en lug
 
 ```mermaid
 flowchart TB
-    claim["1. Tomar trabajo<br/>GET /internal/jobs/next<br/>clip, archivos, referencias, equipos y colores,<br/>options.pitch_mode, options.camera y calibration"] --> dl["2. Descargar<br/>chunks, YAML, chunks.yaml, reference_N.jpg"]
+    claim["1. Tomar trabajo<br/>GET /internal/jobs/next<br/>clip, archivos, referencias, equipos y colores,<br/>options.pitch_mode, options.camera,<br/>options.play_area y calibration"] --> dl["2. Descargar<br/>chunks, YAML, chunks.yaml, reference_N.jpg"]
     dl --> read["3. Leer como un solo video<br/>sin repetir el traslape, con la hora del original<br/>y la máscara de la cancha del YAML de la app"]
     read --> sam["4. SAM 3.1 por chunk y por concepto<br/>player in &lt;color&gt; jersey (A y B), soccer ball;<br/>une los tracks en el traslape"]
     sam --> pass["5. Una pasada por el video<br/>máscara de la cancha donde no vino de la app,<br/>histogramas para los cortes, pasto junto al balón"]
@@ -42,6 +42,7 @@ flowchart TB
 |---|---|---|
 | Unión de chunks | Mismo track si IoU > 0.5 en al menos la mitad de los cuadros del traslape donde aparecen los dos, y en 5 o más | `sam.py` |
 | Equipos | Del concepto; el color del torso decide solo si un track aparece en los dos conceptos. Un tercer grupo de color chico y lejos de los dos (el árbitro) queda sin equipo | `teams.py`, `colors.py` |
+| Zona de juego | Con la cámara fija, el polígono y el margen que marcó el entrenador: es la cancha de todos los cuadros (en lugar de la máscara) y la base de las partes de un video ancho | `pitch.from_play_area` |
 | Máscara de la cancha | La de la app (YAML de cada chunk) o, donde no viene, medida con la misma regla. Los cuadros sin cancha no cuentan y un jugador cuenta si sus pies caen en la cancha | `pitch.py`, [etapa 12](../prompts/12-mascara-cancha.md) |
 | Cortes y cuadros que cuentan | Un corte cuando el histograma de tono y saturación salta 0.44 o más (los tracks empiezan de nuevo). No cuentan los acercamientos (una persona de más de 1/3 del alto), por tomas | `cuts.py`, `shots.py`, [etapa 11](../prompts/11-worker-calidad.md) |
 | Balón | Una trayectoria por candidato, cada una con su Kalman; gana la que dura y pasa junto a los pies. Huecos de hasta 5 cuadros solo dentro de una trayectoria; un balón sin pasto alrededor se descarta | `ball.py`, [etapa 11](../prompts/11-worker-calidad.md) |
@@ -132,6 +133,7 @@ flowchart LR
 | Conceptos `player in <color> jersey` y `soccer ball`, medidos con SAM real: un track por jugador en cada chunk y balón en el 85 % de los cuadros | Un concepto para los porteros y el árbitro, que ningún color describe; que SAM encuentre a los dos equipos desde el inicio del chunk (a veces tarda de 5 a 30 s) |
 | Video ancho o 4K: el worker lo parte en videos de hasta 1024 px sobre la cancha y une los tracks (`tiles.py`, `PP_TILES`) | Que la app pueda mandar el video a su resolución (hoy, como mucho 1080p, que no se parte); probarlo con SAM real dentro del worker |
 | Cámara fija (`options.camera = static`): una homografía para todo el video, sin pasada de movimiento | Probarlo con un video de tripié propio |
+| Zona de juego marcada por el entrenador (`options.play_area`), probada con datos sintéticos | Medir con la panorámica cuánta tribuna y pista quita y cuánto achica las partes |
 | SAM para las líneas, apagado: el concepto y los trazos como puntos, en dos peticiones con el formato documentado; el concepto y las máscaras ya probados con SAM real | Ver si SAM sigue un trazo de una foto a los cuadros del video y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige, y cuánto cuesta |
 | Metros donde el entrenador marcó la cancha | Probarlo con un video de tripié propio; con 5 marcas a ojo el error en la imagen no dice cuánto se corre la cancha |
 | Resultado con métricas por equipo | Estadísticas por dorsal: requiere etiquetar los tracks en la app |

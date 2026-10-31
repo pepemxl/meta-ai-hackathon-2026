@@ -57,6 +57,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN camera VARCHAR(16) NULL AFTER pitch_mode');
             $done[] = 'clips.camera';
         }
+        // La zona de juego que marca el entrenador con la cámara quieta.
+        if (!self::hasColumn($db, 'clips', 'play_area')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN play_area TEXT NULL AFTER camera');
+            $done[] = 'clips.play_area';
+        }
         // El cron de retención marca cuándo borró el video de un clip.
         if (!self::hasColumn($db, 'clips', 'video_deleted_at')) {
             $db->exec('ALTER TABLE clips ADD COLUMN video_deleted_at DATETIME NULL AFTER calibration');

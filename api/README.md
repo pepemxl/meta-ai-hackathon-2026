@@ -53,7 +53,7 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/clips/:id/analysis` | Entrenador | `{clip_id, job_id, segmenter, analyst, created_at, result}` o 404 `{error: "analysis not found", status}` |
 | POST | `/consent` | Entrenador | `{action: accept\|withdraw, version, at, app_version}` → `{id, action, version, at}` |
 | GET | `/consent` | Entrenador | `{consent_version, current: none\|accepted\|withdrawn\|outdated, events: [...]}` |
-| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files, references}, options: {pitch_mode, camera}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
+| GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files, references}, options: {pitch_mode, camera, play_area}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
 | GET | `/internal/clips/:id/files/:name` | Worker | Solo `chunks.yaml`, `video_part_NNN.(mp4\|yaml)` y `reference_N.jpg`; 404 si no |
 | POST | `/internal/jobs/:id/result` | Worker | JSON `{status: done\|failed, error}` o multipart con el archivo `analysis` (JSON) |
 
@@ -70,7 +70,9 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 
 Opcional: `"analysis": {"pitch_mode": "lines" | "no_lines" | "off", "camera": "static" | "moving"}`. `pitch_mode` dice si se calcula la cancha; `camera`, si la cámara queda quieta todo el video (tripié o panorámica: una sola homografía) o se mueve y hace zoom (se sigue cuadro por cuadro). Sin el campo, `null`; otro valor, 400 con `analysis.pitch_mode` o `analysis.camera`. Quedan fijos cuando el worker toma el clip.
 
-Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode, camera, video_deleted, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
+Con la cámara quieta, también `"play_area": {"points": [{"x", "y"}], "margin"}`: la zona de juego que marcó el entrenador, de 3 a 16 puntos en 0..1 en orden alrededor (las esquinas de la cancha y, en una panorámica, puntos donde la línea se curva) y `margin` de 0 a 0.25, como fracción del alto del cuadro (0 si falta). El worker la usa como la cancha de todos los cuadros. Otro valor, 400 con `analysis.play_area`; queda fija igual que los otros dos.
+
+Respuesta: `{clip_id, status, chunk_count, chunk_seconds, overlap_ms, pitch_mode, camera, play_area, video_deleted, received: [{number, sha256}], partial: [{number, received_bytes}]}`.
 
 - **400** `{error: "invalid fields", fields: [...]}`: `duration_ms` ≤ 6 h, `chunk_count` 1..1000, textos 1..160 (`venue` puede ir vacío), `chunk_seconds` 60..300 (perfiles `dev` = 60 y `demo` = 300), `overlap_ms` 2000..5000.
 - **428** `{error: "consent required", consent_version}`: falta el consentimiento, no es la versión vigente (`2026-10-27`) o la fecha es inválida o está más de 1 día en el futuro.

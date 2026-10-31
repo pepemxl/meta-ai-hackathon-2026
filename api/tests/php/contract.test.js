@@ -426,24 +426,33 @@ const CAL = {
   ] }],
 };
 
-test('pitch_mode and camera are validated, stored and given to the worker', async () => {
+// The pitch's corners on a panorama, a fifth point where the near line bends, and a margin.
+const AREA = { points: [{ x: 0.1, y: 0.2 }, { x: 0.9, y: 0.2 }, { x: 0.98, y: 0.9 }, { x: 0.5, y: 0.95 }, { x: 0.02, y: 0.9 }], margin: 0.04 };
+
+test('pitch_mode, camera and play_area are validated, stored and given to the worker', async () => {
   const bad = await register(h.clipBody({ analysis: { pitch_mode: 'maybe' } }));
   assert.equal(bad.status, 400);
   assert.deepEqual(bad.body.fields, ['analysis.pitch_mode']);
   const badCamera = await register(h.clipBody({ analysis: { camera: 'tripod' } }));
   assert.equal(badCamera.status, 400);
   assert.deepEqual(badCamera.body.fields, ['analysis.camera']);
+  for (const play_area of [{ points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] }, { points: AREA.points, margin: 0.5 }, { points: [...AREA.points.slice(1), { x: 1.2, y: 0.5 }] }]) {
+    const badArea = await register(h.clipBody({ analysis: { play_area } }));
+    assert.equal(badArea.status, 400);
+    assert.deepEqual(badArea.body.fields, ['analysis.play_area']);
+  }
   assert.equal((await register(h.clipBody())).body.pitch_mode, null);
-  const reg = await register(h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static' } }));
+  const reg = await register(h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static', play_area: AREA } }));
   assert.equal(reg.body.pitch_mode, 'no_lines');
   assert.equal(reg.body.camera, 'static');
+  assert.deepEqual(reg.body.play_area, AREA);
   const id = reg.body.clip_id;
   assert.equal((await api().post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(CAL)).status, 200);
   await uploadChunk(id, 1, Buffer.from('a'));
   await uploadChunk(id, 2, Buffer.from('b'));
   const done = await complete(id);
   const next = await claim(done.body.job_id);
-  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static' });
+  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static', play_area: AREA });
   assert.deepEqual(next.body.calibration, CAL);
 });
 

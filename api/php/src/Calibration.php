@@ -48,6 +48,39 @@ final class Calibration
         return in_array($m, self::CAMERA_MODES, true) ? [true, $m] : [false, null];
     }
 
+    /**
+     * analysis.play_area de POST /clips: la zona de juego que marca el
+     * entrenador con la cámara quieta, {points: [{x, y}] (3..16, en 0..1, en
+     * orden alrededor), margin?: 0..0.25 (fracción del alto del cuadro)}
+     * → [ok, valor] (null si falta).
+     */
+    public static function playArea(mixed $analysis): array
+    {
+        if (!is_array($analysis)) {
+            return [true, null];
+        }
+        $a = $analysis['play_area'] ?? null;
+        if ($a === null) {
+            return [true, null];
+        }
+        $points = is_array($a) ? ($a['points'] ?? null) : null;
+        if (!is_array($points) || !array_is_list($points) || count($points) < 3 || count($points) > 16) {
+            return [false, null];
+        }
+        $out = [];
+        foreach ($points as $pt) {
+            if (!self::inUnit($pt)) {
+                return [false, null];
+            }
+            $out[] = ['x' => $pt['x'], 'y' => $pt['y']];
+        }
+        $margin = $a['margin'] ?? 0;
+        if (!self::num($margin) || $margin < 0 || $margin > 0.25) {
+            return [false, null];
+        }
+        return [true, ['points' => $out, 'margin' => $margin]];
+    }
+
     private static function num(mixed $v): bool
     {
         return (is_int($v) || is_float($v)) && is_finite((float) $v);
