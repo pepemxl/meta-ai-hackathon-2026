@@ -20,7 +20,7 @@ Rule of the whole thing: BETTER NO METERS THAN FALSE METERS.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -49,6 +49,8 @@ class PitchCalibration:
     # global frame → (homography pitch m → image px, "manual" | "propagated")
     homographies: dict[int, tuple[np.ndarray, str]]
     report: dict
+    # global frame → the coach's points there [(name, x px, y px)], for the viewer
+    marks: dict[int, list[tuple[str, float, float]]] = field(default_factory=dict)
 
     def to_meters(self, frame: int, foot_xy: tuple[float, float]) -> tuple[float, float] | None:
         h = self.homographies.get(frame)
@@ -223,6 +225,7 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
 
     keys: dict[int, np.ndarray] = {}
     key_report = []
+    marks: dict[int, list[tuple[str, float, float]]] = {}
     touched_at: dict[int, int] = {}  # index in calibration["frames"] → global frame
     for ti, t in enumerate(touches):
         if "frame" in t:
@@ -230,6 +233,7 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         else:
             g = min(range(len(infos)), key=lambda i: abs(infos[i].t_ms - int(t["t_ms"])))
         touched_at[ti] = g
+        marks.setdefault(g, []).extend((p["name"], p["x"] * w, p["y"] * h) for p in t.get("points") or [] if p.get("name") in template.points)
         H, entry, note = solve_frame(t, template, w, h)
         entry = {"frame": g, "t_ms": infos[g].t_ms, **entry}
         if note:
@@ -317,4 +321,4 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     )
     if len(homographies) / n < 0.5:
         notes.append(f"La cancha solo se calculó en el {round(100 * len(homographies) / n)} % del video.")
-    return PitchCalibration(template, w, h, homographies, report), notes
+    return PitchCalibration(template, w, h, homographies, report, marks), notes

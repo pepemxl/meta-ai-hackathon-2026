@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompareView } from './Compare';
-import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, Result, RunSummary, SEVERITY, Tracks } from './data';
+import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, marksFor, Result, RunSummary, SEVERITY, Tracks } from './data';
+import { Calibration, TopDown } from './PitchView';
 
 export function App() {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
@@ -15,7 +16,9 @@ export function App() {
     getJson<RunSummary[]>('/api/runs')
       .then((r) => {
         setRuns(r);
-        if (r.length) setSelected(r[0].id);
+        // ?run=<id> opens that run (a link to it); else the newest.
+        const wanted = new URLSearchParams(location.search).get('run');
+        if (r.length) setSelected(r.find((x) => x.id === wanted)?.id ?? r[0].id);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -96,6 +99,7 @@ function RunView({ run }: { run: string }) {
     <>
       {result.backends.segmenter !== 'meta_sam' && <div className="banner">Análisis de desarrollo: {result.backends.segmenter}, no SAM 3.1</div>}
       <Player run={run} tracks={tracks} result={result} colors={colors} />
+      <Calibration result={result} pitch={tracks.pitch} size={{ width: result.video.width, height: result.video.height }} />
       <div className="card summary">
         <p style={{ margin: 0 }}>{result.summary}</p>
         <p className="muted" style={{ marginBottom: 0 }}>
@@ -153,6 +157,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
   const [showIds, setShowIds] = useState(true);
   const [showPitch, setShowPitch] = useState(true);
   const [showMask, setShowMask] = useState(true);
+  const [showMarks, setShowMarks] = useState(true);
   const chunk = tracks.chunks[chunkIdx];
   const timeOf = useMemo(() => new Map(tracks.frames), [tracks]);
 
@@ -192,6 +197,33 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
               else ctx.lineTo(p[0], p[1]);
             });
             ctx.stroke();
+          }
+          // The coach's marks (white) and where the homography puts their points (the violet line's end).
+          if (showMarks && g !== null) {
+            ctx.font = `${11 * devicePixelRatio}px Roboto, sans-serif`;
+            for (const m of marksFor(tracks.pitch, g)) {
+              const t = tracks.pitch.points[m.name];
+              const q = t ? toPx(applyH(hom.h, t[0], t[1])) : null;
+              const p = toPx([m.x, m.y]);
+              if (!p) continue;
+              if (q) {
+                ctx.strokeStyle = '#7B2FF7';
+                ctx.lineWidth = 2 * devicePixelRatio;
+                ctx.beginPath();
+                ctx.moveTo(p[0], p[1]);
+                ctx.lineTo(q[0], q[1]);
+                ctx.stroke();
+                ctx.fillStyle = '#7B2FF7';
+                ctx.beginPath();
+                ctx.arc(q[0], q[1], 2.5 * devicePixelRatio, 0, 2 * Math.PI);
+                ctx.fill();
+              }
+              ctx.fillStyle = '#FFFFFF';
+              ctx.beginPath();
+              ctx.arc(p[0], p[1], 3.5 * devicePixelRatio, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.fillText(m.name, p[0] + 5 * devicePixelRatio, p[1] - 5 * devicePixelRatio);
+            }
           }
         }
         // The pitch mask: the polygon where boxes count (dashed); a frame without it is discarded.
@@ -238,7 +270,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [chunk, tracks, showBall, showIds, showPitch, showMask, colors]);
+  }, [chunk, tracks, showBall, showIds, showPitch, showMask, showMarks, colors]);
 
   const t0 = result.timeline[0]?.t_ms ?? 0;
   const t1 = (result.timeline[result.timeline.length - 1]?.t_ms ?? t0) + 1000;
@@ -285,6 +317,11 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
             Líneas calculadas
           </button>
         )}
+        {tracks.pitch && tracks.pitch.marks.length > 0 && (
+          <button className={showMarks ? 'on' : ''} onClick={() => setShowMarks(!showMarks)}>
+            Marcas
+          </button>
+        )}
         <span className="muted tnum">
           cuadro {frame ?? '– (traslape)'} · {nowMs !== null ? fmt(nowMs) : '–'} · {frame !== null ? tracks.byFrame.get(frame)?.length ?? 0 : 0} objetos
           {tracks.pitch && frame !== null ? ` · cancha: ${tracks.pitch.homographies.get(frame)?.source ?? 'sin calcular'}` : ''}
@@ -315,6 +352,21 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
         </span>
         <span>Posesión por segundo, como la cuenta el worker; en gris, lo descartado sin cancha (toca para saltar)</span>
       </div>
+      {tracks.pitch && (
+        <div className="topdown-wrap">
+          <TopDown
+            pitch={tracks.pitch}
+            h={frame === null ? undefined : tracks.pitch.homographies.get(frame)?.h}
+            boxes={frame === null ? [] : (tracks.byFrame.get(frame) || []).filter((b) => b.label !== 'ball' || showBall)}
+            marks={frame === null ? [] : marksFor(tracks.pitch, frame)}
+            colors={colors}
+          />
+          <p className="muted">
+            Desde arriba, con la homografía del cuadro: los jugadores por sus pies, en sombra lo que ve la cámara y, en violeta, cuánto se corre cada marca en la cancha.
+            {frame !== null && !tracks.pitch.homographies.get(frame) && ' Este cuadro no tiene la cancha calculada.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

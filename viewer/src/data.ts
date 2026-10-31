@@ -13,12 +13,24 @@ export type RunSummary = {
 
 export type ChunkInfo = { number: number; file: string; fps: number; frames: number; skip: number; base: number; start_ms: number; end_ms: number };
 
-export type Box = { frame: number; t_ms: number; track: number; label: string; team: string; x: number; y: number; w: number; h: number; conf: number; interp: boolean };
+export type Box = {
+  frame: number; t_ms: number; track: number; label: string; team: string; x: number; y: number; w: number; h: number; conf: number; interp: boolean;
+  /** Meters on the pitch from the worker (players with a homography), or null. */
+  mx: number | null; my: number | null;
+};
+
+export type Mark = { frame: number; name: string; x: number; y: number };
 
 export type Pitch = {
   homographies: Map<number, { source: string; h: number[] }>;
   lines: [string, [number, number], [number, number]][];
   circle: [number, number][];
+  length_m: number;
+  width_m: number;
+  /** The template's named points in meters, and the coach's marks on them (normalized image); empty in older runs. */
+  points: Record<string, [number, number]>;
+  marks: Mark[];
+  camera: string | null;
 };
 
 export type Tracks = { byFrame: Map<number, Box[]>; frames: [number, number][]; chunks: ChunkInfo[]; pitch: Pitch | null; masks: Map<number, number[]> };
@@ -28,6 +40,27 @@ export function applyH(h: number[], x: number, y: number): [number, number] | nu
   const w = h[6] * x + h[7] * y + h[8];
   if (Math.abs(w) < 1e-9) return null;
   return [(h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w];
+}
+
+/** Inverse of a row-major 3×3 matrix, or null if singular. */
+export function invert3(m: number[]): number[] | null {
+  const [a, b, c, d, e, f, g, h, i] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-15) return null;
+  return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+}
+
+/** Normalized image → pitch meters with the inverse of a frame's homography; null behind the horizon. */
+export function toMeters(inv: number[], x: number, y: number): [number, number] | null {
+  const w = inv[6] * x + inv[7] * y + inv[8];
+  if (w <= 1e-12) return null;
+  return [(inv[0] * x + inv[1] * y + inv[2]) / w, (inv[3] * x + inv[4] * y + inv[5]) / w];
+}
+
+/** The coach's marks that apply to [frame]: its own, or with a still camera those of every touched frame. */
+export function marksFor(pitch: Pitch, frame: number): Mark[] {
+  return pitch.camera === 'static' ? pitch.marks : pitch.marks.filter((m) => m.frame === frame);
 }
 
 export type Insight = { title: string; description: string; severity: string; t_start_ms: number; t_end_ms: number; recommendation: string };
@@ -75,7 +108,10 @@ function normalizeChunk(c: RawChunk): ChunkInfo {
 }
 
 export async function loadTracks(run: string): Promise<Tracks> {
-  type RawPitch = { homographies: (number | string)[][]; lines: Pitch['lines']; circle: Pitch['circle'] };
+  type RawPitch = {
+    homographies: (number | string)[][]; lines: Pitch['lines']; circle: Pitch['circle']; length_m?: number; width_m?: number;
+    points?: Pitch['points']; marks?: [number, string, number, number][]; camera?: string;
+  };
   const raw = await getJson<{ columns: string[]; rows: unknown[][]; frames: [number, number][] | number; chunks: RawChunk[]; pitch?: RawPitch | number[][] | null; pitch_masks?: [number, number, number[]][] }>(`/api/runs/${run}/tracks.json`);
   const chunks = raw.chunks.map(normalizeChunk);
   const idx = Object.fromEntries(raw.columns.map((c, i) => [c, i]));
@@ -84,6 +120,7 @@ export async function loadTracks(run: string): Promise<Tracks> {
     const b: Box = {
       frame: r[idx.frame] as number, t_ms: r[idx.t_ms] as number, track: r[idx.track] as number, label: r[idx.label] as string,
       team: r[idx.team] as string, x: r[idx.x] as number, y: r[idx.y] as number, w: r[idx.w] as number, h: r[idx.h] as number, conf: r[idx.conf] as number, interp: idx.interp !== undefined && r[idx.interp] === 1,
+      mx: idx.mx === undefined ? null : (r[idx.mx] as number | null), my: idx.my === undefined ? null : (r[idx.my] as number | null),
     };
     const list = byFrame.get(b.frame);
     if (list) list.push(b);
@@ -93,7 +130,13 @@ export async function loadTracks(run: string): Promise<Tracks> {
   if (raw.pitch && !Array.isArray(raw.pitch) && raw.pitch.homographies) {
     const homographies = new Map<number, { source: string; h: number[] }>();
     for (const row of raw.pitch.homographies) homographies.set(row[0] as number, { source: row[1] as string, h: row.slice(2) as number[] });
-    pitch = { homographies, lines: raw.pitch.lines, circle: raw.pitch.circle };
+    const xs = raw.pitch.lines.flatMap(([, a, b]) => [a[0], b[0]]);
+    const ys = raw.pitch.lines.flatMap(([, a, b]) => [a[1], b[1]]);
+    pitch = {
+      homographies, lines: raw.pitch.lines, circle: raw.pitch.circle,
+      length_m: raw.pitch.length_m ?? Math.max(...xs) - Math.min(...xs), width_m: raw.pitch.width_m ?? Math.max(...ys) - Math.min(...ys),
+      points: raw.pitch.points ?? {}, marks: (raw.pitch.marks ?? []).map(([frame, name, x, y]) => ({ frame, name, x, y })), camera: raw.pitch.camera ?? null,
+    };
   }
   // The pitch mask of each frame: its polygon (empty = no pitch, the frame does not count).
   const masks = new Map<number, number[]>();

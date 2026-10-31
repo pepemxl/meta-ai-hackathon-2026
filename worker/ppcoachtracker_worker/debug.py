@@ -57,6 +57,12 @@ def save_run(root: Path, clip: Clip, result: dict, trackset: TrackSet, name: str
             "circle": [list(p) for p in circle_polyline(t)],
             "length_m": t.length,
             "width_m": t.width,
+            # The template's named points (meters) and the coach's marks on them [frame, name, x, y] (normalized):
+            # the viewer draws each mark against where the homography puts its point.
+            "points": {name: list(p) for name, p in t.points.items()},
+            "marks": [[f, name, round(x / calibration.width, 5), round(y / calibration.height, 5)]
+                      for f, ms in sorted(calibration.marks.items()) for name, x, y in ms],
+            "camera": calibration.report.get("camera"),
         }
     # The pitch mask of each frame: [frame, grass fraction, polygon] (empty polygon = no pitch).
     pitch_masks = [[i, m.fraction, list(m.polygon)] for i, m in enumerate(masks or []) if m is not None]

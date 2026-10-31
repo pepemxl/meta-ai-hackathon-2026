@@ -9,6 +9,18 @@ npm run viewer:up          # http://localhost:8098 (Docker), lee worker/.local/r
 
 Las corridas las guarda el worker con `DEBUG_DIR` (ya puesto en el servicio `worker` de docker-compose) o con `analyze --debug-dir`: `result.json`, `tracks.json` y una copia de los chunks. Los chunks que no son H.264 (los de `tools/make_chunks.py`) se convierten una vez con ffmpeg dentro del contenedor.
 
+## La cancha en metros
+
+Si la corrida tiene la cancha calculada (el entrenador marcó puntos), el visor muestra la homografía de cada cuadro:
+
+- **Sobre el video:** **Líneas calculadas** dibuja la plantilla de la cancha en violeta. **Marcas** dibuja cada punto que marcó el entrenador (blanco) con una línea violeta hasta donde la homografía pone ese punto: lo largo de la línea es el error. Con la cámara fija, las marcas se ven en todos los cuadros.
+- **Desde arriba:** la cancha a escala con los jugadores por sus pies (en metros, como los calcula el worker), el balón, en sombra lo que ve la cámara (el borde de la imagen llevado a la cancha) y, en violeta, cuánto se corre cada marca en metros.
+- **Cancha en metros:** el reporte de la calibración (medidas, cámara fija o en movimiento, en qué parte de los cuadros se calculó y cómo, cada cuadro marcado con sus puntos, cuántos coinciden y su error) y una tabla con el error de cada marca en la imagen (px) y en la cancha (m), de la peor a la mejor.
+
+Las corridas guardan las marcas y los puntos de la plantilla en `tracks.json` (`pitch.marks`, `pitch.points`); las anteriores muestran solo las líneas.
+
+`?run=<id>` en la dirección abre esa corrida (un enlace directo).
+
 ## Comparar dos corridas
 
 Marca dos corridas en la lista (la casilla de cada una) y toca **Comparar**: sirve para comparar un segmentador local contra SAM 3.1 o para medir un cambio antes y después, siempre sobre los mismos chunks. Muestra:

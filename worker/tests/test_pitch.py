@@ -157,3 +157,22 @@ def test_propagation_follows_a_pan_and_stops_at_a_cut():
     out = chain(steps, {0: H0}, lambda i, H: True)
     assert set(out) == set(range(20))
     assert abs(out[19][0][0, 2] + 95.0) < 2.0
+
+
+def test_a_saved_run_keeps_the_coach_marks_for_the_viewer(meta, tmp_path, config_for):
+    import json
+
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.debug import save_run
+
+    clip_dir = ps.make_clip(tmp_path / "pitch", seconds=3)
+    _register(meta, clip_dir, frames=30)
+    touches = ps.touches()
+    result, ts = analyze(clip_dir, MATCH, config_for(meta.url), pitch_mode="no_lines", calibration=touches, camera="static")
+    run = save_run(tmp_path / "runs", load_clip(clip_dir), result, ts, name="r1", calibration=analyze.last_calibration)
+    pitch = json.loads((run / "tracks.json").read_text())["pitch"]
+    names = [p["name"] for p in touches["frames"][0]["points"]]
+    assert [m[1] for m in pitch["marks"]] == names and {m[0] for m in pitch["marks"]} == {0}
+    assert all(0 <= m[2] <= 1 and 0 <= m[3] <= 1 for m in pitch["marks"])
+    assert pitch["points"]["center"] == [0.0, 0.0] and set(names) <= set(pitch["points"])
+    assert pitch["camera"] == "static"

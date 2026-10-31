@@ -101,3 +101,11 @@ button:disabled { opacity: 0.5; cursor: default; }
 .ball-strip { position: relative; height: 16px; margin-top: 4px; border-radius: 4px; overflow: hidden; background: var(--surface-high); }
 .ball-strip > div { position: absolute; top: 0; bottom: 0; }
 .ball-strip .strip-name { position: absolute; left: 6px; top: 0; font-size: 11px; line-height: 16px; color: var(--text); text-shadow: 0 0 3px var(--surface); }
+
+/* The pitch from above (PitchView.tsx). */
+.topdown-wrap { margin-top: 12px; }
+.topdown { width: 100%; max-width: 760px; display: block; border-radius: 8px; }
+.topdown .grass { fill: #2E7D32; }
+.topdown .view { fill: rgba(255, 255, 255, 0.16); stroke: rgba(255, 255, 255, 0.5); stroke-width: 0.3; stroke-dasharray: 1 0.8; }
+.topdown .pline { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.25; }
+.topdown .plabel { font-size: 2px; fill: #FFFFFF; text-anchor: middle; font-family: Roboto, sans-serif; }
