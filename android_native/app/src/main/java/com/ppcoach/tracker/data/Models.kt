@@ -102,6 +102,8 @@ data class Match(
     val camera: String = "",
     /** The analysis report that unlocked the stats from the video, or null (docs/11-stats-jugadores.md). */
     val analysis: AnalysisReport? = null,
+    /** The starting lineup (squad numbers only), or null. */
+    val startingLineup: StartingLineup? = null,
 ) {
     val folder: String get() = "match_%04d".format(id)
     val nextReferenceId: Int get() = (references.maxOfOrNull { it.id } ?: 0) + 1
@@ -266,7 +268,10 @@ data class Library(
                 s.copy(analysis = kept + values.filterKeys { only == null || it in only })
             }
         }
-        lib = lib.updateMatch(matchId) { it.copy(analysis = AnalysisReport(now, via, parsed.source, parsed.generatedAt)) }
+        // An imported report keeps its mark when the minutes come from the video afterwards.
+        lib = lib.updateMatch(matchId) { m ->
+            if (via == "video" && m.analysis != null && m.analysis.via != "video") m else m.copy(analysis = AnalysisReport(now, via, parsed.source, parsed.generatedAt))
+        }
         return lib to ImportSummary(parsed.players.size, added, parsed.unknownKeys, parsed.coachKeys)
     }
 
@@ -284,7 +289,9 @@ data class Library(
     /** The minutes of each tagged number over every clip of the match, from the video (via "video"). */
     fun syncVideoMinutes(matchId: Int, source: String, now: Long): Pair<Library, ImportSummary> {
         val seconds = clips.filter { it.matchId == matchId }.flatMap { it.playerSeconds.entries }.groupBy({ it.key }, { it.value }).mapValues { (_, v) -> v.sum() }
-        val players = seconds.filterKeys { it in Player.NUMBERS }.mapValues { (_, s) -> mapOf(Stat.MINUTES to Stat.MINUTES.clamp(Math.round(s / 60.0).toInt())) }
+        // Less than half a minute rounds to 0: it says nothing, so it never replaces a value.
+        val players = seconds.filterKeys { it in Player.NUMBERS }.mapValues { (_, s) -> Stat.MINUTES.clamp(Math.round(s / 60.0).toInt()) }
+            .filterValues { it > 0 }.mapValues { (_, m) -> mapOf(Stat.MINUTES to m) }
         return applyReport(matchId, AnalysisReportParser.Parsed(source, "", players, emptyList(), emptyList()), "video", now, only = setOf(Stat.MINUTES))
     }
 }

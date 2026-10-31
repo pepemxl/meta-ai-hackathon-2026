@@ -77,7 +77,7 @@ flowchart LR
 | Resultados medidos: SAM 3.1 contra un segmentador local de desarrollo | Tres pruebas sobre el mismo partido | [results/](../results/README.md) |
 | Plantel y estadísticas por jugador y partido: lo del entrenador gana, totales, por 90 y precisión de pase, importar el reporte por dorsal | Listo; sin probar en pantalla | `data/Stats.kt`, `ui/screens/StatsScreens.kt` (2) |
 | Dorsales de los tracks del análisis: el entrenador liga cada track a un jugador y sus minutos pasan a las estadísticas del partido | Listo; sin probar en pantalla | `TrackTagsCard`, `Library.syncVideoMinutes` |
-| Pestaña de estadísticas con filtros, alineación inicial | **Pendiente** | etapa 10 |
+| Pestaña de estadísticas con filtros (todos, últimos 3/5/10, fechas, elegidos), compartidos con la página del jugador; alineación inicial con 9 formaciones de 11 y 4 de 7 | Listo; probado en el emulador | `data/StatsFilter.kt`, `data/StartingLineup.kt`, `ui/screens/StatsTabScreen.kt` (10) |
 | Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
 | API en producción y worker desplegado | Listo: API en Hostinger; worker en Docker dentro de WSL en la máquina de desarrollo (se detiene si la laptop se suspende) | etapa 9, [05-despliegue.md](05-despliegue.md) |
 | Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo: cron diario en producción a las 04:30 desde el 30 de octubre | `api/php/bin/retention.php` |

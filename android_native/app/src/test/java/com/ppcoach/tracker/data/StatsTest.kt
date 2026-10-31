@@ -112,6 +112,12 @@ class StatsTest {
         assertEquals(1, after.sheet(1, p8)!!.value(Stat.GOALS))
         assertEquals(listOf(11), summary.addedNumbers)
         assertEquals("video", after.matches[0].analysis!!.via)
+        // Less than half a minute in the video never replaces a value, and an imported report keeps its mark.
+        val imported = after.applyReport(1, AnalysisReportParser.parse("""{"version":1,"source":"meta_sam","players":[{"number":7,"stats":{"minutes":40}}]}"""), "file", 9).first
+        val short = imported.addClip { Clip(it, 1, "c3", playerSeconds = mapOf(7 to 14)) }.first
+        val synced = short.syncVideoMinutes(1, "meta_sam", 10).first
+        assertEquals(40, synced.sheet(1, synced.playerByNumber(7)!!.id)!!.value(Stat.MINUTES))
+        assertEquals("file", synced.matches[0].analysis!!.via)
         // The minutes replace only the minutes: an imported pass count stays.
         val withPasses = after.applyReport(1, AnalysisReportParser.parse("""{"version":1,"players":[{"number":8,"stats":{"passes_completed":10}}]}"""), "file", 6).first
         val again = withPasses.syncVideoMinutes(1, "meta_sam", 7).first

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -154,12 +155,14 @@ fun PlayerStatsScreen(vm: CoachViewModel, lib: Library, playerId: Int) {
     val s = LocalStrings.current
     val c = PpTheme.colors
     val p = lib.player(playerId) ?: return
-    val sheets = lib.sheetsOfPlayer(playerId).filter { lib.match(it.matchId) != null }.sortedByDescending { lib.match(it.matchId)!!.date }
+    val inFilter = vm.statsFilter.matches(lib).map { it.id }.toSet()
+    val sheets = lib.sheetsOfPlayer(playerId).filter { it.matchId in inFilter }.sortedByDescending { lib.match(it.matchId)!!.date }
     val t = StatsCalc.totals(sheets)
     Column(Modifier.fillMaxSize()) {
         PpTopBar(playerLabel(p), onBack = { vm.back() })
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text(s.positionLabel(p.position.key), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary) }
+            item { StatsFilterBar(vm, lib) }
             if (sheets.isEmpty()) {
                 item { Text(s.noStatsYet, style = MaterialTheme.typography.bodyLarge, color = c.textSecondary) }
             } else {
@@ -203,9 +206,12 @@ fun MatchStatsScreen(vm: CoachViewModel, lib: Library, matchId: Int) {
     val sheets = lib.sheetsOf(matchId).mapNotNull { sh -> lib.player(sh.playerId)?.let { it to sh } }.sortedBy { it.first.number }
     var editing by remember { mutableStateOf<Int?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var lineup by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importReport(matchId, uri) }
     Column(Modifier.fillMaxSize()) {
-        PpTopBar("${s.matchStats} · ${match.home} ${s.vs} ${match.away}", onBack = { vm.back() })
+        PpTopBar("${s.matchStats} · ${match.home} ${s.vs} ${match.away}", onBack = { vm.back() }) {
+            IconButton(onClick = { lineup = true }) { Icon(Icons.Rounded.SportsSoccer, s.lineupTitle, tint = c.textPrimary) }
+        }
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 val report = match.analysis
@@ -223,6 +229,14 @@ fun MatchStatsScreen(vm: CoachViewModel, lib: Library, matchId: Int) {
                         }
                     }
                     SecondaryButton(s.importReport, { picker.launch(arrayOf("application/json", "text/plain", "*/*")) }, Modifier.weight(1f), icon = Icons.Rounded.FileOpen)
+                }
+            }
+            match.startingLineup?.let { l ->
+                item {
+                    PpCard(onClick = { lineup = true }) {
+                        Text("${s.lineupTitle} · ${l.formation}", style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
+                        Text(l.numbers.filterNotNull().joinToString(" · ") { "#$it" }.ifEmpty { "–" }, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                    }
                 }
             }
             if (sheets.isEmpty()) item { Text(s.matchStatsEmpty, style = MaterialTheme.typography.bodyLarge, color = c.textSecondary) }
@@ -247,6 +261,7 @@ fun MatchStatsScreen(vm: CoachViewModel, lib: Library, matchId: Int) {
             }
         }
     }
+    if (lineup) LineupDialog(vm, lib, match, onDismiss = { lineup = false })
     editing?.let { pid ->
         val p = lib.player(pid)
         val sheet = lib.sheet(matchId, pid)
@@ -260,9 +275,9 @@ private fun VideoCard(video: com.ppcoach.tracker.data.PlayerVideo, s: Strings) {
     val c = PpTheme.colors
     PpCard {
         SectionTitle(s.fromVideo)
-        KeyValue(s.trackTagsTitle, s.timeSeen(video.seconds))
+        KeyValue(s.timeOnScreen, s.timeSeen(video.seconds))
         if (video.meters != null) {
-            KeyValue(s.distanceRun, "${"%.1f".format(video.meters / 1000.0)} km")
+            KeyValue(s.distanceRun, s.distance(video.meters))
             video.metersPerMinute?.let { KeyValue(s.playerMetersPerMinute, "${Math.round(it)}") }
         }
         video.topSpeedKmh?.let { KeyValue(s.topSpeed, "${"%.1f".format(it)} km/h") }

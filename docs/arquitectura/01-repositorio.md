@@ -54,6 +54,8 @@ android_native/
 │   │   │   │   ├── PitchReferences.kt  líneas pintadas, trazos, imágenes de referencia y el cuerpo de POST calibration
 │   │   │   │   ├── SavedPitches.kt     canchas guardadas con su largo y ancho en metros
 │   │   │   │   ├── Stats.kt            plantel, stats por jugador y partido, cálculos y el lector del reporte
+│   │   │   │   ├── StatsFilter.kt      qué partidos suman en la pestaña de estadísticas y la tabla ordenada
+│   │   │   │   ├── StartingLineup.kt   formaciones de 11 y 7 y la alineación inicial (solo dorsales)
 │   │   │   │   ├── ClipAnalysis.kt     el análisis del worker (también en metros) y su copia local
 │   │   │   │   ├── ApiClient.kt        cliente HTTP (OkHttp) y el plan de partes que faltan
 │   │   │   │   ├── Consent.kt          versión del consentimiento, enlaces legales y motivos de rechazo

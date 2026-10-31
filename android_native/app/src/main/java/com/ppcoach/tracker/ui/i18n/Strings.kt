@@ -254,11 +254,33 @@ interface Strings {
     val tagsNeedSquad: String
     val fromVideo: String
     fun timeSeen(seconds: Int): String
+    val timeOnScreen: String
+    fun distance(meters: Int): String
     val distanceRun: String
     val playerMetersPerMinute: String
     val topSpeed: String
     fun videoLine(meters: Int?, kmh: Double?): String
     val videoNoPitch: String
+    val navStats: String
+    val statsTabTitle: String
+    val statsNeedSquad: String
+    val goToSquad: String
+    val sortBy: String
+    fun statsRowLine(matches: Int, minutes: Int, goals: Int, assists: Int, accuracy: Double?): String
+    val filterAll: String
+    fun filterLast(n: Int): String
+    val filterDates: String
+    val filterDatesHelp: String
+    val filterPicked: String
+    fun filterCount(n: Int): String
+    val filterNone: String
+    val pickAll: String
+    val pickNone: String
+    val lineupTitle: String
+    val fillWithSquad: String
+    val typeNumber: String
+    val emptySlot: String
+    fun positionShort(key: String): String
     val pitchAnswerLines: String
     val pitchAnswerNoLines: String
     val pitchAnswerAsk: String
@@ -454,7 +476,7 @@ object Es : Strings {
     override fun moveHere(n: Int) = "Mover ${clipsCount(n)} aquí"
     override fun moved(n: Int) = "Se movieron ${clipsCount(n)}"
     override val recordingFormat = "Formato de grabación"
-    override val recordingFormatValue = "MP4 H.264, 1080p a 30 fps (720p si la cámara no da 1080p)"
+    override val recordingFormatValue = "MP4 H.264, 1080p a 30 fps (720p si la cámara no da 1080p; 4K con el video para el análisis en Original, si la cámara puede)"
     override val showTechnical = "Mostrar detalles técnicos"
 
     override val analysisSystem = "Sistema de análisis"
@@ -601,11 +623,39 @@ object Es : Strings {
     override val tagsNeedSquad = "Agrega jugadores al plantel para ligar los tracks."
     override val fromVideo = "Desde el video"
     override fun timeSeen(seconds: Int) = "${seconds / 60}:${"%02d".format(seconds % 60)}"
+    override val timeOnScreen = "Tiempo en cuadro"
+    override fun distance(meters: Int) = if (meters < 1000) "$meters m" else "${"%.1f".format(meters / 1000.0)} km"
     override val distanceRun = "Distancia recorrida"
     override val playerMetersPerMinute = "Metros por minuto"
     override val topSpeed = "Velocidad máxima"
-    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { "${"%.1f".format(it / 1000.0)} km" }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
+    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { distance(it) }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
     override val videoNoPitch = "Sin cancha calculada: sin metros ni velocidad."
+    override val navStats = "Estadísticas"
+    override val statsTabTitle = "Estadísticas"
+    override val statsNeedSquad = "Agrega a tus jugadores al plantel para ver sus estadísticas."
+    override val goToSquad = "Ir al plantel"
+    override val sortBy = "Ordenar por"
+    override fun statsRowLine(matches: Int, minutes: Int, goals: Int, assists: Int, accuracy: Double?) =
+        "PJ $matches · $minutes min · $goals ${if (goals == 1) "gol" else "goles"} · $assists asist." + (accuracy?.let { " · ${Math.round(it * 100)} % pase" } ?: "")
+    override val filterAll = "Todos"
+    override fun filterLast(n: Int) = "Últimos $n"
+    override val filterDates = "Fechas"
+    override val filterDatesHelp = "Elige un día o un rango"
+    override val filterPicked = "Elegir partidos"
+    override fun filterCount(n: Int) = if (n == 1) "Entra 1 partido" else "Entran $n partidos"
+    override val filterNone = "Ningún partido entra en este filtro."
+    override val pickAll = "Todos"
+    override val pickNone = "Ninguno"
+    override val lineupTitle = "Alineación inicial"
+    override val fillWithSquad = "Llenar con el plantel"
+    override val typeNumber = "O escribe un dorsal"
+    override val emptySlot = "Dejar vacío"
+    override fun positionShort(key: String) = when (key) {
+        "GK" -> "POR"
+        "DF" -> "DEF"
+        "FW" -> "DEL"
+        else -> "MED"
+    }
     override val pitchAnswerLines = "Líneas bien marcadas"
     override val pitchAnswerNoLines = "Sin líneas: con los puntos marcados"
     override val pitchAnswerAsk = "Se pregunta al enviar"
@@ -808,7 +858,7 @@ object En : Strings {
     override fun moveHere(n: Int) = "Move ${clipsCount(n)} here"
     override fun moved(n: Int) = "Moved ${clipsCount(n)}"
     override val recordingFormat = "Recording format"
-    override val recordingFormatValue = "MP4 H.264, 1080p at 30 fps (720p if the camera has no 1080p)"
+    override val recordingFormatValue = "MP4 H.264, 1080p at 30 fps (720p if the camera has no 1080p; 4K with the video for the analysis on Original, if the camera can)"
     override val showTechnical = "Show technical details"
 
     override val analysisSystem = "Analysis system"
@@ -955,11 +1005,39 @@ object En : Strings {
     override val tagsNeedSquad = "Add players to the squad to link the tracks."
     override val fromVideo = "From the video"
     override fun timeSeen(seconds: Int) = "${seconds / 60}:${"%02d".format(seconds % 60)}"
+    override val timeOnScreen = "Time on screen"
+    override fun distance(meters: Int) = if (meters < 1000) "$meters m" else "${"%.1f".format(meters / 1000.0)} km"
     override val distanceRun = "Distance run"
     override val playerMetersPerMinute = "Meters per minute"
     override val topSpeed = "Top speed"
-    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { "${"%.1f".format(it / 1000.0)} km" }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
+    override fun videoLine(meters: Int?, kmh: Double?) = listOfNotNull(meters?.let { distance(it) }, kmh?.let { "${Math.round(it)} km/h" }).joinToString(" · ")
     override val videoNoPitch = "No pitch computed: no meters or speed."
+    override val navStats = "Stats"
+    override val statsTabTitle = "Stats"
+    override val statsNeedSquad = "Add your players to the squad to see their stats."
+    override val goToSquad = "Go to the squad"
+    override val sortBy = "Sort by"
+    override fun statsRowLine(matches: Int, minutes: Int, goals: Int, assists: Int, accuracy: Double?) =
+        "MP $matches · $minutes min · $goals ${if (goals == 1) "goal" else "goals"} · $assists ${if (assists == 1) "assist" else "assists"}" + (accuracy?.let { " · ${Math.round(it * 100)} % passes" } ?: "")
+    override val filterAll = "All"
+    override fun filterLast(n: Int) = "Last $n"
+    override val filterDates = "Dates"
+    override val filterDatesHelp = "Pick a day or a range"
+    override val filterPicked = "Pick matches"
+    override fun filterCount(n: Int) = if (n == 1) "1 match counts" else "$n matches count"
+    override val filterNone = "No match fits this filter."
+    override val pickAll = "All"
+    override val pickNone = "None"
+    override val lineupTitle = "Starting lineup"
+    override val fillWithSquad = "Fill with the squad"
+    override val typeNumber = "Or type a number"
+    override val emptySlot = "Leave empty"
+    override fun positionShort(key: String) = when (key) {
+        "GK" -> "GK"
+        "DF" -> "DEF"
+        "FW" -> "FWD"
+        else -> "MID"
+    }
     override val pitchAnswerLines = "Clear lines"
     override val pitchAnswerNoLines = "No lines: with the marked points"
     override val pitchAnswerAsk = "Asked when sending"

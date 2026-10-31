@@ -42,7 +42,7 @@ The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/RE
 | Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 and updated the same day (`/health` reports the database) |
 | Production worker | Running on the development host (Docker in WSL) since October 30 |
 | Run viewer (local only) | Shows a run over its video, and compares two runs of the same video side by side, overlaid or only where they differ |
-| Per-player statistics | The squad (numbers, positions, an alias that never leaves the phone) and each player's 17 stats per match: the coach's values win over the analysis, totals, per 90 minutes and pass accuracy. A report by squad number can be imported, and the coach links each analysis track to a player so their minutes come from the video. The stats tab with filters and the starting lineup are not built |
+| Per-player statistics | The squad (numbers, positions, an alias that never leaves the phone) and each player's 17 stats per match: the coach's values win over the analysis, totals, per 90 minutes and pass accuracy. A report by squad number can be imported, and the coach links each analysis track to a player so their minutes come from the video. A **Stats** tab sorts the squad by any stat over the chosen matches (all, the last 3/5/10, a range of dates or picked ones), each tagged player shows distance, meters per minute and top speed from the video, and each match has its starting lineup on a pitch (9 formations of 11 and 4 of 7) |
 | Video retention | `api/php/bin/retention.php` deletes a clip's video 24 h after its analysis and after 30 days at most, keeping the analysis |
 
 ## Running it locally

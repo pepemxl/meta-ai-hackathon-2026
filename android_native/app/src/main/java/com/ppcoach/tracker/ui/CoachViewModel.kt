@@ -34,7 +34,9 @@ import com.ppcoach.tracker.data.AnalysisReportParser
 import com.ppcoach.tracker.data.ImportSummary
 import com.ppcoach.tracker.data.Player
 import com.ppcoach.tracker.data.Stat
+import com.ppcoach.tracker.data.StartingLineup
 import com.ppcoach.tracker.data.StatsCalc
+import com.ppcoach.tracker.data.StatsFilter
 import com.ppcoach.tracker.data.PitchMode
 import com.ppcoach.tracker.data.PitchReference
 import com.ppcoach.tracker.data.SavedPitch
@@ -66,6 +68,7 @@ sealed interface Screen {
     data object Squad : Screen
     data class PlayerStats(val playerId: Int) : Screen
     data class MatchStats(val matchId: Int) : Screen
+    data object Stats : Screen
 }
 
 /** Progress of a clip's chain as the UI shows it. */
@@ -582,6 +585,12 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         AppGraph.commit { it.savePlayer(if (p.id == 0) p.copy(createdAt = System.currentTimeMillis()) else p).first }
         return true
     }
+
+    /** Which matches add up in the stats tab and on a player's page, and what the tab sorts by. */
+    var statsFilter by mutableStateOf<StatsFilter>(StatsFilter.All)
+    var statsSort by mutableStateOf(Stat.MINUTES.key)
+
+    fun saveLineup(matchId: Int, lineup: StartingLineup) = AppGraph.commit { it.updateMatch(matchId) { m -> m.copy(startingLineup = lineup) } }
 
     fun deletePlayer(id: Int) = AppGraph.commit { it.removePlayer(id) }
     fun addToMatch(matchId: Int, playerId: Int) = AppGraph.commit { it.addToMatch(matchId, playerId) }

@@ -88,6 +88,7 @@ object LibraryCodec {
         put("pitchId", m.pitchId)
         put("camera", m.camera)
         m.analysis?.let { put("analysis", it.toJson()) }
+        m.startingLineup?.let { put("startingLineup", it.toJson()) }
     }
 
     private fun decodeMatch(o: JSONObject): Match? {
@@ -108,6 +109,7 @@ object LibraryCodec {
             pitchId = o.optInt("pitchId", 0).coerceAtLeast(0),
             camera = o.optString("camera", "").takeIf { CameraMode.valid(it) } ?: "",
             analysis = AnalysisReport.fromJson(o.optJSONObject("analysis")),
+            startingLineup = StartingLineup.fromJson(o.optJSONObject("startingLineup")),
         )
     }
 
