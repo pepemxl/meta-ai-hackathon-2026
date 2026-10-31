@@ -1,5 +1,6 @@
 package com.ppcoach.tracker.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -10,15 +11,18 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.ppcoach.tracker.data.ThemeMode
 
 /** The tokens as Compose colors; read with PpTheme.colors. */
@@ -110,6 +114,18 @@ fun PpCoachTrackerTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable
             surfaceVariant = c.surfaceHigh, onSurfaceVariant = c.textSecondary, surfaceContainer = c.surface, surfaceContainerHigh = c.surface,
             surfaceContainerHighest = c.surfaceHigh, outline = c.divider, outlineVariant = c.divider, error = c.negative, errorContainer = c.negativeSoft,
         )
+    }
+    // The status and navigation bar icons follow the app's theme, not the phone's:
+    // light icons on the dark background (enableEdgeToEdge only looks at the system).
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
     }
     CompositionLocalProvider(LocalPpColors provides c) {
         MaterialTheme(colorScheme = scheme, typography = PpTypography, shapes = PpShapes, content = content)
