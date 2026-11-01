@@ -106,7 +106,9 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
         rows = []
         for r in trackset.rows:
             m_xy = cal.to_meters(r.frame, r.foot) if r.label == "player" else None
-            rows.append(r.with_(mx=m_xy[0], my=m_xy[1]) if m_xy else r)
+            r = r.with_(mx=m_xy[0], my=m_xy[1]) if m_xy else r
+            # Outside the lines most of the time: a linesman or the bench, not a team's player.
+            rows.append(r.with_(team="") if r.label == "player" and r.track_id in cal.off_pitch else r)
         trackset = TrackSet(rows=rows, frames=trackset.frames)
         counted_h = set(cal.homographies) & {f.frame for f in shots.counted}
         pitch = metrics_mod.pitch_metrics(TrackSet(rows=trackset.rows, frames=shots.counted), counted_h, cal.template.length, cal.template.width, cal.template.approximate, clip.fps)

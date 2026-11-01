@@ -105,12 +105,13 @@ def motion_steps(frames, boxes_of) -> list[Step]:
     return steps
 
 
-def chain(steps: list[Step], keys: dict[int, np.ndarray], accept, patience: int = 1) -> dict[int, tuple[np.ndarray, int]]:
+def chain(steps: list[Step], keys: dict[int, np.ndarray], accept, patience: int = 1, max_carry: int | None = None) -> dict[int, tuple[np.ndarray, int]]:
     """Carries each key frame's homography forward and backward through trusted steps.
 
     keys: frame index (position in [steps]) → homography. accept(i, H) → False on
     [patience] frames in a row cuts the chain at the first of them (the feet
-    check: a few frames with people out of place do not end it). Returns index →
+    check: a few frames with people out of place do not end it), and no frame is
+    carried farther than [max_carry] from its key (the drift adds up). Returns index →
     (H, key it came from); a frame reachable from two keys takes the nearest one.
     """
     out: dict[int, tuple[np.ndarray, int]] = {}
@@ -119,7 +120,8 @@ def chain(steps: list[Step], keys: dict[int, np.ndarray], accept, patience: int 
         cand = {k: Hk}
         H = Hk
         bad: list[int] = []
-        for i in range(k + 1, n):
+        last = n if max_carry is None else min(n, k + max_carry + 1)
+        for i in range(k + 1, last):
             m = steps[i].motion
             if m is None:
                 break
@@ -132,7 +134,7 @@ def chain(steps: list[Step], keys: dict[int, np.ndarray], accept, patience: int 
             cand.pop(i)
         H = Hk
         bad = []
-        for i in range(k, 0, -1):
+        for i in range(k, 0 if max_carry is None else max(0, k - max_carry), -1):
             m = steps[i].motion
             if m is None:
                 break

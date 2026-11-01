@@ -12,7 +12,12 @@ Rule of the whole thing: BETTER NO METERS THAN FALSE METERS.
   propagate.py. The chain stops at a cut, where too few points match, and
   where fewer than 90 % of the feet fall on the pitch with 5 m of margin for
   1 s in a row (only players with a team count when the teams are known:
-  linesmen, staff and the bench stand outside the lines).
+  linesmen, staff and the bench stand outside the lines). People whose feet
+  fall outside the lines most of the time on the frames already carried (a
+  linesman or the bench the team colors could not tell apart) leave the check
+  and the chain is made again; they come out without a team (off_pitch).
+  A moving camera's homography is carried at most MAX_CARRY_SECONDS from its
+  key frame (the coach's or SAM's): past that the drift is meters.
 - camera "static" (the coach said the camera does not move the whole video:
   a tripod or a panorama): the touched homography holds for every frame, with
   no motion pass; only the feet check can cut it. "moving" or absent: carried
@@ -43,6 +48,19 @@ FEET_INSIDE = 0.90
 # The feet check cuts the chain only after failing this long in a row: a few
 # frames with someone out of place (a throw-in, a bad box) do not end it.
 FEET_BAD_SECONDS = 1.0
+# A track is off the pitch (a linesman, the bench, staff) when its feet fall this far
+# outside the lines in this share of its frames with a homography, over at least
+# OFF_PITCH_SECONDS: a winger on the touchline is outside now and then, not most of the time.
+OFF_PITCH_M = 1.0
+OFF_PITCH_SHARE = 0.8
+OFF_PITCH_SECONDS = 3.0
+OFF_PITCH_ROUNDS = 5
+# Evidence also from the chain without the feet check this close to a key frame:
+# if staff stand outside from the start, the checked chain never gets going.
+OFF_PITCH_WINDOW_SECONDS = 30.0
+# A moving camera followed on the grass drifts (2 m at 40 s on a broadcast): no
+# homography is carried farther than this from its key frame.
+MAX_CARRY_SECONDS = 60.0
 # Rounds of SAM re-anchoring: each one reaches the key frames the new anchors carried the chain to.
 MAX_SAM_ROUNDS = 50
 FEET_MARGIN_M = 5.0
@@ -58,6 +76,8 @@ class PitchCalibration:
     report: dict
     # global frame → the coach's points there [(name, x px, y px)], for the viewer
     marks: dict[int, list[tuple[str, float, float]]] = field(default_factory=dict)
+    # Player tracks outside the lines most of the time: they get no team.
+    off_pitch: set[int] = field(default_factory=set)
 
     def to_meters(self, frame: int, foot_xy: tuple[float, float]) -> tuple[float, float] | None:
         h = self.homographies.get(frame)
@@ -65,6 +85,23 @@ class PitchCalibration:
             return None
         mx, my = unproject(h[0], [[foot_xy[0] * self.width, foot_xy[1] * self.height]])[0]
         return float(mx), float(my)
+
+
+def _off_pitch_tracks(chained: dict, by_frame: dict, template: Template, w: int, h: int, min_frames: int) -> set[int]:
+    """Player tracks whose feet fall more than OFF_PITCH_M outside the lines in
+    OFF_PITCH_SHARE of their frames with a homography (at least [min_frames])."""
+    seen: dict[int, int] = {}
+    out: dict[int, int] = {}
+    for i, (Hm, _) in chained.items():
+        rows = [r for r in by_frame.get(i, []) if r.label == "player"]
+        if not rows:
+            continue
+        m = unproject(Hm, [[r.foot[0] * w, r.foot[1] * h] for r in rows])
+        for r, (x, y) in zip(rows, m):
+            seen[r.track_id] = seen.get(r.track_id, 0) + 1
+            if not template.contains(x, y, OFF_PITCH_M):
+                out[r.track_id] = out.get(r.track_id, 0) + 1
+    return {t for t, n in seen.items() if n >= min_frames and out.get(t, 0) >= OFF_PITCH_SHARE * n}
 
 
 def _fmt(ms: int) -> str:
@@ -173,7 +210,7 @@ def _reference_pictures(clip: Clip, refs: list[dict]) -> list["sam_lines.Referen
     return out
 
 
-def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience=1):
+def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience=1, max_carry=None):
     """SAM's lines on the key frames: new keys where the template falls on them,
     cuts where they contradict the propagated pitch; then the chain again."""
     notes: list[str] = []
@@ -217,7 +254,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
         rounds += 1
         if not nk and not con:
             break
-        chained = chain(steps, {**keys, **new_keys}, accept2, patience)
+        chained = chain(steps, {**keys, **new_keys}, accept2, patience, max_carry)
     if pending:
         # Never reached by the chain: from the nearest homography, as a last try.
         start = {i: Hm for i, (Hm, _) in chained.items()}
@@ -236,7 +273,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
         return chained, report, notes
     for g in new_keys:
         method[g] = "meta_sam"
-    return chain(steps, {**keys, **new_keys}, accept2, patience), report, notes
+    return chain(steps, {**keys, **new_keys}, accept2, patience, max_carry), report, notes
 
 
 def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mode: str | None, frames=None,
@@ -300,9 +337,12 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     # With the teams known, people without one (linesmen, staff, the bench) do not count.
     teams_known = any(r.team for r in trackset.rows if r.label == "player")
     patience = max(1, round(FEET_BAD_SECONDS * clip.fps))
+    off_min = max(1, round(OFF_PITCH_SECONDS * clip.fps))
+    max_carry = None if camera == "static" else round(MAX_CARRY_SECONDS * clip.fps)
+    off: set[int] = set()
 
     def accept(i, Hm):
-        feet = [r.foot for r in by_frame.get(i, []) if r.label == "player" and (r.team or not teams_known)]
+        feet = [r.foot for r in by_frame.get(i, []) if r.label == "player" and r.track_id not in off and (r.team or not teams_known)]
         if len(feet) < 3:
             return True
         m = unproject(Hm, [[fx * w, fy * h] for fx, fy in feet])
@@ -338,14 +378,28 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         steps = [Step(np.eye(3), 0, 1.0, False) for _ in infos]
     else:
         steps = motion_steps(source, boxes_of)
-    chained = chain(steps, keys, accept, patience)
+    chained = chain(steps, keys, accept, patience, max_carry)
+    # Who stands outside the lines on the frames carried so far leaves the feet
+    # check; the chain may now go further and show more of them.
+    window = round(OFF_PITCH_WINDOW_SECONDS * clip.fps)
+    near = {i: v for i, v in chain(steps, keys, lambda i, Hm: True).items() if abs(i - v[1]) <= window}
+    for _ in range(OFF_PITCH_ROUNDS):
+        more = _off_pitch_tracks({**near, **chained}, by_frame, template, w, h, off_min) - off
+        if not more:
+            break
+        off |= more
+        chained = chain(steps, keys, accept, patience, max_carry)
     method = {k: "manual" for k in keys}
     if video is not None:
-        chained, sam_report, sam_notes = _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience)
+        chained, sam_report, sam_notes = _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience, max_carry)
         report["lines"] = "sam"
         report["sam"] = sam_report
         notes += sam_notes
     carried = "static" if static else "propagated"
+    off |= _off_pitch_tracks(chained, by_frame, template, w, h, off_min)
+    report["off_pitch_tracks"] = len(off)
+    if off:
+        notes.append(f"{len(off)} persona(s) pasan casi todo el tiempo fuera de las líneas (jueces de línea, banca o cuerpo técnico): quedan sin equipo.")
     homographies = {i: (Hm, method[k] if i == k else carried) for i, (Hm, k) in chained.items()}
 
     n = max(1, len(infos))
@@ -362,4 +416,4 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     )
     if len(homographies) / n < 0.5:
         notes.append(f"La cancha solo se calculó en el {round(100 * len(homographies) / n)} % del video.")
-    return PitchCalibration(template, w, h, homographies, report, marks), notes
+    return PitchCalibration(template, w, h, homographies, report, marks, off), notes

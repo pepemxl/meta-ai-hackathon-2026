@@ -167,6 +167,8 @@ def test_the_feet_check_cuts_the_chain_only_after_failing_several_frames_in_a_ro
     # With patience the moment is crossed and kept; the cut drops the failing frames.
     assert set(chain(steps, {0: np.eye(3)}, accept, patience=4)) == set(range(20))
     assert set(chain(steps, {29: np.eye(3)}, accept, patience=4)) == {29}
+    # Never carried farther than max_carry from the key, either way.
+    assert set(chain(steps, {10: np.eye(3)}, lambda i, H: True, max_carry=3)) == set(range(7, 14))
 
 
 def test_the_feet_check_counts_only_players_with_a_team_and_waits_a_second(tmp_path):
@@ -189,12 +191,34 @@ def test_the_feet_check_counts_only_players_with_a_team_and_waits_a_second(tmp_p
     # Staff and the bench outside the lines, in every frame: they have no team and do not count.
     staff = [r for f in range(len(infos)) for r in people(f, on, "A") + people(f, off, "")]
     assert run(staff) == len(infos)
-    # Without teams anywhere, everybody counts: the same people cut the chain at once.
-    assert run([TrackRow(**{**r.__dict__, "team": ""}) for r in staff]) == 1
     # Players out of place for half a second do not cut it; for good from frame 15, they do.
     out = set(range(5, 10)) | set(range(15, len(infos)))
     rows = [r for f in range(len(infos)) for r in people(f, off if f in out else on, "B")]
     assert run(rows) == 15
+
+
+def test_people_outside_the_lines_most_of_the_time_leave_the_feet_check_and_lose_their_team(tmp_path):
+    from ppcoachtracker_worker.calibration import calibrate
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.types import TrackRow, TrackSet
+
+    clip = load_clip(ps.make_clip(tmp_path / "pitch", seconds=4))
+    infos = clip.frame_infos()
+    on = project(ps.CAM.homography(), [[-10, 0], [0, 5], [10, -5], [20, 8]]) / [ps.W, ps.H]
+    bench = project(ps.CAM.homography(), [[-5, -26], [5, -26]]) / [ps.W, ps.H]  # 6 m past the near touchline
+    winger = project(ps.CAM.homography(), [[15, 21.5]]) / [ps.W, ps.H]  # 1.5 m past the far touchline
+    rows = []
+    for f in range(len(infos)):
+        rows += [TrackRow(f, f * 100, f * 3, 1 + n, "player", x - 0.01, y - 0.05, 0.02, 0.05, team="A") for n, (x, y) in enumerate(on)]
+        # The bench in dark clothes came out as the team in black.
+        rows += [TrackRow(f, f * 100, f * 3, 10 + n, "player", x - 0.01, y - 0.05, 0.02, 0.05, team="B") for n, (x, y) in enumerate(bench)]
+        # A winger outside the line a third of the time is still a player.
+        x, y = winger[0] if f % 3 == 0 else on[3]
+        rows.append(TrackRow(f, f * 100, f * 3, 20, "player", x - 0.01, y - 0.05, 0.02, 0.05, team="B"))
+    cal, notes = calibrate(clip, TrackSet(rows=rows, frames=infos), ps.touches(), "no_lines", frames=iter(()), camera="static")
+    assert cal.off_pitch == {10, 11} and cal.report["off_pitch_tracks"] == 2
+    assert len(cal.homographies) == len(infos)
+    assert any("fuera de las líneas" in n for n in notes)
 
 
 def test_a_saved_run_keeps_the_coach_marks_for_the_viewer(meta, tmp_path, config_for):
