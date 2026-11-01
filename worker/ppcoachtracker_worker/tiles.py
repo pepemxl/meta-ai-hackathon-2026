@@ -144,6 +144,16 @@ def median_player(heights: list[int]) -> float | None:
     return float(np.median(heights)) if len(heights) >= MIN_PLAYER_BLOBS else None
 
 
+def seen_px(player_px: float | None, width: int, height: int, tile_plan: "TilePlan | None") -> float | None:
+    """The median player's height as SAM sees it: at the tiles' scale, else
+    with the whole frame shrunk to SIZE on its long side (never enlarged)."""
+    if not player_px or width <= 0 or height <= 0:
+        return None
+    if tile_plan is not None:
+        return player_px * tile_plan.scale
+    return player_px * min(1.0, SIZE / max(width, height))
+
+
 def mask_margin(player_px: float | None, height: int, coach_margin: float = 0.0) -> float:
     """How far out the black starts, as a fraction of the height."""
     heads = MASK_PLAYER_HEIGHTS * player_px / height if player_px else 0.0

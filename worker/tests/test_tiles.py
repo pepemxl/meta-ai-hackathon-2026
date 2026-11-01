@@ -88,6 +88,20 @@ def test_a_16_9_video_with_players_too_small_for_sam_is_tiled_too():
     assert p.tiles[0].y == pytest.approx(97) and p.tiles[0].out_h == 984
 
 
+def test_the_player_size_sam_sees_is_measured_at_the_tiles_scale():
+    # The emulator's copy of the panorama: 1920x400, players of 14 px, two tiles at scale 1.
+    p = tiles.plan(1920, 400, (100, 80, 1820, 340))
+    assert tiles.seen_px(14, 1920, 400, p) == pytest.approx(14 * p.scale)
+    assert tiles.seen_px(14, 1920, 400, p) < tiles.MIN_SAM_PLAYER_PX
+    # The original 3840x800: players of 31 px, tiles at 0.90, SAM sees them big enough.
+    p = tiles.plan(3840, 800, (384, 160, 3456, 680))
+    assert tiles.seen_px(31, 3840, 800, p) >= tiles.MIN_SAM_PLAYER_PX
+    # Without tiles the frame shrinks to 1024 on its long side, and a small video is not enlarged.
+    assert tiles.seen_px(39, 1920, 1080, None) == pytest.approx(39 * 1024 / 1920)
+    assert tiles.seen_px(12, 640, 360, None) == 12
+    assert tiles.seen_px(None, 1920, 1080, None) is None
+
+
 def _tactical_frame(players: int = 40, h: int = 36):
     """A 1920x1080 frame: stands on top, grass below with a painted line and [players] people of [h] px."""
     import numpy as np

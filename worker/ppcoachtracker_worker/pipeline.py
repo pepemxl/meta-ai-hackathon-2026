@@ -129,6 +129,12 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
                if segmenter.tile_reason == "small" else "video ancho")
         notes.append(f"SAM vio el video en {len(tile_plan.tiles)} parte(s) de hasta {tiles_mod.SIZE} px sobre la cancha (escala {tile_plan.scale:g}; {why}), "
                      f"con lo que no es cancha en negro; {segmenter.tile_joins} tracks se unieron entre partes.")
+    seen = tiles_mod.seen_px(segmenter.player_px, clip.width, clip.height, tile_plan)
+    if seen is not None and seen < tiles_mod.MIN_SAM_PLAYER_PX:
+        # Tiles cannot enlarge: a video that came small (an encoder that brought it down) stays small.
+        notes.append(f"Los jugadores miden unos {segmenter.player_px:.0f} px en el video de {clip.width}×{clip.height} y SAM los ve de unos {seen:.0f} px "
+                     f"(necesita unos {tiles_mod.MIN_SAM_PLAYER_PX}): pueden faltar los lejanos y los que van en grupo. "
+                     "Grabe o importe el video a más resolución, o más cerca de la cancha.")
     if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
         notes.append(f"Se descartaron {len(trackset.frames) - len(shots.counted)} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.")
     if pitch is not None:
