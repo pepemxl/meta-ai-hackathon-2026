@@ -1,7 +1,7 @@
 import numpy as np
 
 import pitchscene as ps
-from ppcoachtracker_worker.calibration.propagate import chain, motion_steps
+from ppcoachtracker_worker.calibration.propagate import Step, chain, motion_steps
 from ppcoachtracker_worker.calibration.solver import project
 from ppcoachtracker_worker.pipeline import analyze
 
@@ -157,6 +157,44 @@ def test_propagation_follows_a_pan_and_stops_at_a_cut():
     out = chain(steps, {0: H0}, lambda i, H: True)
     assert set(out) == set(range(20))
     assert abs(out[19][0][0, 2] + 95.0) < 2.0
+
+
+def test_the_feet_check_cuts_the_chain_only_after_failing_several_frames_in_a_row():
+    steps = [Step(np.eye(3), 100, 1.0, False) for _ in range(30)]
+    bad = set(range(5, 8)) | set(range(20, 30))  # a moment out of place, then for good
+    accept = lambda i, H: i not in bad  # noqa: E731
+    assert set(chain(steps, {0: np.eye(3)}, accept)) == set(range(5))
+    # With patience the moment is crossed and kept; the cut drops the failing frames.
+    assert set(chain(steps, {0: np.eye(3)}, accept, patience=4)) == set(range(20))
+    assert set(chain(steps, {29: np.eye(3)}, accept, patience=4)) == {29}
+
+
+def test_the_feet_check_counts_only_players_with_a_team_and_waits_a_second(tmp_path):
+    from ppcoachtracker_worker.calibration import calibrate
+    from ppcoachtracker_worker.chunks import load_clip
+    from ppcoachtracker_worker.types import TrackRow, TrackSet
+
+    clip = load_clip(ps.make_clip(tmp_path / "pitch", seconds=3))
+    infos = clip.frame_infos()
+    on = project(ps.CAM.homography(), [[-10, 0], [0, 5], [10, -5]]) / [ps.W, ps.H]
+    off = project(ps.CAM.homography(), [[-10, 40], [0, 40], [10, 40]]) / [ps.W, ps.H]  # 20 m past the far touchline
+
+    def people(f, feet, team):
+        return [TrackRow(f, f * 100, f * 3, n + (10 if team else 20), "player", x - 0.01, y - 0.05, 0.02, 0.05, team=team) for n, (x, y) in enumerate(feet)]
+
+    def run(rows):
+        cal, _ = calibrate(clip, TrackSet(rows=rows, frames=infos), ps.touches(), "no_lines", frames=iter(()), camera="static")
+        return len(cal.homographies)
+
+    # Staff and the bench outside the lines, in every frame: they have no team and do not count.
+    staff = [r for f in range(len(infos)) for r in people(f, on, "A") + people(f, off, "")]
+    assert run(staff) == len(infos)
+    # Without teams anywhere, everybody counts: the same people cut the chain at once.
+    assert run([TrackRow(**{**r.__dict__, "team": ""}) for r in staff]) == 1
+    # Players out of place for half a second do not cut it; for good from frame 15, they do.
+    out = set(range(5, 10)) | set(range(15, len(infos)))
+    rows = [r for f in range(len(infos)) for r in people(f, off if f in out else on, "B")]
+    assert run(rows) == 15
 
 
 def test_a_saved_run_keeps_the_coach_marks_for_the_viewer(meta, tmp_path, config_for):

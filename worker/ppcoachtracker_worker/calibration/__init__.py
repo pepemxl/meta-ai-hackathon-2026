@@ -10,7 +10,9 @@ Rule of the whole thing: BETTER NO METERS THAN FALSE METERS.
   or the light is poor; with 4 any names fit), not used if the median error passes 1.5 % of the
   height (a note says so), carried along its shot by
   propagate.py. The chain stops at a cut, where too few points match, and
-  where fewer than 90 % of the feet fall on the pitch with 5 m of margin.
+  where fewer than 90 % of the feet fall on the pitch with 5 m of margin for
+  1 s in a row (only players with a team count when the teams are known:
+  linesmen, staff and the bench stand outside the lines).
 - camera "static" (the coach said the camera does not move the whole video:
   a tripod or a panorama): the touched homography holds for every frame, with
   no motion pass; only the feet check can cut it. "moving" or absent: carried
@@ -38,6 +40,9 @@ MIN_CONSISTENT = 5
 # A painted line shorter than this (of the image height) says little about its direction.
 MIN_STROKE = 0.05
 FEET_INSIDE = 0.90
+# The feet check cuts the chain only after failing this long in a row: a few
+# frames with someone out of place (a throw-in, a bad box) do not end it.
+FEET_BAD_SECONDS = 1.0
 # Rounds of SAM re-anchoring: each one reaches the key frames the new anchors carried the chain to.
 MAX_SAM_ROUNDS = 50
 FEET_MARGIN_M = 5.0
@@ -168,7 +173,7 @@ def _reference_pictures(clip: Clip, refs: list[dict]) -> list["sam_lines.Referen
     return out
 
 
-def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method):
+def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience=1):
     """SAM's lines on the key frames: new keys where the template falls on them,
     cuts where they contradict the propagated pitch; then the chain again."""
     notes: list[str] = []
@@ -212,7 +217,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
         rounds += 1
         if not nk and not con:
             break
-        chained = chain(steps, {**keys, **new_keys}, accept2)
+        chained = chain(steps, {**keys, **new_keys}, accept2, patience)
     if pending:
         # Never reached by the chain: from the nearest homography, as a last try.
         start = {i: Hm for i, (Hm, _) in chained.items()}
@@ -231,7 +236,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
         return chained, report, notes
     for g in new_keys:
         method[g] = "meta_sam"
-    return chain(steps, {**keys, **new_keys}, accept2), report, notes
+    return chain(steps, {**keys, **new_keys}, accept2, patience), report, notes
 
 
 def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mode: str | None, frames=None,
@@ -292,8 +297,12 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     def boxes_of(g):
         return [(r.x, r.y, r.w, r.h) for r in by_frame.get(g, []) if r.label == "player"]
 
+    # With the teams known, people without one (linesmen, staff, the bench) do not count.
+    teams_known = any(r.team for r in trackset.rows if r.label == "player")
+    patience = max(1, round(FEET_BAD_SECONDS * clip.fps))
+
     def accept(i, Hm):
-        feet = [r.foot for r in by_frame.get(i, []) if r.label == "player"]
+        feet = [r.foot for r in by_frame.get(i, []) if r.label == "player" and (r.team or not teams_known)]
         if len(feet) < 3:
             return True
         m = unproject(Hm, [[fx * w, fy * h] for fx, fy in feet])
@@ -329,10 +338,10 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         steps = [Step(np.eye(3), 0, 1.0, False) for _ in infos]
     else:
         steps = motion_steps(source, boxes_of)
-    chained = chain(steps, keys, accept)
+    chained = chain(steps, keys, accept, patience)
     method = {k: "manual" for k in keys}
     if video is not None:
-        chained, sam_report, sam_notes = _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method)
+        chained, sam_report, sam_notes = _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience)
         report["lines"] = "sam"
         report["sam"] = sam_report
         notes += sam_notes
