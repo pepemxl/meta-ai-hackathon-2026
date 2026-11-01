@@ -68,6 +68,14 @@ Un solo recorte pierde las porterías. La solución fue partir el panorama en **
   - **19 jugadores por cuadro**, balón en el 77 % de los cuadros y 51 tracks que bajaron a 35 con 16 uniones;
   - la parte 1 salió vacía, pero era correcto: en ese minuto solo estaba el portero, con un color que ningún concepto describe.
 
+### 7. La prueba de punta a punta en el emulador: la mitad de la resolución
+
+El 1 de noviembre se importó en la app, desde el emulador, un clip de 20 s de la misma panorámica (3840×800, cámara fija, zona de juego de 4 puntos). El análisis salió casi vacío: 7.9 jugadores por cuadro de un solo equipo, 0 del otro y el balón en 0 % de los cuadros.
+
+- **Qué pasó:** el codificador del emulador no acepta más de 1920 de ancho, así que el chunk salió a **1920×400** y unos 8 fps, no a 3840×800. Los jugadores quedaron de unos **14 px**, por debajo de los 24 px que pide el worker (`MIN_SAM_PLAYER_PX`). El worker no amplía más allá de la escala 1, y SAM encontró a la mitad de los jugadores y a ninguno en grupo. Primero el job falló, porque el YAML decía 3840×800 y una de las partes quedó vacía; el commit `67e3241` hace que la app y el worker usen el tamaño real del video.
+- **Un error de la prueba:** al otro equipo se le puso "negro". En ese tramo era el calentamiento: casi todos vestían de blanco y el visitante, de rojo, seguía en la pista. Los de negro eran jueces y cuerpo técnico. Ese cero sí era correcto.
+- **La comprobación:** el mismo clip, cortado en local a 3840×800 (`tools/make_chunks.py`) con el visitante en rojo, dio jugadores de 31 px en 3 partes, **25.3 jugadores por cuadro** del local, los 8 del visitante cuando entran a la cancha y 68 cajas quitadas por la zona de juego (US$0.36 de SAM). El worker no necesitaba cambios.
+
 ## Lo que conviene recordar
 
 1. **Pensar en el tamaño que ve el modelo, no en el del video.** Para SAM, el jugador debe medir unos 30 px después de reducir el cuadro a 1024 px por el lado largo. La cuenta es `alto_en_el_video × 1024 / max(ancho, alto)` del video que se manda. Más resolución no sirve si el cuadro también crece.
@@ -77,10 +85,13 @@ Un solo recorte pierde las porterías. La solución fue partir el panorama en **
 5. **Probar la parte gratuita con el segmentador local.** La unión de tracks, las coordenadas y la revisión a ojo no necesitan SAM.
 6. **Un cero puede ser correcto.** La parte vacía tenía solo al portero. Revisar el cuadro antes de concluir que el modelo falló.
 7. **El costo se multiplica por las partes.** Tres partes son tres veces US$0.36 por minuto. Conviene mandar solo las partes donde hay cancha y juego.
+8. **Revisar el tamaño del chunk que llegó, no el del video que se importó.** El campo `video.width/height` del resultado y `tiles.player_px` dicen lo que vio SAM. Si el chunk llegó más chico que el original, el problema está en la codificación, no en el worker.
+9. **Los colores de la prueba tienen que ser los del clip.** Antes de culpar a SAM por un equipo vacío, mirar quién está en la cancha en ese tramo.
 
 ## Trampas del entorno
 
 - **ffmpeg no está en la imagen del worker y OpenCV no está en el Python de Windows.** Por eso `make_tiles.py` tiene `plan` y `merge` (OpenCV, en el contenedor) separados de `encode` (solo ffmpeg, en el host). Dentro del worker (`tiles.py`), las partes se escriben con OpenCV en MPEG-4, que SAM también acepta.
 - **Contenedores largos con `docker run -d`.** Cuando la memoria del sistema baja, Claude Code detiene los procesos de fondo de la sesión, incluido el `wsl docker run` que espera al contenedor. El contenedor sigue, pero la salida redirigida a un archivo se pierde. Con `-d` y `docker logs` al final, el log queda completo.
+- **El emulador no sirve para probar video ancho.** Su codificador topa en 1920 de ancho, así que una panorámica de 3840 llega a la mitad y los jugadores quedan por debajo de lo que SAM detecta. Con video ancho, el emulador solo prueba el flujo (importar, subir, ver el análisis). La calidad se mide con chunks cortados en local a tamaño original (`tools/make_chunks.py --width 3840 --height 800`) o con un teléfono real.
 - **Reutilizar la caché exige los mismos chunks byte por byte.** La llave incluye el sha256 del chunk: volver a cortar o recodificar el video vuelve a cobrar.
 - **Las capturas con video de la transmisión se quedan en la máquina** ([08-uso-de-video.md](../08-uso-de-video.md)): este documento describe el proceso sin imágenes.
