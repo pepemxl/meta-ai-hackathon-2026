@@ -200,3 +200,44 @@ def test_one_request_failing_keeps_the_other(meta, tmp_path):
     meta.objects = stream(lines_mask(), [1, 2])
     cal, notes = calibrate(clip, TrackSet(rows=[], frames=clip.frame_infos()), _calibration_with_strokes(), "lines", lines=_lines(meta, tmp_path))
     assert notes == [] and cal.report["sam"]["found"] == 2
+
+
+def test_sam_re_anchoring_goes_in_rounds_past_where_the_chain_stopped(monkeypatch):
+    """The chain from a key reaches 15 frames (then the feet check cuts it); SAM's key
+    frames every 10. Each new anchor carries the chain to the next key frame, so
+    the rounds reach the end of the clip instead of stopping at the first cut."""
+    import numpy as np
+
+    from ppcoachtracker_worker import calibration as cal_mod
+    from ppcoachtracker_worker.calibration import sam_lines as sl
+    from ppcoachtracker_worker.calibration.propagate import Step
+    from ppcoachtracker_worker.calibration.template import build
+
+    def H_of(k):  # a homography that says which key it came from
+        H = np.eye(3)
+        H[0, 2] = k
+        return H
+
+    n = 100
+    steps = [Step(np.eye(3), 100, 1.0, False) for _ in range(n)]
+    accept = lambda i, Hm: i - Hm[0, 2] <= 15  # noqa: E731
+    keys = {0: H_of(0)}
+    chained = cal_mod.chain(steps, keys, accept)
+    assert max(chained) == 15
+    monkeypatch.setattr(sl, "find_white", lambda lines, video: ({g: np.ones((4, 4), bool) for g in range(10, n, 10)}, 9))
+    monkeypatch.setattr(cal_mod.Camera, "from_homography", staticmethod(lambda *a: None))
+    calls = []
+
+    def refine(white, start, camera, t):
+        calls.append(sorted(white))
+        return {g: H_of(g) for g in white if g in start}, set(), [{"frame": g, "used": g in start} for g in white]
+
+    monkeypatch.setattr(sl, "refine_keys", refine)
+    lines = type("L", (), {"concept": "white line"})()
+    video = type("V", (), {"order": [None] + list(range(10, n, 10)), "objects": [], "sent_objects": lambda self: []})()
+    method = {0: "manual"}
+    out, report, notes = cal_mod._with_sam_lines(lines, video, chained, keys, build(11), 1280, 720, steps, accept, method)
+    assert report["used"] == 9 and report["rounds"] == 9
+    assert calls[0] == [10] and calls[-1] == [90]  # one key frame reached per round
+    assert sorted(out) == list(range(n))
+    assert {g for g, m in method.items() if m == "meta_sam"} == set(range(10, n, 10))

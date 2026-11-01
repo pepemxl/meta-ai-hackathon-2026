@@ -38,6 +38,8 @@ MIN_CONSISTENT = 5
 # A painted line shorter than this (of the image height) says little about its direction.
 MIN_STROKE = 0.05
 FEET_INSIDE = 0.90
+# Rounds of SAM re-anchoring: each one reaches the key frames the new anchors carried the chain to.
+MAX_SAM_ROUNDS = 50
 FEET_MARGIN_M = 5.0
 
 
@@ -184,8 +186,42 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
     # The camera's place from the first touched frame (a tripod or a broadcast camera does not move).
     k0 = min(keys)
     camera = Camera.from_homography(keys[k0], w, h, list(template.points.values()))
-    start = {i: Hm for i, (Hm, _) in chained.items()}
-    new_keys, contradicted, frames = sam_lines.refine_keys({g: m for g, m in white.items() if g not in keys}, start, camera, template)
+    new_keys: dict[int, np.ndarray] = {}
+    contradicted: set[int] = set()
+    frames: list[dict] = []
+
+    def accept2(i, Hm):
+        return i not in contradicted and accept(i, Hm)
+
+    # In rounds: a key frame is fitted from the homography carried to it; the new
+    # anchors carry the chain past where it stopped, and the next key frames start
+    # from there (a pose minutes old rarely fits a moving camera).
+    pending = {g: m for g, m in white.items() if g not in keys}
+    rounds = 0
+    while pending and rounds < MAX_SAM_ROUNDS:
+        start = {i: Hm for i, (Hm, _) in chained.items()}
+        ready = {g: m for g, m in pending.items() if g in start}
+        if not ready:
+            break
+        nk, con, fr = sam_lines.refine_keys(ready, start, camera, template)
+        for g in ready:
+            pending.pop(g)
+        new_keys.update(nk)
+        contradicted |= con
+        frames += fr
+        rounds += 1
+        if not nk and not con:
+            break
+        chained = chain(steps, {**keys, **new_keys}, accept2)
+    if pending:
+        # Never reached by the chain: from the nearest homography, as a last try.
+        start = {i: Hm for i, (Hm, _) in chained.items()}
+        nk, con, fr = sam_lines.refine_keys(pending, start, camera, template)
+        new_keys.update(nk)
+        contradicted |= con
+        frames += fr
+    frames.sort(key=lambda f: f["frame"])
+    report["rounds"] = rounds
     confirmed = sum(1 for f in frames if f.get("confirmed"))
     report.update(used=len(new_keys), confirmed=confirmed, contradicted=len(contradicted), frames=frames[:60])
     if not new_keys and not contradicted and not confirmed:
@@ -195,10 +231,6 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
         return chained, report, notes
     for g in new_keys:
         method[g] = "meta_sam"
-
-    def accept2(i, Hm):
-        return i not in contradicted and accept(i, Hm)
-
     return chain(steps, {**keys, **new_keys}, accept2), report, notes
 
 
