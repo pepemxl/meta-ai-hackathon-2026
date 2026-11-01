@@ -241,7 +241,7 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteProxy(clip: Clip) {
         proxyDir(clip)?.deleteRecursively()
-        updateClip(clip.id) { it.copy(chunkCount = 0, chunkSeconds = 0, overlapMs = 0, proxyHeight = 0) }
+        updateClip(clip.id) { it.copy(chunkCount = 0, chunkSeconds = 0, overlapMs = 0, proxyHeight = 0, encodedWidth = 0, encodedHeight = 0) }
     }
 
     /** Copies every clip not in [to] there (copy, verify size, delete). Returns how many moved. */

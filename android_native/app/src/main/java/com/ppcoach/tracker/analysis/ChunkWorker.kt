@@ -86,6 +86,7 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         var prevMap: List<FrameRow> = emptyList()
         var pitchFrames = 0
         var pitchWith = 0
+        var encoded: Pair<Int, Int>? = null
         try {
             for ((i, cut) in cuts.withIndex()) {
                 val n = i + 1
@@ -105,8 +106,10 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     setProgressAsync(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to pct * 85 / 100))
                 }
                 val outputMs = frameTimesMs(mp4).map { start + it }
-                // The encoder may not take the size asked for (an emulator tops out at 1920 wide): the YAML says what came out.
+                // The encoder may not take the size asked for (an emulator takes up to 2048 wide; Media3 then picks a smaller size): the YAML says what came out.
                 val (w, h) = videoSize(mp4) ?: (outW to outH)
+                if (encoded == null) encoded = w to h
+                if (ProxySpec.reduced(outW, outH, w, h)) android.util.Log.w("ChunkWorker", "chunk $n: asked ${outW}x$outH, the encoder made ${w}x$h")
                 val map = Chunks.frameMap(outputMs, info.sourceFps)
                 val overlap = if (n == 1) 0 else Chunks.overlapFrames(map, (prevMap.lastOrNull()?.ms ?: cut.startMs) + 1)
                 val meta = ChunkMeta(
@@ -142,7 +145,12 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             return Result.failure()
         }
         val share = if (pitchFrames > 0) pitchWith.toDouble() / pitchFrames else -1.0
-        AppGraph.commit { l -> l.updateClip(clipId) { (if (it.status == ClipStatus.PREPARING) it.copy(status = ClipStatus.LOCAL) else it).copy(pitchShare = share) } }
+        AppGraph.commit { l ->
+            l.updateClip(clipId) {
+                val c = (if (it.status == ClipStatus.PREPARING) it.copy(status = ClipStatus.LOCAL) else it).copy(pitchShare = share)
+                encoded?.let { (w, h) -> c.copy(encodedWidth = w, encodedHeight = h) } ?: c
+            }
+        }
         return Result.success(workDataOf(KEY_CLIP to clipId))
     }
 
@@ -207,7 +215,6 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         onProgress(100)
     }
 
-    /** Presentation time of each frame of the generated chunk, in ms from its start (measured, not planned). */
     /** Width and height of the video track as encoded, or null if it cannot be read. */
     private fun videoSize(file: File): Pair<Int, Int>? {
         val ex = MediaExtractor()
@@ -224,6 +231,7 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         }
     }
 
+    /** Presentation time of each frame of the generated chunk, in ms from its start (measured, not planned). */
     private fun frameTimesMs(file: File): List<Long> {
         val ex = MediaExtractor()
         try {

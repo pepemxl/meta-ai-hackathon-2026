@@ -357,6 +357,7 @@ interface Strings {
     val pitchApproximate: String
     val topDownTitle: String
     val fewPitchWarning: String
+    fun encoderReduced(got: String, asked: String): String
 }
 
 object Es : Strings {
@@ -761,6 +762,7 @@ object Es : Strings {
     override val pitchApproximate = "Medidas por omisión de la cancha: las distancias son aproximadas."
     override val topDownTitle = "La cancha vista desde arriba"
     override val fewPitchWarning = "En este video casi no se ve la cancha; el análisis puede salir vacío. Puedes enviarlo igual."
+    override fun encoderReduced(got: String, asked: String) = "El teléfono redujo la copia para el análisis a $got (se pidió $asked): los jugadores lejanos pueden no detectarse."
 }
 
 object En : Strings {
@@ -1165,6 +1167,7 @@ object En : Strings {
     override val pitchApproximate = "Default pitch measures: distances are approximate."
     override val topDownTitle = "The pitch from above"
     override val fewPitchWarning = "The pitch is barely visible in this video; the analysis may come out empty. You can send it anyway."
+    override fun encoderReduced(got: String, asked: String) = "The phone brought the analysis copy down to $got ($asked was asked for): far-away players may not be detected."
 }
 
 val LocalStrings = staticCompositionLocalOf<Strings> { Es }

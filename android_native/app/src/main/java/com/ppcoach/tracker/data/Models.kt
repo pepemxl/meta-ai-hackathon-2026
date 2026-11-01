@@ -153,6 +153,9 @@ data class Clip(
     val playerMeters: Map<Int, Int> = emptyMap(),
     /** Each tagged number's top speed in this clip, in tenths of m/s (only with the pitch computed). */
     val playerTopSpeed: Map<Int, Int> = emptyMap(),
+    /** What the phone's encoder made of the analysis copy (it may not take the size asked for); 0 = not prepared. */
+    val encodedWidth: Int = 0,
+    val encodedHeight: Int = 0,
 ) {
     val fileName: String get() = "clip_%04d.mp4".format(id)
 }

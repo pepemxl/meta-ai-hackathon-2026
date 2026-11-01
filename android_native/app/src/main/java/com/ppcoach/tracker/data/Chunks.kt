@@ -239,6 +239,14 @@ data class ProxySpec(val maxHeight: Int, val bitrate: Int) {
             return ProxySpec(h, bitrate)
         }
 
+        /**
+         * Whether the encoder brought the copy down: it may not take the size asked for (an emulator
+         * tops out at 2048 wide) and Media3 then picks a smaller one without an error. 5 % of slack
+         * for the encoder's alignment.
+         */
+        fun reduced(askedWidth: Int, askedHeight: Int, gotWidth: Int, gotHeight: Int): Boolean =
+            gotWidth > 0 && gotHeight > 0 && (gotWidth < askedWidth * 0.95 || gotHeight < askedHeight * 0.95)
+
         /** Output size keeping the aspect ratio, even dimensions, at most [maxHeight] tall. */
         fun outputSize(width: Int, height: Int, maxHeight: Int): Pair<Int, Int> {
             if (width <= 0 || height <= 0) return 1280 to 720

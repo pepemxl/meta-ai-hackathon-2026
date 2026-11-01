@@ -1,6 +1,7 @@
 package com.ppcoach.tracker.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -117,5 +118,14 @@ class ChunksTest {
         assertEquals(240, ChunkProfile.forSpec(ChunkProfile.DEMO, ProxySpec.of(ProxyResolution.ORIGINAL, 3840, 800)).chunkSeconds)
         assertEquals(300, ChunkProfile.forSpec(ChunkProfile.DEMO, ProxySpec.HIGH).chunkSeconds)
         assertEquals(60, ChunkProfile.forSpec(ChunkProfile.DEV, ProxySpec.STANDARD).chunkSeconds)
+    }
+
+    @Test
+    fun aCopyTheEncoderBroughtDownIsTold() {
+        // The emulator: the 3840x800 panorama asked for at its size came out at half.
+        assertTrue(ProxySpec.reduced(3840, 800, 1920, 400))
+        assertFalse(ProxySpec.reduced(3840, 800, 3840, 800))
+        assertFalse(ProxySpec.reduced(1280, 720, 1280, 718))  // the encoder's alignment
+        assertFalse(ProxySpec.reduced(3840, 800, 0, 0))  // not measured
     }
 }

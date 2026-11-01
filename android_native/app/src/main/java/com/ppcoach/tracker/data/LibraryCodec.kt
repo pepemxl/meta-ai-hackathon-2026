@@ -137,6 +137,8 @@ object LibraryCodec {
         put("overlapMs", c.overlapMs)
         put("proxyHeight", c.proxyHeight)
         put("chunkCount", c.chunkCount)
+        put("encodedWidth", c.encodedWidth)
+        put("encodedHeight", c.encodedHeight)
         put("error", c.error)
         put("pitchMode", c.pitchMode)
         c.touches?.let { put("touches", it.toJson()) }
@@ -174,6 +176,8 @@ object LibraryCodec {
             overlapMs = o.optInt("overlapMs", 0),
             proxyHeight = o.optInt("proxyHeight", 0),
             chunkCount = o.optInt("chunkCount", 0),
+            encodedWidth = o.optInt("encodedWidth", 0),
+            encodedHeight = o.optInt("encodedHeight", 0),
             error = o.optString("error", ""),
             pitchMode = o.optString("pitchMode", "").takeIf { PitchMode.valid(it) } ?: "",
             touches = PitchTouches.fromJson(o.optJSONObject("touches")),
