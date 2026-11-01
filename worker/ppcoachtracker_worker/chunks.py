@@ -184,6 +184,8 @@ def load_clip(directory: Path) -> Clip:
             fmap = [(int(r[0]), int(r[1]), int(r[2])) for r in rows]
         except (TypeError, ValueError, IndexError):
             raise InputError(f"{where}: invalid frames.map") from None
+        # The video's own size wins over the YAML's: an encoder may not give the size asked for.
+        width, height = _video_size(video) or (int(enc.get("width") or 0), int(enc.get("height") or 0))
         chunks.append(Chunk(
             number=n,
             video=video,
@@ -192,8 +194,8 @@ def load_clip(directory: Path) -> Clip:
             overlap_ms=int(ch.get("overlap_ms") or 0),
             overlap_frames=int(frames.get("overlap_frames") or 0) if n > 1 else 0,
             fps=float(enc.get("fps") or 10),
-            width=int(enc.get("width") or 0),
-            height=int(enc.get("height") or 0),
+            width=width,
+            height=height,
             frame_count=_int(frames, "count", where),
             map=fmap,
             pitch=meta.get("pitch") if isinstance(meta.get("pitch"), dict) else None,
@@ -206,6 +208,18 @@ def load_clip(directory: Path) -> Clip:
         overlap_ms=overlap_ms,
         chunks=chunks,
     )
+
+
+def _video_size(video: Path) -> tuple[int, int] | None:
+    """Width and height of the video as decoded, or None if it cannot be opened."""
+    import cv2
+
+    cap = cv2.VideoCapture(str(video))
+    try:
+        w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    finally:
+        cap.release()
+    return (w, h) if w > 0 and h > 0 else None
 
 
 def read_frames(chunk: Chunk, wanted: set[int] | None = None) -> Iterator[tuple[int, "object"]]:

@@ -105,13 +105,15 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     setProgressAsync(workDataOf("phase" to "prepare", "chunk" to n, "of" to cuts.size, "pct" to pct * 85 / 100))
                 }
                 val outputMs = frameTimesMs(mp4).map { start + it }
+                // The encoder may not take the size asked for (an emulator tops out at 1920 wide): the YAML says what came out.
+                val (w, h) = videoSize(mp4) ?: (outW to outH)
                 val map = Chunks.frameMap(outputMs, info.sourceFps)
                 val overlap = if (n == 1) 0 else Chunks.overlapFrames(map, (prevMap.lastOrNull()?.ms ?: cut.startMs) + 1)
                 val meta = ChunkMeta(
                     number = n, count = cuts.size, file = mp4.name, seconds = profile.chunkSeconds,
                     startMs = map.firstOrNull()?.ms ?: start, endMs = cut.endMs,
                     overlapMs = if (n == 1) 0 else (prevMap.lastOrNull()?.ms ?: cut.startMs) - (map.firstOrNull()?.ms ?: start) + 100,
-                    width = outW, height = outH, bitrate = spec.bitrate, map = map, overlapFrames = overlap, sha256 = sha256(mp4),
+                    width = w, height = h, bitrate = spec.bitrate, map = map, overlapFrames = overlap, sha256 = sha256(mp4),
                 )
                 // The pitch of each frame (docs/prompts/12-mascara-cancha.md). If it fails, the YAML goes without it.
                 val started = System.currentTimeMillis()
@@ -206,6 +208,22 @@ class ChunkWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     }
 
     /** Presentation time of each frame of the generated chunk, in ms from its start (measured, not planned). */
+    /** Width and height of the video track as encoded, or null if it cannot be read. */
+    private fun videoSize(file: File): Pair<Int, Int>? {
+        val ex = MediaExtractor()
+        try {
+            ex.setDataSource(file.absolutePath)
+            val format = (0 until ex.trackCount).map { ex.getTrackFormat(it) }.firstOrNull { it.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true } ?: return null
+            val w = format.getInteger(MediaFormat.KEY_WIDTH)
+            val h = format.getInteger(MediaFormat.KEY_HEIGHT)
+            return if (w > 0 && h > 0) w to h else null
+        } catch (e: Exception) {
+            return null
+        } finally {
+            ex.release()
+        }
+    }
+
     private fun frameTimesMs(file: File): List<Long> {
         val ex = MediaExtractor()
         try {

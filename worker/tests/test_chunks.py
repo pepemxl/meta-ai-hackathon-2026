@@ -26,6 +26,16 @@ def test_two_chunks_are_read_as_one_video_without_repeating_the_overlap(tmp_path
     assert clip.global_index(c2, 20) == c1.frame_count
 
 
+def test_the_video_size_wins_over_what_the_yaml_says(tmp_path):
+    """An emulator encodes a 3840x800 panorama at 1920x400 and the app wrote the size it asked for:
+    the tiles are cut over the real frames, not over a picture twice as big."""
+    d = make_clip(tmp_path / "clip", total_ms=2000, chunk_seconds=60, overlap_ms=2000)
+    y = d / "video_part_001.yaml"
+    y.write_text(y.read_text(encoding="utf-8").replace("width: 320", "width: 640").replace("height: 180", "height: 360"), encoding="utf-8")
+    clip = load_clip(d)
+    assert (clip.width, clip.height) == (320, 180)
+
+
 def test_time_is_extrapolated_past_the_map(tmp_path):
     clip = load_clip(make_clip(tmp_path / "clip", total_ms=3000, chunk_seconds=60, overlap_ms=2000))
     c = clip.chunks[0]
