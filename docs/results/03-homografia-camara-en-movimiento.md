@@ -64,16 +64,35 @@ En este video bastaron **4 rondas**. Las anclas pasan de 417 a 764, todos los mi
 
 Lo que queda: el cuadro 9000 (15:00) sigue con la cancha seguida y el área grande se ve corrida. El último minuto solo tiene 20 s y la cámara está en un acercamiento del área, con pocas líneas.
 
+## 4. La prueba de los pies, menos estricta, y un tope sin ancla
+
+Después de las rondas se cambió la prueba de los pies (commits `074d6bc` y `dd50197`):
+
+- **Solo cuenta a quien tiene equipo**, y corta la cadena solo si falla 1 s seguido.
+- **Quien pasa casi todo el tiempo fuera de las líneas** (los pies a más de 1 m fuera en el 80 % de sus cuadros con cancha) sale de la prueba y queda sin equipo. Es para los jueces de línea, la banca y el cuerpo técnico cuando visten como un equipo y el color no los separa.
+- **Tope sin ancla:** con la cámara en movimiento, ninguna homografía se lleva a más de 60 s de su cuadro marcado o anclado por SAM.
+
+En este video ningún track había quedado sin equipo: el visitante viste de oscuro y el cuerpo técnico también. El filtro por posición encontró a 3 personas fuera de las líneas, y sin ellas la cadena de KLT ya no se cortaba:
+
+| Solo KLT | Cobertura | Error en el cuadro 6600 |
+|---|---|---|
+| Prueba de los pies original | 39 % (hasta 5:49) | sin cancha |
+| Sin las 3 personas, sin tope | 87 % (hasta 13:04) | **5.96 m (máx. 13 m)** |
+| Sin las 3 personas, con tope de 60 s | 11 % (hasta 1:40) | sin cancha |
+
+Es decir, el corte de 5:49 lo provocaba el personal fuera de las bandas, no la desviación. Sin anclas, la prueba de los pies no detecta una desviación de varios metros, y por eso hace falta el tope.
+
+**Con SAM por rondas no cambia nada:** 100 % de cobertura y los mismos errores (0.75, 0.20, 0.15 y 0.51 m), con 722 cuadros clave anclados y 70 confirmados.
+
 ## Conclusiones
 
 1. **Con una cámara que se mueve, seguir el pasto no alcanza.** KLT sostiene la cámara, pero la desviación se suma: más de 2 m en un minuto, y la prueba de los pies la corta a los 6 minutos.
 2. **SAM `white line` sirve como ancla, aunque no nombre las líneas.** Ajustando la plantilla a sus píxeles blancos, el error baja a 0.15–0.5 m, por US$0.18 cada 15 minutos (un cuadro por segundo).
 3. **El reanclaje tiene que ir por rondas.** En una sola pasada, el alcance de SAM depende de dónde se cortaba la cadena sin SAM. Por rondas, cada ancla nueva lleva el punto de partida más lejos: sin costo adicional, llega a casi el doble de cuadros clave.
-4. **Al entrenador le basta con marcar un cuadro** para todo un tiempo de partido de una sola toma.
+4. **Al entrenador le basta con marcar un cuadro** para todo un tiempo de partido de una sola toma, si SAM está activo. Sin SAM, la cancha solo se da hasta 60 s de cada marca.
 
 ## Lo que falta
 
-- **Que la prueba de los pies sea menos estricta:** ignorar a quien no tiene equipo (personal, árbitros asistentes) o exigir que falle varios cuadros seguidos. Es lo que cortó la cadena de KLT.
 - **El tiempo de ajuste:** 59 min para 15 min de video en la máquina de desarrollo. Para un tiempo completo hay que acotar la búsqueda o repartirla.
 - **Cortes y repeticiones:** este tramo no tiene. Una transmisión completa necesita detectar el cambio de toma y reanclar desde cero, con `soccer field` y `center circle` ([02](02-homografia-y-sam-cancha.md)) en lugar de una marca por toma.
 - **La verdad en metros:** el error se midió contra marcas a mano en 4 cuadros. Falta repetirlo con un video propio con distancias medidas en la cancha.
