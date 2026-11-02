@@ -54,8 +54,12 @@ body { margin: 0; background: var(--background); color: var(--text); font: 15px/
 .muted { color: var(--text-2); font-size: 13px; line-height: 18px; }
 .tnum { font-feature-settings: "tnum"; }
 .runs { list-style: none; margin: 0; padding: 0; }
-.run-day + .run-day { margin-top: 12px; }
-.run-day-title { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text-2); margin: 0 0 4px; padding: 0 10px; }
+.run-day + .run-day { margin-top: 4px; }
+.run-day-title { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text-2); padding: 8px 10px; border-radius: 8px; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+.run-day-title::-webkit-details-marker { display: none; }
+.run-day-title::before { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; }
+.run-day[open] > .run-day-title::before { transform: rotate(45deg); }
+.run-day-title:hover { background: var(--surface-high); }
 .runs li { padding: 10px; border-radius: 8px; cursor: pointer; }
 .runs li:hover { background: var(--surface-high); }
 .runs li.selected { background: var(--accent-soft); color: var(--on-accent-soft); }

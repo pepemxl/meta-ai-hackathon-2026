@@ -10,6 +10,8 @@ export function App() {
   // Up to two runs ticked to compare; `comparing` shows them instead of the selected run.
   const [ticked, setTicked] = useState<string[]>([]);
   const [comparing, setComparing] = useState<[string, string] | null>(null);
+  // Days shown open in the list: the newest, and the one of a run opened by link.
+  const [openDays, setOpenDays] = useState<Set<string>>(new Set());
   const tick = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id].slice(-2)));
 
   useEffect(() => {
@@ -19,6 +21,8 @@ export function App() {
         // ?run=<id> opens that run (a link to it); else the newest.
         const wanted = new URLSearchParams(location.search).get('run');
         if (r.length) setSelected(r.find((x) => x.id === wanted)?.id ?? r[0].id);
+        const days = runsByDay(r);
+        setOpenDays(new Set(days.filter((g, i) => i === 0 || g.runs.some((x) => x.id === wanted)).map((g) => g.day)));
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -36,8 +40,12 @@ export function App() {
             {error && <p className="muted">{error}</p>}
             {runs && !runs.length && <p className="muted">No hay corridas. Corre el worker con DEBUG_DIR o `analyze --debug-dir`.</p>}
             {runs && runsByDay(runs).map((g) => (
-              <section key={g.day} className="run-day">
-                <h3 className="run-day-title">{g.day} <span className="tnum">· {g.runs.length}</span></h3>
+              <details key={g.day} className="run-day" open={openDays.has(g.day)}
+                onToggle={(e) => {
+                  const open = e.currentTarget.open;
+                  setOpenDays((d) => (open === d.has(g.day) ? d : new Set(open ? [...d, g.day] : [...d].filter((x) => x !== g.day))));
+                }}>
+                <summary className="run-day-title">{g.day} <span className="tnum">· {g.runs.length}</span></summary>
                 <ul className="runs">
                   {g.runs.map((r) => (
                     <li key={r.id} className={!comparing && r.id === selected ? 'selected' : ''} onClick={() => { setSelected(r.id); setComparing(null); }}>
@@ -54,7 +62,7 @@ export function App() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </details>
             ))}
             {runs && runs.length > 1 && (
               <div className="compare-bar">
