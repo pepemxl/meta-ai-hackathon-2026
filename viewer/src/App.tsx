@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompareView } from './Compare';
-import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, marksFor, Result, RunSummary, SEVERITY, Tracks } from './data';
+import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, marksFor, Result, runsByDay, RunSummary, runTime, SEVERITY, Tracks } from './data';
 import { Calibration, TopDown } from './PitchView';
 
 export function App() {
@@ -35,22 +35,27 @@ export function App() {
             <h2>Corridas</h2>
             {error && <p className="muted">{error}</p>}
             {runs && !runs.length && <p className="muted">No hay corridas. Corre el worker con DEBUG_DIR o `analyze --debug-dir`.</p>}
-            <ul className="runs">
-              {runs?.map((r) => (
-                <li key={r.id} className={!comparing && r.id === selected ? 'selected' : ''} onClick={() => { setSelected(r.id); setComparing(null); }}>
-                  <div className="run-row">
-                    <span>
-                      {r.match?.home || 'Local'} vs {r.match?.away || 'Visitante'} <SegmenterChip segmenter={r.segmenter} />
-                    </span>
-                    <input type="checkbox" title="Comparar" checked={ticked.includes(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => tick(r.id)} />
-                  </div>
-                  <div className="muted tnum">
-                    clip {r.clip_id ?? '–'} · {r.chunks ?? '?'} chunks · {r.frames ?? '?'} cuadros
-                  </div>
-                  <div className="muted">{r.id}</div>
-                </li>
-              ))}
-            </ul>
+            {runs && runsByDay(runs).map((g) => (
+              <section key={g.day} className="run-day">
+                <h3 className="run-day-title">{g.day} <span className="tnum">· {g.runs.length}</span></h3>
+                <ul className="runs">
+                  {g.runs.map((r) => (
+                    <li key={r.id} className={!comparing && r.id === selected ? 'selected' : ''} onClick={() => { setSelected(r.id); setComparing(null); }}>
+                      <div className="run-row">
+                        <span>
+                          {r.match?.home || 'Local'} vs {r.match?.away || 'Visitante'} <SegmenterChip segmenter={r.segmenter} />
+                        </span>
+                        <input type="checkbox" title="Comparar" checked={ticked.includes(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => tick(r.id)} />
+                      </div>
+                      <div className="muted tnum">
+                        {runTime(r) && `${runTime(r)} · `}clip {r.clip_id ?? '–'} · {r.chunks ?? '?'} chunks · {r.frames ?? '?'} cuadros
+                      </div>
+                      <div className="muted">{r.id}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
             {runs && runs.length > 1 && (
               <div className="compare-bar">
                 <button className="primary" disabled={ticked.length !== 2} onClick={() => setComparing([ticked[0], ticked[1]])}>
