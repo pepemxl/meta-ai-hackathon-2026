@@ -43,6 +43,28 @@ worker y después en la app, que la manda en el YAML de cada chunk.
   desconocido, polígono con menos de 3 puntos o impar), se mide del video.
   `notes` dice cuántos cuadros vinieron de la app y cuántos se midieron.
 - tools/make_chunks.py --pitch escribe la sección como la app.
+
+4. CANCHA DE TIERRA (sin pasto)
+- En los detalles de la cancha guardada (Nueva cancha / Editar cancha), la
+  app pregunta "¿La cancha tiene pasto?": "Sí, pasto (natural o sintético)"
+  o "No, es de tierra". Se guarda en la cancha (SavedPitch.surface, grass o
+  dirt; las canchas guardadas antes son de pasto) y viaja como
+  analysis.surface en POST /clips, de la cancha del clip (la de sus puntos,
+  si no la del partido). Sin cancha guardada no se manda: el worker supone
+  pasto.
+- Worker con surface = "dirt": los mismos pasos de pitch.py con el color de
+  la tierra (tono 5–30, saturación 55–160, valor 100–240); ignora la sección
+  `pitch` de la app (es de pasto) y mide cada cuadro del video. También
+  usan la tierra el recorte de los tiles (tiles.grass_region) y la revisión
+  del balón (pasto alrededor → tierra alrededor). video.surface y una nota
+  lo dicen.
+- La app no avisa "casi no se ve la cancha" en un clip de una cancha de
+  tierra: su fracción es de pasto.
+- Probado con una foto de una cancha de tierra con barda beige, árboles y
+  gradas: con pasto no hay cancha (0.03 % de pasto); con tierra, 59 % y un
+  polígono de 8 puntos que cubre la cancha sin los árboles ni el cielo.
+- Pendiente: el seguimiento de la cámara en movimiento
+  (calibration/propagate.py) sigue buscando rasgos sobre el pasto.
 ```
 
 ## Trampas conocidas

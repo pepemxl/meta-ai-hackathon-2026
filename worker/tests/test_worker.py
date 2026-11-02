@@ -67,6 +67,22 @@ def test_the_play_area_drops_the_people_outside_it_with_a_still_camera(meta, tmp
     assert any("solo se usa con la cámara fija" in n for n in m["notes"])
 
 
+def test_a_dirt_pitch_measures_its_mask_from_the_video_and_says_so(meta, tmp_path, config_for):
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS)
+    pp = FakePpApi(clip_dir, {**job_for(clip_dir, 2), "options": {"surface": "dirt"}}).start()
+    try:
+        api = PpApi(pp.url, "worker-secret")
+        assert run_job(api, config_for(meta.url, api_url=pp.url), api.next_job(), sleep=lambda s: None) == "done"
+    finally:
+        pp.stop()
+    a = pp.results[0]["analysis"]
+    assert a["video"]["surface"] == "dirt"
+    # The app's masks are of grass: none is used, every frame is measured by the color of dirt.
+    assert any(n.startswith("Máscara de la cancha: 0 cuadros vinieron de la app") for n in a["notes"])
+    assert any("Cancha de tierra" in n for n in a["notes"])
+
+
 def test_a_job_with_a_missing_chunk_fails_and_keeps_its_files(meta, tmp_path, config_for):
     clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
     (clip_dir / "video_part_002.mp4").unlink()

@@ -32,7 +32,7 @@ log = logging.getLogger("ppcoachtracker_worker")
 
 def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep,
             pitch_mode: str | None = None, calibration: dict | None = None, frames=None, camera: str | None = None,
-            play_area: dict | None = None) -> tuple[dict, TrackSet]:
+            play_area: dict | None = None, surface: str | None = None) -> tuple[dict, TrackSet]:
     started = time.monotonic()
     clip = load_clip(clip_dir)
     if clip.frames_sent_per_concept > cfg.max_frames_per_job:
@@ -45,6 +45,9 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     segmenter = SamSegmenter(sam_client, cfg.sam_model, raw_dir, is_meta_url=cfg.sam_is_meta, player_concept=cfg.player_concept,
                              ball_concept=cfg.ball_concept, tile_mode=cfg.tile_mode)
     home_color, away_color = match.get("home_color") or "", match.get("away_color") or ""
+    # What the pitch is made of (the coach said so): grass, or dirt with no grass at all.
+    surface = pitch_mod.surface_of(surface)
+    segmenter.surface = surface
     # The play area the coach marked: with a still camera it is the pitch of every frame.
     area = pitch_mod.from_play_area(play_area, clip.width, clip.height) if camera == "static" else None
     # Wide video goes to SAM in tiles: each tile costs one request per concept.
@@ -58,6 +61,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     # One pass over the video: the masks that did not come from the app, the
     # histograms for the cuts and the grass around each ball candidate.
     masks = clip.pitch_masks()
+    if surface == pitch_mod.DIRT:
+        masks = [None] * len(masks)  # the app measured grass: on dirt every mask is measured here
     from_app = sum(1 for m in masks if m is not None)
     if area is not None:
         masks = [area] * len(masks)
@@ -73,10 +78,10 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
         if g >= len(masks):
             continue
         if g in missing:
-            masks[g] = pitch_mod.measure(img)
+            masks[g] = pitch_mod.measure(img, surface)
         histograms[g] = cuts_mod.histogram(img)
         for b in balls_by_frame.get(g, []):
-            ball_grass[(b.frame, b.track_id)] = grass_around_box(img, b)
+            ball_grass[(b.frame, b.track_id)] = grass_around_box(img, b, surface)
     frames = None  # a test iterator is consumed here
     cut_frames = cuts_mod.cut_frames(histograms)
     analyze.last_raw = (trackset, sorted(cut_frames), ball_grass)
@@ -87,6 +92,8 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
                       f"es la cancha de todo el video y se quitaron {outside} cajas de personas fuera de ella."]
     else:
         mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
+    if surface == pitch_mod.DIRT:
+        mask_notes.append("Cancha de tierra (según los detalles de la cancha): la máscara y el balón se miden por el color de la tierra, no del pasto.")
     if play_area and area is None:
         mask_notes.append("Se ignoró la zona de juego marcada: solo se usa con la cámara fija todo el video." if camera != "static"
                           else "Se ignoró la zona de juego marcada: no es un polígono válido.")
@@ -175,6 +182,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "discarded": shots.discarded,
             "cuts": len(cut_frames),
             "closeups": shots.closeups,
+            "surface": surface,
             **({"play_area": {"points": len(area.polygon) // 2, "margin": area.margin, "removed": outside}} if area is not None else {}),
             **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
                           "joins": segmenter.tile_joins, "reason": segmenter.tile_reason,
@@ -220,8 +228,8 @@ def post_sam(trackset: TrackSet, masks: list, cut_frames: set[int], ball_grass: 
     return shots, TrackSet(rows=players_rows + ball_rows, frames=trackset.frames), ball_report
 
 
-def grass_around_box(image_bgr, row) -> float:
-    """Grass fraction in a square 4 times the ball's size around it (balls on an advert have none)."""
+def grass_around_box(image_bgr, row, surface: str = pitch_mod.GRASS) -> float:
+    """Grass (or dirt) fraction in a square 4 times the ball's size around it (balls on an advert have none)."""
     h, w = image_bgr.shape[:2]
     cx, cy = row.center
     side = 4 * max(row.w * w, row.h * h, 4)
@@ -230,7 +238,7 @@ def grass_around_box(image_bgr, row) -> float:
     crop = image_bgr[y1:y2, x1:x2]
     if crop.size == 0:
         return 1.0
-    return float(pitch_mod.grass_cells(crop[..., ::-1].astype("int64")).mean())
+    return float(pitch_mod.surface_cells(crop[..., ::-1].astype("int64"), surface).mean())
 
 
 def error_message(e: BaseException) -> str:
@@ -257,7 +265,7 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
                 raise InputError(f"cannot download {name}: {e}") from None
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
                                    pitch_mode=options.get("pitch_mode"), camera=options.get("camera"), calibration=job.get("calibration"),
-                                   play_area=options.get("play_area"))
+                                   play_area=options.get("play_area"), surface=options.get("surface"))
         if cfg.debug_dir is not None:
             run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)
             log.info("job %s: run saved in %s", job_id, run)

@@ -159,3 +159,31 @@ def test_tiles_go_over_the_play_area():
     area = pitch.from_play_area({"points": [{"x": 0.05, "y": 0.1}, {"x": 0.95, "y": 0.1}, {"x": 0.95, "y": 0.9}, {"x": 0.05, "y": 0.9}]}, 3840, 800)
     plan = tiles.plan(3840, 800, area.box(3840, 800))
     assert plan is not None and plan.tiles[0].x == pytest.approx(192.0) and plan.tiles[0].y == pytest.approx(80.0)
+
+
+def test_a_dirt_pitch_is_found_by_the_color_of_dirt_and_not_by_grass():
+    import pytest
+
+    from ppcoachtracker_worker import tiles
+    from ppcoachtracker_worker.pipeline import grass_around_box
+
+    # BGR: stands, a beige wall (too pale for dirt) and dark trees above a dirt pitch with a line and players.
+    img = np.zeros((360, 640, 3), np.uint8)
+    img[:] = STANDS[::-1]
+    img[:60] = (20, 35, 25)  # trees in the shade (too dark for grass or dirt)
+    img[60:100] = (175, 200, 215)  # wall
+    img[100:] = (115, 150, 185)  # dirt: hue 15, saturation 96, value 185
+    img[200:204] = WHITE[::-1]
+    img[150:180, 300:310] = RED[::-1]
+    assert pitch.surface_of("dirt") == pitch.DIRT and pitch.surface_of("") == pitch.surface_of(None) == pitch.surface_of("turf") == pitch.GRASS
+    assert not pitch.measure(img).has_pitch  # no grass
+    m = pitch.measure(img, pitch.DIRT)
+    assert m.has_pitch and m.fraction > 0.6
+    ys = m.polygon[1::2]
+    assert min(ys) == pytest.approx(100 / 360, abs=0.02) and max(ys) == 1.0  # from the wall down
+    assert not m.contains(0.5, 0.2)  # the wall and the trees are not the pitch
+    region = tiles.grass_region(img, surface=pitch.DIRT)
+    assert region is not None and region[300, 320] == 255 and region[30, 320] == 0
+    assert tiles.grass_region(img) is None
+    ball = TrackRow(frame=0, t_ms=0, source_frame=0, track_id=1, label="ball", x=0.6, y=0.6, w=0.01, h=0.01)
+    assert grass_around_box(img, ball, pitch.DIRT) > 0.9 and grass_around_box(img, ball) == 0.0

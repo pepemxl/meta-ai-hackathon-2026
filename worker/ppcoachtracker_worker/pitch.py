@@ -9,6 +9,10 @@ green, VAR graphics). Returns the grass fraction and the polygon (0..1).
 The app (data/PitchMask.kt) does EXACTLY the same, with the same grid of
 points and the same arithmetic, so both agree; a shared fixture checks it.
 Written by hand (no OpenCV) for that reason.
+
+A dirt pitch (the coach says so in the pitch's details: surface "dirt") has
+no grass: the same steps with the color of dirt instead (hue 5–30, saturation
+55–160, value 100–240), measured here only; the app's masks are of grass.
 """
 
 from __future__ import annotations
@@ -29,6 +33,11 @@ MIN_GRASS_IN_POLYGON = 0.70
 MIN_BLOB = 0.02  # of the grid: smaller blobs are noise, not a pitch
 FOOT_MARGIN = 0.02
 PLAY_AREA_MAX_MARGIN = 0.25  # as the API accepts it
+# What the pitch is made of (analysis.surface of POST /clips); anything else is grass.
+GRASS, DIRT = "grass", "dirt"
+DIRT_HUE = (5, 30)  # brown and tan: the beige walls are paler, the trees darker
+DIRT_SAT = (55, 160)  # above 160: red jerseys and skin in the sun
+DIRT_VAL = (100, 240)
 
 
 @dataclass(frozen=True)
@@ -90,8 +99,13 @@ def sample_rgb(image_bgr: np.ndarray) -> np.ndarray:
     return image_bgr[np.ix_(ys, xs)][..., ::-1].astype(np.int64)
 
 
-def grass_cells(rgb: np.ndarray) -> np.ndarray:
-    """Boolean grid: HSV as OpenCV computes it for 8-bit images (H in 0..180)."""
+def surface_of(surface: str | None) -> str:
+    """The surface of the pitch: dirt when the coach said so, else grass."""
+    return DIRT if surface == DIRT else GRASS
+
+
+def _hsv(rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """HSV as OpenCV computes it for 8-bit images (H in 0..180)."""
     r, g, b = (rgb[..., k].astype(np.float64) for k in range(3))
     v = np.maximum(np.maximum(r, g), b)
     mn = np.minimum(np.minimum(r, g), b)
@@ -101,7 +115,24 @@ def grass_cells(rgb: np.ndarray) -> np.ndarray:
     h = np.where(v == r, 60.0 * (g - b) / safe, np.where(v == g, 120.0 + 60.0 * (b - r) / safe, 240.0 + 60.0 * (r - g) / safe))
     h = np.where(d > 0, h, 0.0)
     h = np.where(h < 0, h + 360.0, h) / 2.0
+    return h, s, v
+
+
+def grass_cells(rgb: np.ndarray) -> np.ndarray:
+    """Boolean grid: grass in HSV."""
+    h, s, v = _hsv(rgb)
     return (h >= HUE[0]) & (h <= HUE[1]) & (s > MIN_SAT) & (v > MIN_VAL)
+
+
+def dirt_cells(rgb: np.ndarray) -> np.ndarray:
+    """Boolean grid: bare earth in HSV."""
+    h, s, v = _hsv(rgb)
+    return (h >= DIRT_HUE[0]) & (h <= DIRT_HUE[1]) & (s > DIRT_SAT[0]) & (s <= DIRT_SAT[1]) & (v > DIRT_VAL[0]) & (v <= DIRT_VAL[1])
+
+
+def surface_cells(rgb: np.ndarray, surface: str = GRASS) -> np.ndarray:
+    """Boolean grid: the pitch's surface (grass or dirt)."""
+    return dirt_cells(rgb) if surface == DIRT else grass_cells(rgb)
 
 
 def _morph(mask: np.ndarray, dilate: bool) -> np.ndarray:
@@ -245,9 +276,9 @@ def blob_row_ends(mask: np.ndarray) -> list[tuple[int, int]]:
     return ends
 
 
-def mask_from_grid(rgb: np.ndarray) -> PitchMask:
-    """The pitch of one frame from its RGB grid (GRID_H × GRID_W × 3)."""
-    grass = grass_cells(rgb)
+def mask_from_grid(rgb: np.ndarray, surface: str = GRASS) -> PitchMask:
+    """The pitch of one frame from its RGB grid (GRID_H × GRID_W × 3); [fraction] is of its surface."""
+    grass = surface_cells(rgb, surface)
     fraction = round(float(grass.mean()), 4)
     ends = blob_row_ends(close(grass))
     if not ends:
@@ -263,8 +294,8 @@ def mask_from_grid(rgb: np.ndarray) -> PitchMask:
     return PitchMask(fraction, tuple(round(v, 4) for p in hull for v in p))
 
 
-def measure(image_bgr: np.ndarray) -> PitchMask:
-    return mask_from_grid(sample_rgb(image_bgr))
+def measure(image_bgr: np.ndarray, surface: str = GRASS) -> PitchMask:
+    return mask_from_grid(sample_rgb(image_bgr), surface)
 
 
 def from_yaml_row(row, method: str | None) -> PitchMask | None:
