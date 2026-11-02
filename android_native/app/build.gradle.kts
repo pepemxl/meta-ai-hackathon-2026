@@ -64,6 +64,9 @@ android {
         compose = true
         buildConfig = true
     }
+    // The demo account's sample clip and analysis (README#modo-demo), not versioned:
+    // stock footage is not redistributed as is. Without the folder the app has no sample.
+    sourceSets["main"].assets.srcDir("demo-assets")
     testOptions {
         unitTests.isReturnDefaultValues = true
     }

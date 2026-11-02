@@ -100,6 +100,11 @@ fun SettingsScreen(vm: CoachViewModel) {
                 if (st.loggedIn) {
                     Text(s.loggedInAs(st.sessionName.ifBlank { st.sessionEmail }), style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
                     Text(st.serverUrl, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                    if (st.demo) {
+                        Text(s.demoAccount, style = MaterialTheme.typography.titleSmall, color = c.warning, modifier = Modifier.padding(top = 8.dp))
+                        Text(s.demoAccountNote, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                        if (vm.demoSampleMissing(lib)) PpTextButton(s.demoSampleRestore, { vm.seedDemo() })
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                         SecondaryButton(s.testConnection, {
                             scope.launch { status = if (vm.testConnection(st.serverUrl)) s.connectionOk else s.connectionFailed }

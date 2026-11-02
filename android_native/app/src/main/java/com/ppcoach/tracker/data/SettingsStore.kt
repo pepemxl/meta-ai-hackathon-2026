@@ -33,6 +33,8 @@ data class Settings(
     val loggedIn: Boolean = false,
     val consentVersion: String = "",
     val consentAt: String = "",
+    /** The session is a demo account's: nothing is uploaded, everything stays on the phone. */
+    val demo: Boolean = false,
 ) {
     val profile: ChunkProfile get() = ChunkProfile.of(chunkProfile, overlapMs)
 }
@@ -63,6 +65,7 @@ class SettingsStore(context: Context, private val defaultProfile: String) {
             loggedIn = prefs.contains("sessionToken"),
             consentVersion = prefs.getString("consentVersion", "") ?: "",
             consentAt = prefs.getString("consentAt", "") ?: "",
+            demo = prefs.contains("sessionToken") && prefs.getBoolean("sessionDemo", false),
         )
     }
 
@@ -86,14 +89,20 @@ class SettingsStore(context: Context, private val defaultProfile: String) {
             .putString("sessionToken", box.encrypt(session.token))
             .putString("sessionEmail", session.email)
             .putString("sessionName", session.name)
+            .putBoolean("sessionDemo", session.demo)
             .apply()
     }
+
+    /** The demo sample's match (DemoContent), 0 = not added. */
+    var demoMatchId: Int
+        get() = prefs.getInt("demoMatchId", 0)
+        set(v) = prefs.edit().putInt("demoMatchId", v).apply()
 
     /** The JWT, decrypted when needed (never passed through WorkManager's input data). */
     fun token(): String? = prefs.getString("sessionToken", null)?.let { runCatching { box.decrypt(it) }.getOrNull() }
 
     fun clearSession() {
-        prefs.edit().remove("sessionToken").remove("sessionEmail").remove("sessionName").apply()
+        prefs.edit().remove("sessionToken").remove("sessionEmail").remove("sessionName").remove("sessionDemo").apply()
     }
 }
 

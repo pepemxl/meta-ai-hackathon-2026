@@ -230,8 +230,9 @@ private fun SendCard(vm: CoachViewModel, clip: Clip, progress: SendProgress?, s:
             if (vm.hasServer && vm.settings.consentVersion.isNotEmpty()) {
                 Text(s.consentLine, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.padding(top = 8.dp))
             }
-            if (!vm.hasServer) Text(s.sendNoServer, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.padding(top = 8.dp))
-            PrimaryButton(if (clip.status == ClipStatus.FAILED) s.retry else s.sendForAnalysis, { vm.send(clip.id) }, Modifier.fillMaxWidth().padding(top = 8.dp), icon = Icons.AutoMirrored.Rounded.Send)
+            val demo = vm.settings.demo
+            if (!vm.hasServer) Text(if (demo) s.sendDemo else s.sendNoServer, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary, modifier = Modifier.padding(top = 8.dp))
+            PrimaryButton(if (demo) s.prepareCopy else if (clip.status == ClipStatus.FAILED) s.retry else s.sendForAnalysis, { vm.send(clip.id) }, Modifier.fillMaxWidth().padding(top = 8.dp), icon = Icons.AutoMirrored.Rounded.Send)
         }
         // Without a server, the chunks are shared once they are ready.
         val dir = vm.proxyDir(clip)

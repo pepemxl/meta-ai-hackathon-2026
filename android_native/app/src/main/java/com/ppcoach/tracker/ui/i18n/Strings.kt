@@ -88,6 +88,13 @@ interface Strings {
     // analysis send
     val sendForAnalysis: String
     val sendNoServer: String
+    val sendDemo: String
+    val prepareCopy: String
+    val demoAccount: String
+    val demoAccountNote: String
+    val demoClipTitle: String
+    val demoSampleUnavailable: String
+    val demoSampleRestore: String
     fun preparingChunk(n: Int, of: Int, pct: Int): String
     fun sendingPct(pct: Int): String
     val waitingConnection: String
@@ -439,6 +446,13 @@ object Es : Strings {
 
     override val sendForAnalysis = "Enviar a análisis"
     override val sendNoServer = "Sin servidor configurado: se comparten los chunks."
+    override val sendDemo = "Cuenta demo: el análisis con SAM 3.1 no está disponible. Se prepara la copia para el análisis en el teléfono y se pueden compartir los chunks."
+    override val prepareCopy = "Preparar la copia"
+    override val demoAccount = "Cuenta demo"
+    override val demoAccountNote = "Todo se guarda en el teléfono y no se manda nada a analizar. Trae un clip de prueba con su análisis ya hecho."
+    override val demoClipTitle = "Jugada de prueba"
+    override val demoSampleUnavailable = "Esta versión de la app no trae el clip de prueba."
+    override val demoSampleRestore = "Agregar el clip de prueba"
     override fun preparingChunk(n: Int, of: Int, pct: Int) = "Preparando · chunk $n de $of · $pct %"
     override fun sendingPct(pct: Int) = "Enviando… $pct %"
     override val waitingConnection = "Esperando conexión…"
@@ -844,6 +858,13 @@ object En : Strings {
 
     override val sendForAnalysis = "Send for analysis"
     override val sendNoServer = "No server set up: the chunks are shared."
+    override val sendDemo = "Demo account: analysis with SAM 3.1 is not available. The analysis copy is prepared on the phone and its chunks can be shared."
+    override val prepareCopy = "Prepare the copy"
+    override val demoAccount = "Demo account"
+    override val demoAccountNote = "Everything stays on the phone and nothing is sent for analysis. It comes with a sample clip and its analysis already made."
+    override val demoClipTitle = "Sample play"
+    override val demoSampleUnavailable = "This build of the app has no sample clip."
+    override val demoSampleRestore = "Add the sample clip"
     override fun preparingChunk(n: Int, of: Int, pct: Int) = "Preparing · chunk $n of $of · $pct%"
     override fun sendingPct(pct: Int) = "Sending… $pct%"
     override val waitingConnection = "Waiting for a connection…"

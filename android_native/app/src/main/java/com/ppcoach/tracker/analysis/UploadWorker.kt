@@ -50,7 +50,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val settingsStore = AppGraph.settings
         val settings = settingsStore.load()
         val token = settingsStore.token()
-        if (settings.serverUrl.isBlank() || token == null) return fail(clipId, ERR_LOGIN)
+        // A demo session never uploads (the API would refuse it too).
+        if (settings.serverUrl.isBlank() || token == null || settings.demo) return fail(clipId, ERR_LOGIN)
         if (!Consent.isCurrent(settings.consentVersion)) return fail(clipId, ERR_TERMS)
 
         val dir = AppGraph.proxyDir(applicationContext, ProxyPaths.clipDir(match, clip))

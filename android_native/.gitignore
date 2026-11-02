@@ -7,3 +7,4 @@ keystore.properties
 keystore/
 dist/
 *.jks
+app/demo-assets/

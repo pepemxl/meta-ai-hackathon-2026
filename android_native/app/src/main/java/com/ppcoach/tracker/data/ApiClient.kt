@@ -13,7 +13,8 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
 
-data class Session(val token: String, val email: String, val name: String)
+/** [demo]: a demo account (the API refuses its uploads); the app keeps everything on the phone. */
+data class Session(val token: String, val email: String, val name: String, val demo: Boolean = false)
 
 data class RemoteClip(
     val id: Int,
@@ -86,7 +87,7 @@ class ApiClient(baseUrl: String, private val token: String? = null, client: OkHt
     fun login(email: String, password: String): Session {
         val body = JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(JSON)
         val j = exec(request("/auth/login").post(body).build())
-        return Session(j.getString("token"), j.optString("email", email), j.optString("name", ""))
+        return Session(j.getString("token"), j.optString("email", email), j.optString("name", ""), j.optBoolean("demo", false))
     }
 
     fun register(clip: JSONObject): RemoteClip = remoteClip(exec(request("/clips").post(clip.toString().toRequestBody(JSON)).build()))

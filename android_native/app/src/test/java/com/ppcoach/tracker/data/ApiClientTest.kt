@@ -41,6 +41,9 @@ class ApiClientTest {
         assertEquals("/auth/login", req.path)
         assertEquals("c@x.mx", JSONObject(req.body.readUtf8()).getString("email"))
         assertEquals(null, req.getHeader("Authorization"))
+        // A demo account says so; the app then keeps everything on the phone.
+        server.enqueue(json(200, """{"token":"jwt","email":"d@x.mx","name":"Demo","demo":true}"""))
+        assertEquals(Session("jwt", "d@x.mx", "Demo", demo = true), api(null).login("d@x.mx", "pw"))
     }
 
     @Test

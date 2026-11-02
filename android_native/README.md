@@ -34,8 +34,25 @@ O con Gradle: `gradlew testDebugUnitTest assembleDebug`. El build debug se insta
 - **Subida** (`analysis/UploadWorker.kt`): sesión con JWT cifrado (Android Keystore, AES-256-GCM), `POST /clips` con el consentimiento, partes de 8 MB que se reanudan en el offset del servidor, cierre con YAML + sha256 y `complete`. Solo con red, con reintentos.
 - **Consentimiento:** diálogo de 4 casillas antes del primer envío (textos de `docs/legal/`), historial en la API (`analysis/Work.kt`, `ConsentWorker`), retiro desde Ajustes que cancela las subidas pendientes.
 - **Análisis:** resumen con el degradado Spark, posesión, hallazgos de Muse Spark con "Ver en el video", equipos lado a lado, mapas de calor "como lo ve la cámara", límites y, en la vista técnica, los modelos usados. Un análisis del simulador muestra el aviso "Análisis de desarrollo".
+- **Modo demo** (abajo): con una cuenta demo todo queda en el teléfono y la app trae un clip de prueba con su análisis ya hecho.
 - **Idiomas:** español e inglés (`ui/i18n/Strings.kt`); la primera vez sigue al teléfono.
 - **Estilo:** tema claro y oscuro tipo apps de Meta (`docs/diseno.md`), sin colores dinámicos.
+
+## Modo demo
+
+Sirve para compartir la app sin gastar crédito de Meta.
+
+1. **La cuenta.** Se crea en el servidor con `php bin/user.php add-demo <correo> "<nombre>"` ([api/README.md](../api/README.md#cuentas-demo)). La API le responde 403 a todo lo que escribe (registrar clips, subir video, consentimientos), así que ningún trabajo llega al worker, aunque la app esté modificada.
+2. **La app con una sesión demo** (`Session.demo`, `Settings.demo`):
+   - `hasServer` es falso, así que "Enviar a análisis" se vuelve **"Preparar la copia"**: hace los chunks en el teléfono y deja compartirlos, como sin servidor;
+   - no reporta consentimientos y `UploadWorker` no sube;
+   - Ajustes dice "Cuenta demo" y lo que implica;
+   - todo lo demás funciona igual: partidos, grabar, importar, la zona de juego, los puntos de la cancha, el plantel, las estadísticas y los dorsales de los tracks.
+3. **El clip de prueba** (`data/DemoContent.kt`, `CoachViewModel.seedDemo`):
+   - Al iniciar sesión con una cuenta demo, la app agrega un partido con los equipos y colores del análisis y un clip "Jugada de prueba", ya **Listo**, con su análisis en `files/analyses/clip_N_0.json`.
+   - Si el entrenador borra el partido, Ajustes ofrece "Agregar el clip de prueba".
+   - El clip y el análisis van en `app/demo-assets/demo/` (`demo_clip.mp4` y `analysis.json`). Esa carpeta **no se versiona**, porque el video de stock no se redistribuye tal cual ([docs/08](../docs/08-uso-de-video.md#video-de-stock-mixkit-y-similares)); sin ella la app no trae clip de prueba y lo dice.
+   - **Cómo prepararlos:** se corre el worker real una vez sobre el clip (`LOCAL_DATA/demo/run_demo.py`: chunks como los de la app y SAM 3.1 + Muse Spark, unos US$0.03 por 5 s) y se copian `demo_clip.mp4` y `analysis.json` a `app/demo-assets/demo/` antes de compilar. El clip actual es Mixkit 43481 (Stock Video Free License), rojos contra celestes.
 
 ## Dónde está qué
 

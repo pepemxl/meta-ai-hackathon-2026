@@ -26,6 +26,7 @@ import com.ppcoach.tracker.data.ClipKind
 import com.ppcoach.tracker.data.ClipSource
 import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Consent
+import com.ppcoach.tracker.data.DemoContent
 import com.ppcoach.tracker.data.Durable
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.Match
@@ -324,7 +325,8 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── sending ──────────────────────────────────────────────────────────────
 
-    val hasServer: Boolean get() = settings.serverUrl.isNotBlank() && settings.loggedIn
+    /** A server to send to: a demo session has none, so its clips are only prepared on the phone. */
+    val hasServer: Boolean get() = settings.serverUrl.isNotBlank() && settings.loggedIn && !settings.demo
 
     /** "Send for analysis": consent first (or when the accepted version is outdated). */
     fun send(clipId: Int) {
@@ -520,7 +522,7 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
 
     fun withdrawConsent() {
         val version = settings.consentVersion.ifEmpty { Consent.VERSION }
-        Work.reportConsent(ctx, "withdraw", version, Consent.isoNow())
+        if (!settings.demo) Work.reportConsent(ctx, "withdraw", version, Consent.isoNow())
         Work.cancelUploads(ctx)
         updateSettings { it.copy(consentVersion = "", consentAt = "") }
     }
@@ -570,6 +572,7 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
             withContext(Dispatchers.Main) {
                 updateSettings { it.copy(serverUrl = url) }
                 settings = AppGraph.settings.load()
+                if (session.demo) seedDemo()
             }
             null
         } catch (e: ApiException) {
@@ -605,6 +608,55 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     fun logout() {
         AppGraph.settings.clearSession()
         settings = AppGraph.settings.load()
+    }
+
+    /** Whether the demo sample is missing (never added, or deleted): Settings offers to add it again. */
+    fun demoSampleMissing(lib: Library = library.value): Boolean = lib.match(AppGraph.settings.demoMatchId) == null
+
+    /**
+     * With a demo session: adds the sample match with its clip and the analysis
+     * already made (DemoContent), all on the phone. Once, while it is there.
+     */
+    fun seedDemo() {
+        if (!settings.demo || !demoSampleMissing()) return
+        val s = strings()
+        if (!DemoContent.available(ctx.assets)) {
+            toast(s.demoSampleUnavailable)
+            return
+        }
+        viewModelScope.launch {
+            val analysis = withContext(Dispatchers.IO) { runCatching { ctx.assets.open(DemoContent.ANALYSIS).bufferedReader().use { it.readText() } }.getOrNull() }
+            val template = analysis?.let { runCatching { DemoContent.match(it, LocalDate.now().toString()) }.getOrNull() }
+            if (analysis == null || template == null) {
+                toast(s.demoSampleUnavailable)
+                return@launch
+            }
+            val match = saveMatch(null, template)
+            AppGraph.settings.demoMatchId = match.id
+            val (clip, file) = newClipFile(match.id) ?: return@launch
+            val copied = withContext(Dispatchers.IO) {
+                runCatching { ctx.assets.open(DemoContent.VIDEO).use { input -> file.outputStream().use { input.copyTo(it) } } }.isSuccess
+            }
+            if (!copied) {
+                file.delete()
+                toast(s.demoSampleUnavailable)
+                return@launch
+            }
+            val m = withContext(Dispatchers.IO) {
+                // remoteId 0: the analysis lives only in its local copy.
+                Durable.writeText(ClipAnalysis.copyFile(ctx.filesDir, clip), analysis)
+                measure(file)
+            }
+            val added = Clip(
+                id = clip.id, matchId = match.id, title = s.demoClipTitle, kind = ClipKind.PLAY, source = ClipSource.IMPORT,
+                createdAt = System.currentTimeMillis(), durationMs = m.durationMs, width = m.width, height = m.height,
+                fps = m.fps, sizeBytes = file.length(), storage = clip.storage, status = ClipStatus.READY,
+                // What the sample was analyzed with (DemoContent): a moving camera, without computing the pitch.
+                pitchMode = PitchMode.OFF, camera = CameraMode.MOVING,
+            )
+            AppGraph.commit { lib -> lib.copy(clips = lib.clips + added, nextClipId = maxOf(lib.nextClipId, clip.id + 1)) }
+            loadThumbnail(added)
+        }
     }
 
     // ── squad and stats ──────────────────────────────────────────────────────
