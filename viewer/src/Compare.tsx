@@ -115,7 +115,7 @@ function ComparePlayer({ runs, colors }: { runs: [Run, Run]; colors: { A: string
       const va = videoA.current;
       const ca = canvasA.current;
       if (va && ca && chunk) {
-        const g = globalFrame(chunk, va.currentTime);
+        const g = globalFrame(chunk, va.currentTime, va.duration);
         setFrame(g);
         const boxesA = (g === null ? [] : a.tracks.byFrame.get(g) || []).filter((x) => showBall || x.label !== 'ball');
         const boxesB = (g === null ? [] : b.tracks.byFrame.get(g) || []).filter((x) => showBall || x.label !== 'ball');

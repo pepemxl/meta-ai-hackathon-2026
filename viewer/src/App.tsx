@@ -181,7 +181,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
       const v = video.current;
       const c = canvas.current;
       if (v && c && chunk) {
-        const g = globalFrame(chunk, v.currentTime);
+        const g = globalFrame(chunk, v.currentTime, v.duration);
         setFrame(g);
         c.width = c.clientWidth * devicePixelRatio;
         c.height = c.clientHeight * devicePixelRatio;

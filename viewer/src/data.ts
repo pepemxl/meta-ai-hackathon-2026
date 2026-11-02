@@ -151,8 +151,14 @@ export async function loadTracks(run: string): Promise<Tracks> {
 }
 
 /** Global frame shown by chunk [c] at [seconds] of its video; null inside the overlap already shown. */
-export function globalFrame(c: ChunkInfo, seconds: number): number | null {
-  const local = Math.min(c.frames - 1, Math.max(0, Math.floor(seconds * c.fps + 1e-3)));
+/**
+ * The clip frame shown at [seconds] of the chunk's video. The rate comes from the video
+ * itself ([duration]: its frames over its length) when known: a chunk of a 24 fps source
+ * is 12 fps (every other frame) although its YAML says 10.
+ */
+export function globalFrame(c: ChunkInfo, seconds: number, duration?: number): number | null {
+  const fps = duration && duration > 0 && Number.isFinite(duration) ? c.frames / duration : c.fps;
+  const local = Math.min(c.frames - 1, Math.max(0, Math.floor(seconds * fps + 1e-3)));
   return local < c.skip ? null : c.base + local - c.skip;
 }
 
