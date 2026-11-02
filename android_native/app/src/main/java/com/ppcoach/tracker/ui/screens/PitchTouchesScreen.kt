@@ -102,7 +102,10 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             PitchPicker(lib.pitchesByUse, lib.pitch(touches.pitchId), touches.size) { choice ->
                 val before = touches.size
                 when (choice) {
-                    is PitchChoice.Saved -> touches = touches.on(choice.pitch)
+                    is PitchChoice.Saved -> {
+                        touches = touches.on(choice.pitch)
+                        vm.usePitch(clip.matchId, choice.pitch.id)
+                    }
                     is PitchChoice.Unsaved -> touches = touches.on(null, choice.size)
                     PitchChoice.New -> editing = SavedPitch(0, lib.match(clip.matchId)?.venue.orEmpty(), touches.size)
                     is PitchChoice.Edit -> editing = choice.pitch
@@ -140,6 +143,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 if ((p.sample?.taps ?: 0) >= SurfaceSample.MAX_TAPS) return vm.toast(s.sampleFull)
                 val tap = SurfaceSample.fromPixels(patch(image, x, y)) ?: return vm.toast(s.sampleMixed(dirt))
                 vm.savePitch(p.copy(sample = p.sample?.plus(tap) ?: tap))
+                vm.usePitch(clip.matchId, p.id)
             }
             Box(Modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
                 if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
@@ -283,6 +287,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             onDismiss = { editing = null },
             onSave = { edited ->
                 val saved = vm.savePitch(edited)
+                vm.usePitch(clip.matchId, saved.id)
                 val before = touches.size
                 touches = touches.on(saved)
                 if (touches.size != before) {

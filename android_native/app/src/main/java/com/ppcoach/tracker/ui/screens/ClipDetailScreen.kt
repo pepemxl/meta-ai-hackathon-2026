@@ -281,7 +281,8 @@ private fun PitchCard(vm: CoachViewModel, clip: Clip, locked: Boolean, s: String
         if (static) {
             val area = clip.playArea
             Text(
-                if (area != null) s.playAreaSummary(area.points.size, kotlin.math.round(area.margin * 100).toInt()) else s.playAreaNone,
+                if (area != null) s.playAreaSummary(area.points.size, kotlin.math.round(area.margin * 100).toInt())
+                else s.playAreaNone(vm.library.collectAsState().value.pitchOf(clip)?.surface == PitchSurface.DIRT),
                 style = MaterialTheme.typography.bodyMedium, color = if (area != null) c.textPrimary else c.textSecondary,
                 modifier = Modifier.padding(top = 4.dp),
             )

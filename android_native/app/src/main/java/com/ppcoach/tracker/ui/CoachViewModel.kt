@@ -401,6 +401,16 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * The match is played on [pitchId]: what the coach set on it (grass or
+     * dirt, its sample) goes with the match's clips even before any point is
+     * saved.
+     */
+    fun usePitch(matchId: Int, pitchId: Int) {
+        if (library.value.pitch(pitchId) == null || library.value.match(matchId)?.pitchId == pitchId) return
+        AppGraph.commit { lib -> lib.updateMatch(matchId) { it.copy(pitchId = pitchId) } }
+    }
+
     // ── saved pitches ────────────────────────────────────────────────────────
 
     /** Saves a new pitch (id 0) or the edited one; returns it with its id. */
