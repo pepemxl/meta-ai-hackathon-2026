@@ -6,6 +6,9 @@ const PITCH_MODES = ['lines', 'no_lines', 'off'];
 // Whether the camera stays still the whole video (a tripod or a panorama:
 // one homography holds) or moves and zooms (a feed: it is carried frame by frame).
 const CAMERA_MODES = ['static', 'moving'];
+// What the pitch is made of (the saved pitch's details in the app): grass, or
+// dirt with no grass at all (the worker then looks for the color of dirt).
+const SURFACES = ['grass', 'dirt'];
 const POINT_NAME = /^[a-z0-9_]{1,40}$/;
 const MAX_FRAMES = 20;
 
@@ -25,6 +28,15 @@ function parseCamera(analysis) {
   const m = analysis.camera;
   if (m === undefined || m === null) return { value: null };
   return CAMERA_MODES.includes(m) ? { value: m } : { error: true };
+}
+
+/** analysis.surface of POST /clips → {value} (null when absent) or {error}. */
+function parseSurface(analysis) {
+  if (analysis === undefined || analysis === null) return { value: null };
+  if (typeof analysis !== 'object') return { error: true };
+  const m = analysis.surface;
+  if (m === undefined || m === null) return { value: null };
+  return SURFACES.includes(m) ? { value: m } : { error: true };
 }
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -159,4 +171,4 @@ function parseCalibration(body) {
   return { value };
 }
 
-module.exports = { PITCH_MODES, CAMERA_MODES, MAX_REFERENCES, parsePitchMode, parseCamera, parsePlayArea, parseCalibration };
+module.exports = { PITCH_MODES, CAMERA_MODES, SURFACES, MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parsePlayArea, parseCalibration };

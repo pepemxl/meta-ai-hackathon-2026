@@ -57,6 +57,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN camera VARCHAR(16) NULL AFTER pitch_mode');
             $done[] = 'clips.camera';
         }
+        // De qué es la cancha: pasto o tierra.
+        if (!self::hasColumn($db, 'clips', 'surface')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN surface VARCHAR(16) NULL AFTER camera');
+            $done[] = 'clips.surface';
+        }
         // La zona de juego que marca el entrenador con la cámara quieta.
         if (!self::hasColumn($db, 'clips', 'play_area')) {
             $db->exec('ALTER TABLE clips ADD COLUMN play_area TEXT NULL AFTER camera');
