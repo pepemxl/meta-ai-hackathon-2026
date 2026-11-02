@@ -62,6 +62,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN surface VARCHAR(16) NULL AFTER camera');
             $done[] = 'clips.surface';
         }
+        // La muestra del pasto o la tierra que tomó el entrenador.
+        if (!self::hasColumn($db, 'clips', 'surface_sample')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN surface_sample TEXT NULL AFTER surface');
+            $done[] = 'clips.surface_sample';
+        }
         // La zona de juego que marca el entrenador con la cámara quieta.
         if (!self::hasColumn($db, 'clips', 'play_area')) {
             $db->exec('ALTER TABLE clips ADD COLUMN play_area TEXT NULL AFTER camera');

@@ -68,6 +68,45 @@ final class Calibration
     }
 
     /**
+     * analysis.surface_sample de POST /clips: la muestra del pasto o la tierra
+     * que tomó el entrenador, rangos HSV como OpenCV {hue: [mín, máx] (0..180),
+     * sat, val (0..255)} → [ok, valor] (null si falta).
+     */
+    public static function surfaceSample(mixed $analysis): array
+    {
+        if ($analysis === null) {
+            return [true, null];
+        }
+        if (!is_array($analysis)) {
+            return [false, null];
+        }
+        $s = $analysis['surface_sample'] ?? null;
+        if ($s === null) {
+            return [true, null];
+        }
+        if (!is_array($s)) {
+            return [false, null];
+        }
+        $value = [];
+        foreach (['hue' => 180, 'sat' => 255, 'val' => 255] as $k => $max) {
+            $r = $s[$k] ?? null;
+            if (!is_array($r) || array_keys($r) !== [0, 1]) {
+                return [false, null];
+            }
+            foreach ($r as $v) {
+                if (!is_int($v) || $v < 0 || $v > $max) {
+                    return [false, null];
+                }
+            }
+            if ($r[0] > $r[1]) {
+                return [false, null];
+            }
+            $value[$k] = [$r[0], $r[1]];
+        }
+        return [true, $value];
+    }
+
+    /**
      * analysis.play_area de POST /clips: la zona de juego que marca el
      * entrenador con la cámara quieta, {points: [{x, y}] (3..16, en 0..1, en
      * orden alrededor), margin?: 0..0.25 (fracción del alto del cuadro)}

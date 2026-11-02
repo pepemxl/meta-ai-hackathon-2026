@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS clips (
   camera VARCHAR(16) NULL,
   -- grass | dirt | NULL: de qué es la cancha (dirt: sin pasto, el worker busca el color de la tierra)
   surface VARCHAR(16) NULL,
+  -- La muestra del pasto o la tierra que tomó el entrenador (JSON: hue, sat, val como [mín, máx]), o NULL.
+  surface_sample TEXT NULL,
   -- La zona de juego que marcó el entrenador con la cámara quieta (JSON: points, margin), o NULL.
   play_area TEXT NULL,
   -- Cuándo borró el video el cron de retención (bin/retention.php), o NULL.

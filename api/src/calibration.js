@@ -39,6 +39,26 @@ function parseSurface(analysis) {
   return SURFACES.includes(m) ? { value: m } : { error: true };
 }
 
+// The coach's sample of the pitch's grass or dirt: HSV ranges as OpenCV
+// (hue 0..180, saturation and value 0..255), each [min, max].
+const SAMPLE_MAX = { hue: 180, sat: 255, val: 255 };
+
+/** analysis.surface_sample of POST /clips → {value} ({hue, sat, val}, null when absent) or {error}. */
+function parseSurfaceSample(analysis) {
+  if (analysis === undefined || analysis === null) return { value: null };
+  if (typeof analysis !== 'object') return { error: true };
+  const s = analysis.surface_sample;
+  if (s === undefined || s === null) return { value: null };
+  if (typeof s !== 'object' || Array.isArray(s)) return { error: true };
+  const value = {};
+  for (const [k, max] of Object.entries(SAMPLE_MAX)) {
+    const r = s[k];
+    if (!Array.isArray(r) || r.length !== 2 || !r.every((v) => Number.isInteger(v) && v >= 0 && v <= max) || r[0] > r[1]) return { error: true };
+    value[k] = [r[0], r[1]];
+  }
+  return { value };
+}
+
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // The play area the coach marks on a still camera: a polygon (the pitch's
@@ -171,4 +191,4 @@ function parseCalibration(body) {
   return { value };
 }
 
-module.exports = { PITCH_MODES, CAMERA_MODES, SURFACES, MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parsePlayArea, parseCalibration };
+module.exports = { PITCH_MODES, CAMERA_MODES, SURFACES, MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parseSurfaceSample, parsePlayArea, parseCalibration };
