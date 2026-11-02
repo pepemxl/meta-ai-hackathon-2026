@@ -5,7 +5,7 @@ const path = require('path');
 const express = require('express');
 const multer = require('multer');
 const storage = require('./storage');
-const { verifyPassword, signToken, verifyToken, matchStaticToken, safeEqual } = require('./auth');
+const { verifyPassword, signToken, verifyToken, isDemoToken, matchStaticToken, safeEqual } = require('./auth');
 const { CONSENT_VERSION, parseClipConsent, parseConsentEvent, currentState, iso } = require('./consent');
 const { MAX_REFERENCES, parsePitchMode, parseCamera, parsePlayArea, parseCalibration } = require('./calibration');
 
@@ -32,7 +32,8 @@ const MAX_REFERENCE_BYTES = 2 * 1024 * 1024;
  * The pp-coach-tracker API (contract in api/README.md):
  *
  *   GET  /health                           server, database and token check
- *   POST /auth/login                       email + password → JWT (30 days)
+ *   POST /auth/login                       email + password → JWT (30 days); demo: true for a demo account,
+ *                                          which gets 403 on every route that writes (no upload, no Meta credit)
  *   POST /clips                            register (idempotent), needs consent → what is already here;
  *                                          analysis.pitch_mode: whether to compute the pitch;
  *                                          analysis.camera: static (one homography) or moving;
@@ -87,6 +88,15 @@ function createApp({
     if (!coachId) return fail(res, 401, 'invalid or missing token');
     req.coachId = coachId;
     next();
+  }
+
+  /** auth for the routes that write: a demo account never registers, uploads or reports consent. */
+  function writerAuth(req, res, next) {
+    auth(req, res, () => {
+      const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
+      if (isDemoToken(jwtSecret, m[1])) return fail(res, 403, 'demo account', { demo: true });
+      next();
+    });
   }
 
   function workerAuth(req, res, next) {
@@ -172,11 +182,11 @@ function createApp({
       failures.push(now());
       return fail(res, 401, 'invalid credentials');
     }
-    res.json({ token: signToken(jwtSecret, user), email: user.email, name: user.name });
+    res.json({ token: signToken(jwtSecret, user), email: user.email, name: user.name, demo: Boolean(user.demo) });
   }));
 
   // ── clips ─────────────────────────────────────────────────────────────────
-  app.post('/clips', auth, json, wrap(async (req, res) => {
+  app.post('/clips', writerAuth, json, wrap(async (req, res) => {
     const b = req.body || {};
     const m = b.match || {};
     const bad = [];
@@ -244,7 +254,7 @@ function createApp({
     res.json(await clipState(clip));
   }));
 
-  app.post('/clips/:id/calibration', auth, express.json({ limit: '256kb' }), wrap(async (req, res) => {
+  app.post('/clips/:id/calibration', writerAuth, express.json({ limit: '256kb' }), wrap(async (req, res) => {
     const clip = await ownClip(req, res);
     if (!clip) return;
     if (!CALIBRATION_OPEN.includes(clip.status)) return fail(res, 409, 'clip already taken by the worker', { status: clip.status });
@@ -257,7 +267,7 @@ function createApp({
     });
   }));
 
-  app.put('/clips/:id/references/:n', auth, express.raw({ type: () => true, limit: MAX_REFERENCE_BYTES }), wrap(async (req, res) => {
+  app.put('/clips/:id/references/:n', writerAuth, express.raw({ type: () => true, limit: MAX_REFERENCE_BYTES }), wrap(async (req, res) => {
     const clip = await ownClip(req, res);
     if (!clip) return;
     const n = Number(req.params.n);
@@ -273,7 +283,7 @@ function createApp({
     res.json({ clip_id: clip.id, n, bytes: body.length });
   }));
 
-  app.put('/clips/:id/chunks/:n/video', auth, express.raw({ type: () => true, limit: maxPartBytes }), wrap(async (req, res) => {
+  app.put('/clips/:id/chunks/:n/video', writerAuth, express.raw({ type: () => true, limit: maxPartBytes }), wrap(async (req, res) => {
     const clip = await ownClip(req, res);
     if (!clip) return;
     const n = chunkNumber(req, res, clip);
@@ -298,7 +308,7 @@ function createApp({
     res.json({ number: n, received_bytes: have + body.length });
   }));
 
-  app.put('/clips/:id/chunks/:n', auth, smallMultipart.fields([{ name: 'yaml', maxCount: 1 }]), wrap(async (req, res) => {
+  app.put('/clips/:id/chunks/:n', writerAuth, smallMultipart.fields([{ name: 'yaml', maxCount: 1 }]), wrap(async (req, res) => {
     const files = multerFiles(req);
     try {
       const clip = await ownClip(req, res);
@@ -330,7 +340,7 @@ function createApp({
     }
   }));
 
-  app.post('/clips/:id/complete', auth, smallMultipart.fields([{ name: 'index', maxCount: 1 }]), wrap(async (req, res) => {
+  app.post('/clips/:id/complete', writerAuth, smallMultipart.fields([{ name: 'index', maxCount: 1 }]), wrap(async (req, res) => {
     const files = multerFiles(req);
     try {
       const clip = await ownClip(req, res);
@@ -373,7 +383,7 @@ function createApp({
   }));
 
   // ── consent ───────────────────────────────────────────────────────────────
-  app.post('/consent', auth, json, wrap(async (req, res) => {
+  app.post('/consent', writerAuth, json, wrap(async (req, res) => {
     const ev = parseConsentEvent(req.body, now());
     if (ev.error) return fail(res, 400, ev.error, { consent_version: CONSENT_VERSION });
     const id = await repo.addConsentEvent(req.coachId, ev, req.ip);

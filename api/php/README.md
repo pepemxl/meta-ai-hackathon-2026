@@ -12,6 +12,7 @@ npm run php:migrate    # aplica db/schema.sql
 npm run test:php       # pruebas de contrato por HTTP (con .htaccess)
 
 wsl -e docker compose exec -T -e PP_COACH_TRACKER_PASSWORD='…' php php bin/user.php add coach@example.com "Nombre"
+wsl -e docker compose exec -T -e PP_COACH_TRACKER_PASSWORD='…' php php bin/user.php add-demo demo@example.com "Demo"   # no sube ni gasta crédito
 wsl -e docker compose exec php php bin/user.php list
 wsl -e docker compose exec php php bin/retention.php --dry-run   # qué video borraría la retención
 ```

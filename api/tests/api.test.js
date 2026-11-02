@@ -294,6 +294,35 @@ test('login returns a JWT that works on the coach routes; wrong passwords are li
   assert.equal((await request(app).post('/auth/login').send({ email, password: 'correct-horse-9' })).status, 200);
 });
 
+test('a demo account logs in and reads, but every route that writes answers 403', async () => {
+  const { app, repo } = h.makeApp();
+  const email = `demo-${process.pid}@pp-test.example`;
+  await repo.createUser({ email, name: 'Demo', passwordHash: hashPassword('correct-horse-9'), demo: true });
+  const ok = await request(app).post('/auth/login').send({ email, password: 'correct-horse-9' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.demo, true);
+  assert.equal(jwt.decode(ok.body.token).demo, true);
+  const auth = `Bearer ${ok.body.token}`;
+  const denied = { error: 'demo account', demo: true };
+  const r = await register(app, h.clipBody(), auth);
+  assert.equal(r.status, 403);
+  assert.deepEqual(r.body, denied);
+  for (const [method, url] of [['post', '/clips/1/calibration'], ['put', '/clips/1/references/1'], ['put', '/clips/1/chunks/1/video?offset=0'],
+    ['put', '/clips/1/chunks/1'], ['post', '/clips/1/complete'], ['post', '/consent']]) {
+    const w = await request(app)[method](url).set('Authorization', auth).send({});
+    assert.equal(w.status, 403, url);
+    assert.deepEqual(w.body, denied);
+  }
+  assert.equal((await request(app).get('/consent').set('Authorization', auth)).status, 200);
+  assert.equal((await request(app).get('/clips/1').set('Authorization', auth)).status, 404);
+  // A coach account is not demo.
+  const coach = `coach-${process.pid}@pp-test.example`;
+  await repo.createUser({ email: coach, name: 'Coach', passwordHash: hashPassword('correct-horse-9') });
+  const c = await request(app).post('/auth/login').send({ email: coach, password: 'correct-horse-9' });
+  assert.equal(c.body.demo, false);
+  assert.equal(jwt.decode(c.body.token).demo, undefined);
+});
+
 test('forged or expired JWTs are rejected', async () => {
   const { app } = h.makeApp();
   const forged = jwt.sign({ sub: 'u1' }, 'another-secret-0123456789abcdefghijk', { algorithm: 'HS256' });

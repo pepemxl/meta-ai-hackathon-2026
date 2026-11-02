@@ -25,11 +25,11 @@ function createMemoryRepo() {
       return true;
     },
 
-    async createUser({ email, name, passwordHash }) {
+    async createUser({ email, name, passwordHash, demo = false }) {
       const key = email.toLowerCase();
       if ([...users.values()].some((u) => u.email === key)) throw Object.assign(new Error('duplicate email'), { code: 'DUPLICATE' });
       const id = nextId();
-      users.set(id, { id, email: key, name, password_hash: passwordHash, created_at: now() });
+      users.set(id, { id, email: key, name, password_hash: passwordHash, demo: demo ? 1 : 0, created_at: now() });
       return id;
     },
 

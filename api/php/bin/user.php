@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Cuentas de entrenador (no hay registro público):
 //   php bin/user.php add <correo> "<nombre>"
+//   php bin/user.php add-demo <correo> "<nombre>"   (cuenta demo: no sube video ni gasta crédito de Meta)
 //   php bin/user.php password <correo>
 //   php bin/user.php list
 // La contraseña sale de PP_COACH_TRACKER_PASSWORD o se pide en la terminal.
@@ -31,16 +32,19 @@ function ask_password(): string
 
 switch ($cmd) {
     case 'add':
+    case 'add-demo':
         $email = strtolower(trim($argv[2] ?? ''));
         $name = trim($argv[3] ?? '');
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '') {
-            cli_fail('Uso: php bin/user.php add <correo> "<nombre>"', 2);
+            cli_fail("Uso: php bin/user.php $cmd <correo> \"<nombre>\"", 2);
         }
         if ($repo->userByEmail($email) !== null) {
             cli_fail("Ya existe un usuario con $email");
         }
-        $id = $repo->createUser($email, $name, Auth::hashPassword(ask_password()));
-        echo "Usuario $email creado (coach_id " . Auth::coachIdOf($id) . ')' . PHP_EOL;
+        // Una cuenta nace demo o no y no cambia: así sus tokens siempre lo dicen.
+        $demo = $cmd === 'add-demo';
+        $id = $repo->createUser($email, $name, Auth::hashPassword(ask_password()), $demo);
+        echo ($demo ? 'Usuario demo ' : 'Usuario ') . "$email creado (coach_id " . Auth::coachIdOf($id) . ')' . PHP_EOL;
         break;
     case 'password':
         $email = strtolower(trim($argv[2] ?? ''));
@@ -52,9 +56,10 @@ switch ($cmd) {
         break;
     case 'list':
         foreach ($repo->listUsers() as $u) {
-            echo "u{$u['id']}\t{$u['email']}\t{$u['name']}\t{$u['created_at']}" . PHP_EOL;
+            $kind = $u['demo'] ? 'demo' : 'coach';
+            echo "u{$u['id']}\t{$u['email']}\t{$u['name']}\t$kind\t{$u['created_at']}" . PHP_EOL;
         }
         break;
     default:
-        cli_fail("Uso: php bin/user.php add <correo> \"<nombre>\" | password <correo> | list", 2);
+        cli_fail("Uso: php bin/user.php add|add-demo <correo> \"<nombre>\" | password <correo> | list", 2);
 }

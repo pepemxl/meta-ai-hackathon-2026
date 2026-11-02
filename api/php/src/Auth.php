@@ -28,22 +28,39 @@ final class Auth
         return 'u' . $userId;
     }
 
-    public static function signToken(string $secret, int $userId, string $email, ?int $now = null): string
+    /** Una cuenta demo lleva "demo": true en el token (Node firma lo mismo). */
+    public static function signToken(string $secret, int $userId, string $email, ?int $now = null, bool $demo = false): string
     {
         $now ??= time();
         $header = self::b64((string) json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
-        $payload = self::b64((string) json_encode([
+        $claims = [
             'sub' => self::coachIdOf($userId),
             'email' => $email,
             'iat' => $now,
             'exp' => $now + self::TOKEN_TTL,
-        ], JSON_UNESCAPED_SLASHES));
+        ];
+        if ($demo) {
+            $claims['demo'] = true;
+        }
+        $payload = self::b64((string) json_encode($claims, JSON_UNESCAPED_SLASHES));
         $sig = self::b64(hash_hmac('sha256', "$header.$payload", $secret, true));
         return "$header.$payload.$sig";
     }
 
     /** El coach_id de un token válido, o null (firma, algoritmo, vencido, mal formado). */
     public static function verifyToken(string $secret, string $token, ?int $now = null): ?string
+    {
+        return self::claims($secret, $token, $now)['sub'] ?? null;
+    }
+
+    /** Si el token es de una cuenta demo: no sube video ni manda a analizar. */
+    public static function isDemoToken(string $secret, string $token, ?int $now = null): bool
+    {
+        return (self::claims($secret, $token, $now)['demo'] ?? false) === true;
+    }
+
+    /** El contenido de un token válido, o null. */
+    private static function claims(string $secret, string $token, ?int $now): ?array
     {
         $parts = explode('.', $token);
         if (count($parts) !== 3) {
@@ -69,7 +86,7 @@ final class Auth
         if (isset($payload['nbf']) && is_numeric($payload['nbf']) && $payload['nbf'] > $now) {
             return null;
         }
-        return $payload['sub'];
+        return $payload;
     }
 
     /**

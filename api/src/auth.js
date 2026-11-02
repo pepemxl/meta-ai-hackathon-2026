@@ -24,21 +24,32 @@ function verifyPassword(password, stored) {
 /** The coach id stored with everything a logged-in user uploads. */
 const coachIdOf = (userId) => `u${userId}`;
 
+/** A demo account carries "demo": true in its token (PHP signs the same). */
 function signToken(secret, user, options = {}) {
-  return jwt.sign({ sub: coachIdOf(user.id), email: user.email }, secret, {
+  const claims = { sub: coachIdOf(user.id), email: user.email, ...(user.demo ? { demo: true } : {}) };
+  return jwt.sign(claims, secret, {
     algorithm: 'HS256',
     expiresIn: options.expiresIn || TOKEN_TTL,
   });
 }
 
-/** The coach id inside a valid token, or null (bad signature, expired, malformed). */
-function verifyToken(secret, token) {
+function claims(secret, token) {
   try {
-    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
-    return typeof payload.sub === 'string' ? payload.sub : null;
+    return jwt.verify(token, secret, { algorithms: ['HS256'] });
   } catch (e) {
     return null;
   }
+}
+
+/** The coach id inside a valid token, or null (bad signature, expired, malformed). */
+function verifyToken(secret, token) {
+  const payload = claims(secret, token);
+  return payload && typeof payload.sub === 'string' ? payload.sub : null;
+}
+
+/** Whether a valid token belongs to a demo account: it never uploads or sends for analysis. */
+function isDemoToken(secret, token) {
+  return claims(secret, token)?.demo === true;
 }
 
 /**
@@ -77,4 +88,4 @@ function safeEqual(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-module.exports = { TOKEN_TTL, hashPassword, verifyPassword, coachIdOf, signToken, verifyToken, parseTokens, matchStaticToken, safeEqual };
+module.exports = { TOKEN_TTL, hashPassword, verifyPassword, coachIdOf, signToken, verifyToken, isDemoToken, parseTokens, matchStaticToken, safeEqual };

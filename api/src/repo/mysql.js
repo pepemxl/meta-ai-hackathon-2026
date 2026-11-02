@@ -31,9 +31,9 @@ function createMysqlRepo({ host, port, database, user, password }) {
       }
     },
 
-    async createUser({ email, name, passwordHash }) {
+    async createUser({ email, name, passwordHash, demo = false }) {
       try {
-        const [r] = await pool.query('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)', [email.toLowerCase(), name, passwordHash]);
+        const [r] = await pool.query('INSERT INTO users (email, name, password_hash, demo) VALUES (?, ?, ?, ?)', [email.toLowerCase(), name, passwordHash, demo ? 1 : 0]);
         return r.insertId;
       } catch (e) {
         if (e.code === 'ER_DUP_ENTRY') throw Object.assign(new Error('duplicate email'), { code: 'DUPLICATE' });
@@ -42,7 +42,7 @@ function createMysqlRepo({ host, port, database, user, password }) {
     },
 
     async findUserByEmail(email) {
-      return one('SELECT id, email, name, password_hash FROM users WHERE email = ?', [String(email).toLowerCase()]);
+      return one('SELECT id, email, name, password_hash, demo FROM users WHERE email = ?', [String(email).toLowerCase()]);
     },
 
     async deleteUser(id) {

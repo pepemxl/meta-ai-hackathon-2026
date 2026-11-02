@@ -39,15 +39,15 @@ final class Repo
 
     // ── usuarios y login ─────────────────────────────────────────────────────
 
-    public function createUser(string $email, string $name, string $hash): int
+    public function createUser(string $email, string $name, string $hash, bool $demo = false): int
     {
-        $this->run('INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)', [strtolower($email), $name, $hash]);
+        $this->run('INSERT INTO users (email, name, password_hash, demo) VALUES (?, ?, ?, ?)', [strtolower($email), $name, $hash, $demo ? 1 : 0]);
         return (int) $this->db->lastInsertId();
     }
 
     public function userByEmail(string $email): ?array
     {
-        return $this->one('SELECT id, email, name, password_hash FROM users WHERE email = ?', [strtolower($email)]);
+        return $this->one('SELECT id, email, name, password_hash, demo FROM users WHERE email = ?', [strtolower($email)]);
     }
 
     public function setPassword(string $email, string $hash): int
@@ -57,7 +57,7 @@ final class Repo
 
     public function listUsers(): array
     {
-        return $this->all('SELECT id, email, name, created_at FROM users ORDER BY id');
+        return $this->all('SELECT id, email, name, demo, created_at FROM users ORDER BY id');
     }
 
     /** Fallos recientes: [por correo, por IP, el más viejo del correo (Y-m-d H:i:s) o null]. */

@@ -67,6 +67,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN video_deleted_at DATETIME NULL AFTER calibration');
             $done[] = 'clips.video_deleted_at';
         }
+        // Las cuentas demo: prueban la app sin subir video ni gastar crédito de Meta.
+        if (!self::hasColumn($db, 'users', 'demo')) {
+            $db->exec('ALTER TABLE users ADD COLUMN demo TINYINT(1) NOT NULL DEFAULT 0 AFTER password_hash');
+            $done[] = 'users.demo';
+        }
         return $done;
     }
 

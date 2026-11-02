@@ -14,6 +14,7 @@ TEST_MYSQL=1 npm test         # las mismas pruebas contra MySQL (borran sus dato
 
 npm start                     # http://127.0.0.1:3000 con la config del .env de la raíz
 npm run user:add -- coach@example.com "Nombre" 'contraseña-larga'
+npm run user:add -- --demo demo@example.com "Demo" 'contraseña-larga'   # cuenta demo (abajo)
 ```
 
 Las variables están en `.env.example` (raíz del repo). La API lee `.env` de la raíz y **no arranca** sin `JWT_SECRET` de 32 caracteres o más.
@@ -42,7 +43,7 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | Método | Ruta | Quién | Qué hace |
 |---|---|---|---|
 | GET | `/health` | Cualquiera | `{ok, version, db, authenticated, consent_version}` |
-| POST | `/auth/login` | Cualquiera | `{email, password}` → `{token, email, name}`. JWT HS256, `sub` = `u<id>`, 30 días. 10 fallos por correo en 15 min → 429 con `Retry-After` |
+| POST | `/auth/login` | Cualquiera | `{email, password}` → `{token, email, name, demo}`. JWT HS256, `sub` = `u<id>`, 30 días; una cuenta demo lleva además `demo: true`. 10 fallos por correo en 15 min → 429 con `Retry-After` |
 | POST | `/clips` | Entrenador | Registro idempotente por `(coach_id, client_clip_id)`; ver abajo |
 | POST | `/clips/:id/calibration` | Entrenador | Puntos y líneas de la cancha que marcó el entrenador, y los trazos de sus imágenes de referencia (abajo); 409 cuando el worker ya tomó el clip |
 | PUT | `/clips/:id/references/:n` | Entrenador | Una imagen de referencia de la cancha: JPEG crudo de hasta 2 MB, `n` de 1 a 6; 400 si no es JPEG, 413 si pasa el tope, 409 cuando el worker ya tomó el clip |
@@ -56,6 +57,13 @@ Estados del clip: `registered → uploading → queued → segmenting → ready 
 | GET | `/internal/jobs/next` | Worker | 204, o `{job_id, type, clip: {id, title, duration_ms, chunk_count, chunk_seconds, overlap_ms, dir, index, files, references}, options: {pitch_mode, camera, play_area}, calibration, match: {home, away, home_color, away_color, date, venue}}` |
 | GET | `/internal/clips/:id/files/:name` | Worker | Solo `chunks.yaml`, `video_part_NNN.(mp4\|yaml)` y `reference_N.jpg`; 404 si no |
 | POST | `/internal/jobs/:id/result` | Worker | JSON `{status: done\|failed, error}` o multipart con el archivo `analysis` (JSON) |
+
+### Cuentas demo
+
+Sirven para compartir la app sin gastar crédito de Meta. Una cuenta demo inicia sesión y puede leer (`GET /consent`, `GET /clips/:id`), pero **toda ruta que escribe** responde `403 {error: "demo account", demo: true}`: `POST /clips`, la calibración, las imágenes de referencia, las partes y el cierre de los chunks, `complete` y `POST /consent`. Así nunca llega un trabajo al worker, aunque la app esté modificada.
+
+- Se crea así desde el principio (`user.php add-demo` en PHP, `user:add -- --demo` en Node) y no cambia, para que todos sus tokens digan `demo: true`.
+- La app, con una sesión demo, guarda todo en el teléfono y trae un clip de prueba con su análisis ya hecho ([android_native/README.md](../android_native/README.md#modo-demo)).
 
 ### `POST /clips`
 

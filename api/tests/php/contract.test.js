@@ -42,8 +42,8 @@ function wipe() {
        DELETE FROM users WHERE email LIKE '%@pp-test.example'; DELETE FROM login_failures WHERE email LIKE '%@pp-test.example';`);
 }
 
-function addUser(email, name, password) {
-  return compose(['php', 'php', 'bin/user.php', 'add', email, name], { PP_COACH_TRACKER_PASSWORD: password });
+function addUser(email, name, password, cmd = 'add') {
+  return compose(['php', 'php', 'bin/user.php', cmd, email, name], { PP_COACH_TRACKER_PASSWORD: password });
 }
 
 beforeEach(wipe);
@@ -305,6 +305,34 @@ test('a token signed by the Node API works on the PHP API', async () => {
   const r = await register(h.clipBody(), `Bearer ${nodeToken}`);
   assert.equal(r.status, 200);
   assert.equal(sql(`SELECT coach_id FROM clips WHERE id = ${r.body.clip_id}`)[0][0], `u${id}`);
+});
+
+test('a demo account logs in and reads, but every route that writes answers 403', async () => {
+  const email = `demo-${process.pid}@pp-test.example`;
+  assert.match(addUser(email, 'Demo', 'correct-horse-9', 'add-demo'), /Usuario demo/);
+  const ok = await api().post('/auth/login').send({ email, password: 'correct-horse-9' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.demo, true);
+  assert.equal(jwt.verify(ok.body.token, h.JWT_SECRET, { algorithms: ['HS256'] }).demo, true);
+  const auth = `Bearer ${ok.body.token}`;
+  const denied = { error: 'demo account', demo: true };
+  const r = await register(h.clipBody(), auth);
+  assert.equal(r.status, 403);
+  assert.deepEqual(r.body, denied);
+  for (const [method, url] of [['post', '/clips/1/calibration'], ['put', '/clips/1/references/1'], ['put', '/clips/1/chunks/1/video?offset=0'],
+    ['put', '/clips/1/chunks/1'], ['post', '/clips/1/complete'], ['post', '/consent']]) {
+    const w = await api()[method](url).set('Authorization', auth).send({});
+    assert.equal(w.status, 403, url);
+    assert.deepEqual(w.body, denied);
+  }
+  assert.equal((await api().get('/consent').set('Authorization', auth)).status, 200);
+  assert.equal((await api().get('/clips/1').set('Authorization', auth)).status, 404);
+  assert.equal(sql(`SELECT COUNT(*) FROM clips WHERE coach_id = (SELECT CONCAT('u', id) FROM users WHERE email = '${email}')`)[0][0], '0');
+  // The same token signed by Node (demo: true) is refused the same way.
+  const id = sql(`SELECT id FROM users WHERE email = '${email}'`)[0][0];
+  const nodeToken = jwt.sign({ sub: `u${id}`, email, demo: true }, h.JWT_SECRET, { algorithm: 'HS256', expiresIn: '30d' });
+  assert.equal((await register(h.clipBody(), `Bearer ${nodeToken}`)).status, 403);
+  assert.match(compose(['php', 'php', 'bin/user.php', 'list']), new RegExp(`${email}\tDemo\tdemo\t`));
 });
 
 test('forged or expired JWTs are rejected', async () => {

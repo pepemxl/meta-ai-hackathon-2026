@@ -94,6 +94,19 @@ final class App
         return $c;
     }
 
+    /**
+     * El coach_id de una ruta que escribe. Una cuenta demo no registra clips, no
+     * sube video ni consentimientos: no puede gastar crédito de Meta.
+     */
+    private function writer(Request $req): string
+    {
+        $coach = $this->coach($req);
+        if (Auth::isDemoToken($this->jwtSecret, (string) $req->bearer())) {
+            throw new HttpError(403, 'demo account', ['demo' => true]);
+        }
+        return $coach;
+    }
+
     private function worker(Request $req): void
     {
         $t = $req->bearer();
@@ -188,15 +201,16 @@ final class App
             throw new HttpError(401, 'invalid credentials');
         }
         return Response::json([
-            'token' => Auth::signToken($this->jwtSecret, (int) $user['id'], $user['email']),
+            'token' => Auth::signToken($this->jwtSecret, (int) $user['id'], $user['email'], null, (bool) $user['demo']),
             'email' => $user['email'],
             'name' => $user['name'],
+            'demo' => (bool) $user['demo'],
         ]);
     }
 
     private function registerClip(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $b = $req->json();
         $m = is_array($b['match'] ?? null) ? $b['match'] : [];
         $bad = [];
@@ -288,7 +302,7 @@ final class App
 
     private function postCalibration(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $clip = $this->ownClip($req, $coach);
         if (!in_array($clip['status'], self::CALIBRATION_OPEN, true)) {
             throw new HttpError(409, 'clip already taken by the worker', ['status' => $clip['status']]);
@@ -310,7 +324,7 @@ final class App
     /** Una imagen de referencia de la cancha (JPEG que comprime la app), n = 1..6. */
     private function putReference(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $clip = $this->ownClip($req, $coach);
         $nRaw = $req->params['n'] ?? '';
         if (!ctype_digit($nRaw) || (int) $nRaw < 1 || (int) $nRaw > Calibration::MAX_REFERENCES) {
@@ -345,7 +359,7 @@ final class App
 
     private function putPart(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $clip = $this->ownClip($req, $coach);
         $n = $this->chunkNumber($req, $clip);
         if (in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
@@ -424,7 +438,7 @@ final class App
 
     private function finishChunk(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $clip = $this->ownClip($req, $coach);
         $n = $this->chunkNumber($req, $clip);
         if (in_array($clip['status'], self::UPLOAD_BLOCKED, true)) {
@@ -459,7 +473,7 @@ final class App
 
     private function complete(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $clip = $this->ownClip($req, $coach);
         $index = $req->formText('index');
         if ($index === null || $index === '') {
@@ -516,7 +530,7 @@ final class App
 
     private function postConsent(Request $req): Response
     {
-        $coach = $this->coach($req);
+        $coach = $this->writer($req);
         $ev = Consent::parseEvent($req->json());
         if (isset($ev['error'])) {
             throw new HttpError(400, $ev['error'], ['consent_version' => Consent::VERSION]);
