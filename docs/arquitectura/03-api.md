@@ -71,6 +71,8 @@ La API Node sigue el mismo camino con Express: `express.json` (64 KB; 256 KB en 
 
 Las cuentas no tienen registro público: las crea el administrador con `npm run user:add` (Node) o `php bin/user.php add` (PHP). Un entrenador nunca ve ni toca clips de otro: recibe `404`.
 
+Una **cuenta demo** (`users.demo`, creada con `add-demo` o `--demo`) inicia sesión con `demo: true` en la respuesta y en el JWT. Puede leer, pero toda ruta que escribe le responde `403 demo account`, así que nunca llega un trabajo al worker ([14-modo-demo.md](../14-modo-demo.md)).
+
 ## Modelo de datos
 
 Un solo esquema (`api/db/schema.sql`) para las dos APIs. `coach_id` es `u<id>` del usuario (o el id de un token fijo).
@@ -82,6 +84,7 @@ erDiagram
         varchar email UK
         varchar name
         varchar password_hash
+        tinyint demo
     }
     matches {
         int id PK

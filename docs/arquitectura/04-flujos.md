@@ -22,7 +22,7 @@ sequenceDiagram
         API-->>A: 401 wrong email or password
     else correctas
         API->>DB: borra los fallos del correo
-        API-->>A: 200 {token, email, name}
+        API-->>A: 200 {token, email, name, demo}
         A->>K: cifra el token (AES-256-GCM)
         A->>A: guarda el cifrado en SharedPreferences
         A-->>E: "Sesión iniciada como …"
