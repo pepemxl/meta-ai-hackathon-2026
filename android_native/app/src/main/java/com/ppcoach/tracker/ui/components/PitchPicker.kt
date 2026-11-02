@@ -94,6 +94,7 @@ fun PitchPicker(pitches: List<SavedPitch>, selected: SavedPitch?, size: Int, onC
             color = if (selected?.measured == true) c.textSecondary else c.warning,
         )
         if (selected?.surface == PitchSurface.DIRT) Text(s.pitchDirtNote, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+        selected?.sample?.let { Text(s.pitchSampleNote(selected.surface == PitchSurface.DIRT, it.taps), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary) }
     }
 }
 
@@ -145,6 +146,8 @@ fun PitchEditorDialog(initial: SavedPitch, onDismiss: () -> Unit, onSave: (Saved
                 val both = length.isNotBlank() && width.isNotBlank()
                 onSave(initial.copy(
                     name = name.trim(), size = size, surface = surface,
+                    // A sample of grass says nothing about dirt, and the other way round.
+                    sample = initial.sample.takeIf { surface == initial.surface },
                     lengthM = if (both) SavedPitch.parseMeters(length) else null,
                     widthM = if (both) SavedPitch.parseMeters(width) else null,
                 ))

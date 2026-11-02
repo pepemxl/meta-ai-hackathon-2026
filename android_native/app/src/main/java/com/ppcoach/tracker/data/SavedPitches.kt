@@ -30,6 +30,8 @@ data class SavedPitch(
     val lastUsedAt: Long = 0,
     /** PitchSurface: grass, or dirt with no grass. */
     val surface: String = PitchSurface.GRASS,
+    /** The coach's sample of that grass or dirt (tapped on a frame), or null: the worker's fixed colors. */
+    val sample: SurfaceSample? = null,
 ) {
     val measured: Boolean get() = lengthM != null && widthM != null
     val dimensions: Pair<Double, Double> get() = PitchTemplate.dimensions(size, lengthM, widthM)
@@ -37,6 +39,7 @@ data class SavedPitch(
     fun toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("size", size)
         .put("lengthM", lengthM ?: JSONObject.NULL).put("widthM", widthM ?: JSONObject.NULL)
         .put("createdAt", createdAt).put("lastUsedAt", lastUsedAt).put("surface", surface)
+        .put("sample", sample?.toJson() ?: JSONObject.NULL)
 
     companion object {
         /** The ranges POST /clips/:id/calibration accepts (length_m, width_m). */
@@ -60,6 +63,7 @@ data class SavedPitch(
                 lastUsedAt = o.optLong("lastUsedAt", 0),
                 // Pitches saved before the question: grass, as the worker always assumed.
                 surface = o.optString("surface", "").takeIf { PitchSurface.valid(it) } ?: PitchSurface.GRASS,
+                sample = SurfaceSample.fromJson(o.optJSONObject("sample")),
             )
         }
 

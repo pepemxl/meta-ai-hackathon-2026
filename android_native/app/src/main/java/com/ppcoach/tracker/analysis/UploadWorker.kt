@@ -85,7 +85,11 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val analysis = JSONObject().put("camera", camera)
             if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
             // Grass or dirt, from the saved pitch's details: on dirt the worker looks for dirt, not grass.
-            AppGraph.library.value.pitchOf(clip)?.let { analysis.put("surface", it.surface) }
+            AppGraph.library.value.pitchOf(clip)?.let { p ->
+                analysis.put("surface", p.surface)
+                // The coach's sample of that grass or dirt: the worker looks for these colors instead of its own.
+                p.sample?.let { analysis.put("surface_sample", it.apiJson()) }
+            }
             // The play area only means something on a camera that does not move.
             clip.playArea?.takeIf { camera == CameraMode.STATIC && it.isValid }?.let { analysis.put("play_area", it.apiJson()) }
             body.put("analysis", analysis)

@@ -329,6 +329,15 @@ interface Strings {
     val pitchSurfaceDirt: String
     val pitchSurfaceHelp: String
     val pitchDirtNote: String
+    fun pitchSampleNote(dirt: Boolean, taps: Int): String
+    fun modeSample(dirt: Boolean): String
+    fun sampleStep(dirt: Boolean): String
+    val sampleHelp: String
+    val sampleNeedsPitch: String
+    val sampleFull: String
+    fun sampleMixed(dirt: Boolean): String
+    fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange): String
+    val clearSample: String
     fun pitchOption(name: String, size: Int): String
     fun pitchUnsaved(size: Int): String
     fun pitchMeasured(length: Double, width: Double): String
@@ -739,6 +748,16 @@ object Es : Strings {
     override val pitchSurfaceDirt = "No, es de tierra"
     override val pitchSurfaceHelp = "El análisis encuentra la cancha por su color: en una de tierra busca la tierra en lugar del pasto."
     override val pitchDirtNote = "Cancha de tierra: el análisis busca la tierra, no el pasto."
+    override fun pitchSampleNote(dirt: Boolean, taps: Int) = "Con muestra ${if (dirt) "de la tierra" else "del pasto"} ($taps ${if (taps == 1) "toque" else "toques"}): el análisis busca ese color."
+    override fun modeSample(dirt: Boolean) = if (dirt) "Muestra de tierra" else "Muestra de pasto"
+    override fun sampleStep(dirt: Boolean) = "Toca ${if (dirt) "la tierra" else "el pasto"} de la cancha en la imagen"
+    override val sampleHelp = "Toca varias partes: con sol, con sombra, lejos y cerca. En morado, lo que el análisis tomará como cancha. La muestra se guarda en la cancha y sirve para sus siguientes clips."
+    override val sampleNeedsPitch = "Elige o guarda una cancha arriba para guardarle la muestra."
+    override val sampleFull = "La muestra ya tiene 8 toques. Bórrala para empezar de nuevo."
+    override fun sampleMixed(dirt: Boolean) = "Ese toque tomó otros colores (un jugador o una línea). Toca solo ${if (dirt) "la tierra" else "el pasto"}."
+    override fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange) =
+        "Muestra de $taps ${if (taps == 1) "toque" else "toques"}: tono ${hue.first}–${hue.last}, saturación ${sat.first}–${sat.last}, brillo ${value.first}–${value.last}"
+    override val clearSample = "Borrar la muestra"
     override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
     override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · sin guardar"
     override fun pitchMeasured(length: Double, width: Double) = "Medida: ${formatMeters(length)} × ${formatMeters(width)} m"
@@ -1156,6 +1175,16 @@ object En : Strings {
     override val pitchSurfaceDirt = "No, it is dirt"
     override val pitchSurfaceHelp = "The analysis finds the pitch by its color: on a dirt pitch it looks for dirt instead of grass."
     override val pitchDirtNote = "Dirt pitch: the analysis looks for dirt, not grass."
+    override fun pitchSampleNote(dirt: Boolean, taps: Int) = "With a sample of the ${if (dirt) "dirt" else "grass"} ($taps ${if (taps == 1) "tap" else "taps"}): the analysis looks for that color."
+    override fun modeSample(dirt: Boolean) = if (dirt) "Dirt sample" else "Grass sample"
+    override fun sampleStep(dirt: Boolean) = "Tap the pitch's ${if (dirt) "dirt" else "grass"} on the image"
+    override val sampleHelp = "Tap several places: in the sun, in the shade, far and near. In violet, what the analysis will take as the pitch. The sample is kept with the pitch for its next clips."
+    override val sampleNeedsPitch = "Pick or save a pitch above to keep the sample with it."
+    override val sampleFull = "The sample already has 8 taps. Clear it to start again."
+    override fun sampleMixed(dirt: Boolean) = "That tap took other colors (a player or a line). Tap only the ${if (dirt) "dirt" else "grass"}."
+    override fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange) =
+        "Sample of $taps ${if (taps == 1) "tap" else "taps"}: hue ${hue.first}–${hue.last}, saturation ${sat.first}–${sat.last}, value ${value.first}–${value.last}"
+    override val clearSample = "Clear the sample"
     override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
     override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · not saved"
     override fun pitchMeasured(length: Double, width: Double) = "Measured: ${formatMeters(length)} × ${formatMeters(width)} m"

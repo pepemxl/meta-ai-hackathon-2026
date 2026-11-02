@@ -42,7 +42,9 @@ import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.PaintedLine
 import com.ppcoach.tracker.data.PitchTemplate
 import com.ppcoach.tracker.data.PitchTouches
+import com.ppcoach.tracker.data.PitchSurface
 import com.ppcoach.tracker.data.SavedPitch
+import com.ppcoach.tracker.data.SurfaceSample
 import com.ppcoach.tracker.data.Touch
 import com.ppcoach.tracker.ui.CoachViewModel
 import com.ppcoach.tracker.ui.components.FilterChips
@@ -81,6 +83,9 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
     var editing by remember { mutableStateOf<SavedPitch?>(null) }
     var pending by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var painting by remember { mutableStateOf(false) }
+    // Tapping the grass (or the dirt) to sample its color for the saved pitch.
+    var sampling by remember { mutableStateOf(false) }
+    var lastTap by remember { mutableStateOf<Offset?>(null) }
     var pendingLine by remember { mutableStateOf<com.ppcoach.tracker.data.Stroke?>(null) }
     val namedLines = PitchTemplate.namedLines(touches.size, touches.lengthM, touches.widthM)
     var frame by remember { mutableStateOf<Bitmap?>(null) }
@@ -108,19 +113,55 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                     pendingLine = null
                 }
             }
-            FilterChips(listOf("points" to s.modePoints, "lines" to s.modeLines), if (painting) "lines" else "points") { k ->
+            val saved = lib.pitch(touches.pitchId)
+            val dirt = saved?.surface == PitchSurface.DIRT
+            FilterChips(listOf("points" to s.modePoints, "lines" to s.modeLines, "sample" to s.modeSample(dirt)), if (sampling) "sample" else if (painting) "lines" else "points") { k ->
                 painting = k == "lines"
+                sampling = k == "sample"
                 pending = null
                 pendingLine = null
+                lastTap = null
             }
             // The frame with the points and, from 4 points, the computed pitch.
             val bmp = frame
             val aspect = if (bmp != null && bmp.height > 0) bmp.width.toFloat() / bmp.height else 16f / 9f
+            // While sampling, the cells of the frame the sample takes in, on the detector's 160×90 grid.
+            val grid = remember(bmp) { bmp?.let { Bitmap.createScaledBitmap(it, GRID_W, GRID_H, true) } }
+            val matched = remember(grid, saved?.sample) {
+                val sample = saved?.sample
+                if (grid == null || sample == null) null else {
+                    val px = IntArray(GRID_W * GRID_H).also { grid.getPixels(it, 0, GRID_W, 0, 0, GRID_W, GRID_H) }
+                    BooleanArray(px.size) { i -> sample.matches((px[i] shr 16) and 0xFF, (px[i] shr 8) and 0xFF, px[i] and 0xFF) }
+                }
+            }
+            fun sampleAt(x: Float, y: Float) {
+                val image = bmp ?: return
+                val p = saved ?: return vm.toast(s.sampleNeedsPitch)
+                if ((p.sample?.taps ?: 0) >= SurfaceSample.MAX_TAPS) return vm.toast(s.sampleFull)
+                val tap = SurfaceSample.fromPixels(patch(image, x, y)) ?: return vm.toast(s.sampleMixed(dirt))
+                vm.savePitch(p.copy(sample = p.sample?.plus(tap) ?: tap))
+            }
             Box(Modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
                 if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
-                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, touches.dimensions, painting) {
-                    if (!painting) detectTapGestures { o -> pending = (o.x / size.width).toDouble().coerceIn(0.0, 1.0) to (o.y / size.height).toDouble().coerceIn(0.0, 1.0) }
+                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, touches.dimensions, painting, sampling, bmp, saved) {
+                    if (!painting) detectTapGestures { o ->
+                        if (sampling) {
+                            lastTap = o
+                            sampleAt(o.x / size.width, o.y / size.height)
+                        } else {
+                            pending = (o.x / size.width).toDouble().coerceIn(0.0, 1.0) to (o.y / size.height).toDouble().coerceIn(0.0, 1.0)
+                        }
+                    }
                 }) {
+                    if (sampling) {
+                        matched?.let { cells ->
+                            val cw = size.width / GRID_W
+                            val ch = size.height / GRID_H
+                            for (i in cells.indices) if (cells[i]) drawRect(violet.copy(alpha = 0.45f), Offset(i % GRID_W * cw, i / GRID_W * ch), androidx.compose.ui.geometry.Size(cw, ch))
+                        }
+                        lastTap?.let { drawCircle(Color.White, PATCH * size.width, it, style = Stroke(2.dp.toPx())) }
+                        return@Canvas
+                    }
                     if (h != null) {
                         val stroke = 2.dp.toPx()
                         fun px(x: Double, y: Double) = Homography.apply(h, x, y)?.let { Offset((it.first * size.width).toFloat(), (it.second * size.height).toFloat()) }
@@ -164,6 +205,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             val waiting = pending != null || pendingLine != null
             val named = touches.lines.count { it.name != null }
             val status = when {
+                sampling -> saved?.sample?.let { s.sampleSummary(it.taps, it.hue, it.sat, it.value) } ?: if (saved == null) s.sampleNeedsPitch else s.sampleStep(dirt)
                 pendingLine != null -> s.lineStepName
                 pending != null -> s.touchStepName
                 touches.state == PitchTouches.State.NEED_FIFTH -> s.touchNeedFifth
@@ -173,6 +215,10 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
             }
             Text(status, style = MaterialTheme.typography.titleMedium, color = if (touches.state == PitchTouches.State.NEED_FIFTH && !waiting) c.warning else c.textPrimary, minLines = 2)
             // Always in its place while painting, so the drawing below does not jump when a stroke ends.
+            if (sampling) {
+                Text(s.sampleHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                if (saved?.sample != null) PpTextButton(s.clearSample, { vm.savePitch(saved.copy(sample = null)); lastTap = null }, color = c.negative)
+            }
             if (painting) PpTextButton(s.justALine, {
                 pendingLine?.let { touches = touches.with(PaintedLine(null, it)) }
                 pendingLine = null
@@ -255,6 +301,23 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
 }
 
 /** Distance from [p] to the segment [a]–[b] (diagram pixels). */
+private const val GRID_W = 160
+private const val GRID_H = 90
+/** Half the side of the sampled patch, a fraction of the frame's width. */
+private const val PATCH = 0.015f
+
+/** The pixels (0xRRGGBB) of a square patch of [bmp] around ([x], [y]) in 0..1. */
+private fun patch(bmp: Bitmap, x: Float, y: Float): IntArray {
+    val r = maxOf(3, (PATCH * bmp.width).toInt())
+    val cx = (x * bmp.width).toInt().coerceIn(0, bmp.width - 1)
+    val cy = (y * bmp.height).toInt().coerceIn(0, bmp.height - 1)
+    val x0 = (cx - r).coerceAtLeast(0)
+    val y0 = (cy - r).coerceAtLeast(0)
+    val w = (cx + r).coerceAtMost(bmp.width - 1) - x0 + 1
+    val h = (cy + r).coerceAtMost(bmp.height - 1) - y0 + 1
+    return IntArray(w * h).also { bmp.getPixels(it, 0, w, x0, y0, w, h) }.map { it and 0xFFFFFF }.toIntArray()
+}
+
 private fun segmentDistance(p: Offset, a: Offset, b: Offset): Float {
     val d = b - a
     val len2 = d.x * d.x + d.y * d.y
