@@ -5,7 +5,8 @@ declare(strict_types=1);
 // <WEB_DIR>/_deploy/install.php junto al zip de package.sh y lo corre un cron:
 //   /usr/bin/php <WEB_DIR>/_deploy/install.php
 // Extrae el zip, reemplaza src/bin/db de la app, copia el .env si venía,
-// aplica el esquema, crea la cuenta de user.env si no existía, copia public/ a
+// aplica el esquema, crea la cuenta de user.env si no existía (DEMO=1: cuenta
+// demo, que no sube ni gasta crédito de Meta), copia public/ a
 // la carpeta web y borra _deploy (zip y secretos). Nunca imprime secretos.
 
 if (PHP_SAPI !== 'cli') {
@@ -53,7 +54,7 @@ function rcopy(string $from, string $to): void
     copy($from, $to);
 }
 
-/** user.env: EMAIL, NAME y PASSWORD, una por línea. */
+/** user.env: EMAIL, NAME, PASSWORD y opcionalmente DEMO=1, una por línea. */
 function read_env(string $file): array
 {
     $vars = [];
@@ -141,8 +142,9 @@ try {
         } elseif ($repo->userByEmail($email) !== null) {
             out('La cuenta ya existía.');
         } else {
-            $repo->createUser($email, $u['NAME'], \PpCoachTracker\Auth::hashPassword($u['PASSWORD']));
-            out('Cuenta creada.');
+            $demo = ($u['DEMO'] ?? '') === '1';
+            $repo->createUser($email, $u['NAME'], \PpCoachTracker\Auth::hashPassword($u['PASSWORD']), $demo);
+            out($demo ? 'Cuenta demo creada.' : 'Cuenta creada.');
         }
     }
 
