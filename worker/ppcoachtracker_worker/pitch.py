@@ -13,6 +13,10 @@ Written by hand (no OpenCV) for that reason.
 A dirt pitch (the coach says so in the pitch's details: surface "dirt") has
 no grass: the same steps with the color of dirt instead (hue 5–30, saturation
 55–160, value 100–240), measured here only; the app's masks are of grass.
+
+With the coach's sample of that grass or dirt (analysis.surface_sample: HSV
+ranges tapped on a frame) the cells are the sample's colors instead of the
+fixed ones, and every frame is measured here too.
 """
 
 from __future__ import annotations
@@ -99,6 +103,31 @@ def sample_rgb(image_bgr: np.ndarray) -> np.ndarray:
     return image_bgr[np.ix_(ys, xs)][..., ::-1].astype(np.int64)
 
 
+@dataclass(frozen=True)
+class SurfaceSample:
+    """HSV ranges as OpenCV (hue 0..180, saturation and value 0..255), each [lo, hi], whole numbers."""
+
+    hue: tuple[int, int]
+    sat: tuple[int, int]
+    val: tuple[int, int]
+
+    def as_dict(self) -> dict:
+        return {"hue": list(self.hue), "sat": list(self.sat), "val": list(self.val)}
+
+
+def sample_of(d) -> SurfaceSample | None:
+    """options.surface_sample → a SurfaceSample, or None when absent or not usable."""
+    if not isinstance(d, dict):
+        return None
+    ranges = []
+    for key, top in (("hue", 180), ("sat", 255), ("val", 255)):
+        r = d.get(key)
+        if not (isinstance(r, (list, tuple)) and len(r) == 2 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= top for v in r) and r[0] <= r[1]):
+            return None
+        ranges.append((r[0], r[1]))
+    return SurfaceSample(*ranges)
+
+
 def surface_of(surface: str | None) -> str:
     """The surface of the pitch: dirt when the coach said so, else grass."""
     return DIRT if surface == DIRT else GRASS
@@ -130,8 +159,17 @@ def dirt_cells(rgb: np.ndarray) -> np.ndarray:
     return (h >= DIRT_HUE[0]) & (h <= DIRT_HUE[1]) & (s > DIRT_SAT[0]) & (s <= DIRT_SAT[1]) & (v > DIRT_VAL[0]) & (v <= DIRT_VAL[1])
 
 
-def surface_cells(rgb: np.ndarray, surface: str = GRASS) -> np.ndarray:
-    """Boolean grid: the pitch's surface (grass or dirt)."""
+def sample_cells(rgb: np.ndarray, sample: SurfaceSample) -> np.ndarray:
+    """Boolean grid: the colors of the coach's sample (whole numbers, as the app compares them)."""
+    h, s, v = (np.floor(a) for a in _hsv(rgb))
+    return ((h >= sample.hue[0]) & (h <= sample.hue[1]) & (s >= sample.sat[0]) & (s <= sample.sat[1])
+            & (v >= sample.val[0]) & (v <= sample.val[1]))
+
+
+def surface_cells(rgb: np.ndarray, surface: str = GRASS, sample: SurfaceSample | None = None) -> np.ndarray:
+    """Boolean grid: the pitch's surface (the coach's sample, else grass or dirt)."""
+    if sample is not None:
+        return sample_cells(rgb, sample)
     return dirt_cells(rgb) if surface == DIRT else grass_cells(rgb)
 
 
@@ -276,9 +314,9 @@ def blob_row_ends(mask: np.ndarray) -> list[tuple[int, int]]:
     return ends
 
 
-def mask_from_grid(rgb: np.ndarray, surface: str = GRASS) -> PitchMask:
+def mask_from_grid(rgb: np.ndarray, surface: str = GRASS, sample: SurfaceSample | None = None) -> PitchMask:
     """The pitch of one frame from its RGB grid (GRID_H × GRID_W × 3); [fraction] is of its surface."""
-    grass = surface_cells(rgb, surface)
+    grass = surface_cells(rgb, surface, sample)
     fraction = round(float(grass.mean()), 4)
     ends = blob_row_ends(close(grass))
     if not ends:
@@ -294,8 +332,8 @@ def mask_from_grid(rgb: np.ndarray, surface: str = GRASS) -> PitchMask:
     return PitchMask(fraction, tuple(round(v, 4) for p in hull for v in p))
 
 
-def measure(image_bgr: np.ndarray, surface: str = GRASS) -> PitchMask:
-    return mask_from_grid(sample_rgb(image_bgr), surface)
+def measure(image_bgr: np.ndarray, surface: str = GRASS, sample: SurfaceSample | None = None) -> PitchMask:
+    return mask_from_grid(sample_rgb(image_bgr), surface, sample)
 
 
 def from_yaml_row(row, method: str | None) -> PitchMask | None:

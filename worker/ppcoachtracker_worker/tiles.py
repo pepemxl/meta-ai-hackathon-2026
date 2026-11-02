@@ -168,11 +168,12 @@ def mask_outside(image_bgr: np.ndarray, polygon, margin: float) -> np.ndarray:
     return out
 
 
-def grass_region(image_bgr: np.ndarray, scale: int = 4, surface: str = "grass") -> np.ndarray | None:
+def grass_region(image_bgr: np.ndarray, scale: int = 4, surface: str = "grass", sample=None) -> np.ndarray | None:
     """The pitch as the grass really is (not its convex hull, which takes in a
     press area between two corners): the largest grass blob with its holes
     (the players, the lines) filled, at full size. None when there is none.
-    On a dirt pitch ([surface] "dirt"), the largest blob of dirt."""
+    On a dirt pitch ([surface] "dirt"), the largest blob of dirt; with the
+    coach's [sample] (pitch.SurfaceSample), of its colors."""
     import cv2
 
     from .pitch import DIRT, DIRT_HUE, DIRT_SAT, DIRT_VAL
@@ -180,7 +181,9 @@ def grass_region(image_bgr: np.ndarray, scale: int = 4, surface: str = "grass") 
     h, w = image_bgr.shape[:2]
     small = cv2.resize(image_bgr, (max(1, w // scale), max(1, h // scale)), interpolation=cv2.INTER_AREA)
     hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
-    if surface == DIRT:
+    if sample is not None:
+        grass = cv2.inRange(hsv, (sample.hue[0], sample.sat[0], sample.val[0]), (sample.hue[1], sample.sat[1], sample.val[1]))
+    elif surface == DIRT:
         grass = cv2.inRange(hsv, (DIRT_HUE[0], DIRT_SAT[0] + 1, DIRT_VAL[0] + 1), (DIRT_HUE[1], DIRT_SAT[1], DIRT_VAL[1]))
     else:
         grass = cv2.inRange(hsv, (35, 60, 40), (85, 255, 255))
@@ -208,12 +211,12 @@ def grass_margins(player_px: float | None, height: int) -> tuple[int, int]:
     return int(round(max(MIN_MASK_MARGIN * height, MASK_PLAYER_HEIGHTS * p))), int(round(max(0.015 * height, p / 2)))
 
 
-def mask_outside_grass(image_bgr: np.ndarray, up: int, around: int, surface: str = "grass") -> np.ndarray:
+def mask_outside_grass(image_bgr: np.ndarray, up: int, around: int, surface: str = "grass", sample=None) -> np.ndarray:
     """The frame with what is not near the grass (or the dirt) in black: [up]
     pixels above it, [around] to the sides and below. As it is when there is no pitch."""
     import cv2
 
-    region = grass_region(image_bgr, surface=surface)
+    region = grass_region(image_bgr, surface=surface, sample=sample)
     if region is None:
         return image_bgr
     if up > 0:

@@ -65,6 +65,25 @@ worker y después en la app, que la manda en el YAML de cada chunk.
   polígono de 8 puntos que cubre la cancha sin los árboles ni el cielo.
 - Pendiente: el seguimiento de la cámara en movimiento
   (calibration/propagate.py) sigue buscando rasgos sobre el pasto.
+
+5. MUESTRA DEL PASTO O LA TIERRA
+- En "Puntos de la cancha", el modo "Muestra de pasto" (o "de tierra")
+  toca la superficie en el cuadro: cada toque toma un cuadrado de ±1.5 %
+  del ancho, su 5–95 % de tono, saturación y brillo (HSV como OpenCV) y lo
+  amplía 4, 20 y 30. Un toque cuyo tono se abre más de 24 o su saturación
+  más de 60 tomó otra cosa (un jugador, una línea): se rechaza y la app
+  pide tocar solo el pasto o la tierra. Hasta 8 toques; los rangos cubren
+  todos. En morado se ve, sobre la rejilla de 160×90, lo que la muestra
+  toma como cancha.
+- Se guarda en la cancha guardada (SavedPitch.sample; se borra si cambia de
+  pasto a tierra) y viaja como analysis.surface_sample {hue, sat, val} en
+  POST /clips. El worker busca esos colores en lugar de los fijos (máscara,
+  tiles y balón), mide todos los cuadros (ignora la máscara de la app) y lo
+  dice en video.surface_sample y en una nota.
+- Probado con dos fotos: pasto sintético al atardecer, donde los colores
+  fijos no encuentran cancha (18.7 % de pasto), con 5 toques da 59 % y un
+  polígono de 10 puntos; en la de tierra, 2 de 7 toques cayeron en
+  jugadores y se rechazaron, y con los otros 5 la cancha queda cubierta.
 ```
 
 ## Trampas conocidas

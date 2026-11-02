@@ -187,3 +187,29 @@ def test_a_dirt_pitch_is_found_by_the_color_of_dirt_and_not_by_grass():
     assert tiles.grass_region(img) is None
     ball = TrackRow(frame=0, t_ms=0, source_frame=0, track_id=1, label="ball", x=0.6, y=0.6, w=0.01, h=0.01)
     assert grass_around_box(img, ball, pitch.DIRT) > 0.9 and grass_around_box(img, ball) == 0.0
+
+
+def test_the_coachs_sample_finds_a_dull_pitch_the_fixed_colors_miss():
+    from ppcoachtracker_worker import tiles
+    from ppcoachtracker_worker.pipeline import grass_around_box
+
+    # Artificial turf at dusk (RGB 55, 70, 58: saturation 55, under the fixed 60) below the stands.
+    img = np.zeros((360, 640, 3), np.uint8)
+    img[:] = STANDS[::-1]
+    img[120:] = (58, 70, 55)
+    assert not pitch.measure(img).has_pitch
+    sample = pitch.sample_of({"hue": [60, 72], "sat": [40, 75], "val": [50, 90]})
+    m = pitch.measure(img, pitch.GRASS, sample)
+    assert m.has_pitch and min(m.polygon[1::2]) > 0.3
+    region = tiles.grass_region(img, sample=sample)
+    assert region is not None and region[300, 320] == 255 and region[60, 320] == 0
+    ball = TrackRow(frame=0, t_ms=0, source_frame=0, track_id=1, label="ball", x=0.6, y=0.6, w=0.01, h=0.01)
+    assert grass_around_box(img, ball, pitch.GRASS, sample) > 0.9 and grass_around_box(img, ball) == 0.0
+    # The same whole numbers as the app (data/SurfaceSample.kt): its tap on sunny dirt 0xB99673 gives these ranges.
+    tap = pitch.sample_of({"hue": [11, 19], "sat": [76, 116], "val": [155, 215]})
+    cells = pitch.sample_cells(np.array([[[0xB9, 0x96, 0x73], [0x8C, 0x71, 0x55]]]), tap)
+    assert cells.tolist() == [[True, False]]
+    # Not usable: upside down, out of range, missing, not whole numbers.
+    for bad in ({"hue": [20, 10], "sat": [0, 255], "val": [0, 255]}, {"hue": [0, 200], "sat": [0, 255], "val": [0, 255]},
+                {"hue": [0, 10], "sat": [0, 255]}, {"hue": [0, 10.5], "sat": [0, 255], "val": [0, 255]}, [1, 2], None):
+        assert pitch.sample_of(bad) is None

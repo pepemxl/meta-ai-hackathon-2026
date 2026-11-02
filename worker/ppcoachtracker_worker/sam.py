@@ -199,6 +199,7 @@ class SamSegmenter:
         self.player_px: float | None = None  # median player height in the video, measured on a few frames
         self._tile_mask = None  # image → image with what is not the pitch in black
         self.surface = "grass"  # what the pitch is made of (pitch.surface_of): which color plan_tiles looks for
+        self.sample = None  # the coach's sample of it (pitch.SurfaceSample): its colors instead
         self.player_concept = player_concept
         self.ball_concept = ball_concept
         self.client = client
@@ -223,7 +224,7 @@ class SamSegmenter:
         sampled = []  # polygons of the sampled frames
         heights: list[int] = []
         for img in self._sample_frames(clip):
-            m = area if area is not None else measure(img, self.surface)
+            m = area if area is not None else measure(img, self.surface, self.sample)
             if m.has_pitch:
                 sampled.append(list(m.polygon))
                 heights += tiles.player_heights(img, m.polygon)
@@ -236,14 +237,14 @@ class SamSegmenter:
             margin = tiles.mask_margin(self.player_px, clip.height, area.margin)
             self._tile_mask = lambda img: tiles.mask_outside(img, area.polygon, margin)
         else:
-            # The app's masks are of grass: on a dirt pitch only the sampled frames.
-            app_masks = clip.pitch_masks() if self.surface == "grass" else []
+            # The app's masks are of grass with fixed colors: on dirt or with a sample, only the sampled frames.
+            app_masks = clip.pitch_masks() if self.surface == "grass" and self.sample is None else []
             polygons = [list(m.polygon) for m in app_masks if m is not None and m.has_pitch] or sampled
             box = tiles.pitch_box(polygons, clip.width, clip.height)
             up, around = tiles.grass_margins(self.player_px, clip.height)
             # A camera that may move: the grass of each frame.
-            surface = self.surface
-            self._tile_mask = lambda img: tiles.mask_outside_grass(img, up, around, surface)
+            surface, sample = self.surface, self.sample
+            self._tile_mask = lambda img: tiles.mask_outside_grass(img, up, around, surface, sample)
         if self.tile_reason == "small":
             # The fewest tiles that bring the median player to what SAM sees; one crop of the pitch may do.
             need = min(1.0, tiles.MIN_SAM_PLAYER_PX / self.player_px)

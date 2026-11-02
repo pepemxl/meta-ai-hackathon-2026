@@ -83,6 +83,22 @@ def test_a_dirt_pitch_measures_its_mask_from_the_video_and_says_so(meta, tmp_pat
     assert any("Cancha de tierra" in n for n in a["notes"])
 
 
+def test_the_coachs_sample_of_the_pitch_is_used_and_reported(meta, tmp_path, config_for):
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS)
+    sample = {"hue": [35, 85], "sat": [60, 255], "val": [40, 255]}
+    pp = FakePpApi(clip_dir, {**job_for(clip_dir, 2), "options": {"surface": "grass", "surface_sample": sample}}).start()
+    try:
+        api = PpApi(pp.url, "worker-secret")
+        assert run_job(api, config_for(meta.url, api_url=pp.url), api.next_job(), sleep=lambda s: None) == "done"
+    finally:
+        pp.stop()
+    a = pp.results[0]["analysis"]
+    assert a["video"]["surface"] == "grass" and a["video"]["surface_sample"] == sample
+    assert any(n.startswith("Máscara de la cancha: 0 cuadros vinieron de la app") for n in a["notes"])
+    assert any("Muestra del pasto del entrenador: la cancha es lo que tiene tono 35–85" in n for n in a["notes"])
+
+
 def test_a_job_with_a_missing_chunk_fails_and_keeps_its_files(meta, tmp_path, config_for):
     clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
     (clip_dir / "video_part_002.mp4").unlink()
