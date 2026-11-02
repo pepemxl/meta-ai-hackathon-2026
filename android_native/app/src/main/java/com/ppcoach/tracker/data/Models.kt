@@ -176,6 +176,9 @@ data class Library(
     fun match(id: Int): Match? = matches.firstOrNull { it.id == id }
     fun pitch(id: Int): SavedPitch? = if (id > 0) pitches.firstOrNull { it.id == id } else null
 
+    /** The saved pitch of a clip: the one its marks were made on, else its match's; null when none. */
+    fun pitchOf(clip: Clip): SavedPitch? = pitch(clip.touches?.pitchId?.takeIf { it > 0 } ?: match(clip.matchId)?.pitchId ?: 0)
+
     /** Most recently used first, then by name. */
     val pitchesByUse: List<SavedPitch> get() = pitches.sortedWith(compareByDescending<SavedPitch> { it.lastUsedAt }.thenBy { it.name.lowercase() })
 

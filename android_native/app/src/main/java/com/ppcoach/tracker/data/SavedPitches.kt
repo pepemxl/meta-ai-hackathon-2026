@@ -3,10 +3,21 @@ package com.ppcoach.tracker.data
 import org.json.JSONObject
 
 /**
- * A pitch the coach saved once to reuse it: its name, 11 or 7 and, when the
- * coach measured it, its length and width in meters. Without them the worker
- * uses the typical size (PitchTemplate.dimensions) and marks the meters as
- * approximate. Lives in library.json, on the phone only.
+ * What the pitch is made of: grass (natural or artificial) or dirt with no
+ * grass at all. The worker finds the pitch by its color, so on dirt it looks
+ * for dirt instead of grass (analysis.surface of POST /clips).
+ */
+object PitchSurface {
+    const val GRASS = "grass"
+    const val DIRT = "dirt"
+    fun valid(s: String?) = s == GRASS || s == DIRT
+}
+
+/**
+ * A pitch the coach saved once to reuse it: its name, 11 or 7, whether it has
+ * grass and, when the coach measured it, its length and width in meters.
+ * Without them the worker uses the typical size (PitchTemplate.dimensions)
+ * and marks the meters as approximate. Lives in library.json, on the phone only.
  */
 data class SavedPitch(
     val id: Int,
@@ -17,13 +28,15 @@ data class SavedPitch(
     val createdAt: Long = 0,
     /** Last time it was picked for a clip: the next clip starts on the most recent. */
     val lastUsedAt: Long = 0,
+    /** PitchSurface: grass, or dirt with no grass. */
+    val surface: String = PitchSurface.GRASS,
 ) {
     val measured: Boolean get() = lengthM != null && widthM != null
     val dimensions: Pair<Double, Double> get() = PitchTemplate.dimensions(size, lengthM, widthM)
 
     fun toJson(): JSONObject = JSONObject().put("id", id).put("name", name).put("size", size)
         .put("lengthM", lengthM ?: JSONObject.NULL).put("widthM", widthM ?: JSONObject.NULL)
-        .put("createdAt", createdAt).put("lastUsedAt", lastUsedAt)
+        .put("createdAt", createdAt).put("lastUsedAt", lastUsedAt).put("surface", surface)
 
     companion object {
         /** The ranges POST /clips/:id/calibration accepts (length_m, width_m). */
@@ -45,6 +58,8 @@ data class SavedPitch(
                 widthM = if (both) width else null,
                 createdAt = o.optLong("createdAt", 0),
                 lastUsedAt = o.optLong("lastUsedAt", 0),
+                // Pitches saved before the question: grass, as the worker always assumed.
+                surface = o.optString("surface", "").takeIf { PitchSurface.valid(it) } ?: PitchSurface.GRASS,
             )
         }
 

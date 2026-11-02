@@ -324,6 +324,11 @@ interface Strings {
     val pitchLengthM: String
     val pitchWidthM: String
     val pitchMetersHelp: String
+    val pitchSurfaceQuestion: String
+    val pitchSurfaceGrass: String
+    val pitchSurfaceDirt: String
+    val pitchSurfaceHelp: String
+    val pitchDirtNote: String
     fun pitchOption(name: String, size: Int): String
     fun pitchUnsaved(size: Int): String
     fun pitchMeasured(length: Double, width: Double): String
@@ -729,6 +734,11 @@ object Es : Strings {
     override val pitchLengthM = "Largo (m)"
     override val pitchWidthM = "Ancho (m)"
     override val pitchMetersHelp = "Mídela una vez: queda guardada en el teléfono y sirve para las siguientes visitas. Vacío = medidas típicas."
+    override val pitchSurfaceQuestion = "¿La cancha tiene pasto?"
+    override val pitchSurfaceGrass = "Sí, pasto (natural o sintético)"
+    override val pitchSurfaceDirt = "No, es de tierra"
+    override val pitchSurfaceHelp = "El análisis encuentra la cancha por su color: en una de tierra busca la tierra en lugar del pasto."
+    override val pitchDirtNote = "Cancha de tierra: el análisis busca la tierra, no el pasto."
     override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
     override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · sin guardar"
     override fun pitchMeasured(length: Double, width: Double) = "Medida: ${formatMeters(length)} × ${formatMeters(width)} m"
@@ -1141,6 +1151,11 @@ object En : Strings {
     override val pitchLengthM = "Length (m)"
     override val pitchWidthM = "Width (m)"
     override val pitchMetersHelp = "Measure it once: it stays on the phone for your next visits. Empty = typical size."
+    override val pitchSurfaceQuestion = "Does the pitch have grass?"
+    override val pitchSurfaceGrass = "Yes, grass (natural or artificial)"
+    override val pitchSurfaceDirt = "No, it is dirt"
+    override val pitchSurfaceHelp = "The analysis finds the pitch by its color: on a dirt pitch it looks for dirt instead of grass."
+    override val pitchDirtNote = "Dirt pitch: the analysis looks for dirt, not grass."
     override fun pitchOption(name: String, size: Int) = "$name · ${if (size == 7) football7 else football11}"
     override fun pitchUnsaved(size: Int) = "${if (size == 7) football7 else football11} · not saved"
     override fun pitchMeasured(length: Double, width: Double) = "Measured: ${formatMeters(length)} × ${formatMeters(width)} m"

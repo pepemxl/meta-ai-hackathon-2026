@@ -26,6 +26,26 @@ class SavedPitchesTest {
     }
 
     @Test
+    fun theSurfaceIsKeptAndOldPitchesAreGrass() {
+        var lib = Library().savePitch(SavedPitch(0, "Llano", 11, surface = PitchSurface.DIRT)).first
+        lib = lib.savePitch(SavedPitch(0, "Norte", 7)).first
+        val back = LibraryCodec.decode(LibraryCodec.encode(lib))
+        assertEquals(PitchSurface.DIRT, back.pitch(1)!!.surface)
+        assertEquals(PitchSurface.GRASS, back.pitch(2)!!.surface)
+        // Saved before the question, or a value the app does not know: grass.
+        assertEquals(PitchSurface.GRASS, SavedPitch.fromJson(JSONObject().put("id", 3).put("name", "Vieja"))!!.surface)
+        assertEquals(PitchSurface.GRASS, SavedPitch.fromJson(JSONObject().put("id", 3).put("name", "X").put("surface", "turf"))!!.surface)
+        // A clip's pitch: the one its marks were made on, else its match's.
+        lib = lib.addMatch { Match(it, "A", "B", date = "2026-11-02", pitchId = 1) }.first
+        val match = lib.matches.single().id
+        lib = lib.addClip { Clip(it, match, "Jugada") }.first
+        assertEquals(PitchSurface.DIRT, lib.pitchOf(lib.clips.single())?.surface)
+        lib = lib.updateClip(lib.clips.single().id) { it.copy(touches = PitchTouches(size = 7, pitchId = 2)) }
+        assertEquals("Norte", lib.pitchOf(lib.clips.single())?.name)
+        assertNull(Library().pitchOf(Clip(1, 1, "Sin partido")))
+    }
+
+    @Test
     fun editingReplacesAndDeletingFreesTheMatch() {
         var lib = Library().savePitch(SavedPitch(0, "Norte", 7)).first
         lib = lib.addMatch { Match(it, "A", "B", date = "2026-10-30", pitchId = 1) }.first

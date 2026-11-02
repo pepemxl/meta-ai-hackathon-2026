@@ -84,6 +84,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val camera = AppGraph.library.value.cameraOf(clip)
             val analysis = JSONObject().put("camera", camera)
             if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
+            // Grass or dirt, from the saved pitch's details: on dirt the worker looks for dirt, not grass.
+            AppGraph.library.value.pitchOf(clip)?.let { analysis.put("surface", it.surface) }
             // The play area only means something on a camera that does not move.
             clip.playArea?.takeIf { camera == CameraMode.STATIC && it.isValid }?.let { analysis.put("play_area", it.apiJson()) }
             body.put("analysis", analysis)

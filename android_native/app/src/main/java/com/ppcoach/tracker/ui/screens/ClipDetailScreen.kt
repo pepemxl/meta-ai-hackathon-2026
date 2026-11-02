@@ -62,6 +62,7 @@ import com.ppcoach.tracker.data.ClipStatus
 import com.ppcoach.tracker.data.Library
 import com.ppcoach.tracker.data.CameraMode
 import com.ppcoach.tracker.data.PitchMode
+import com.ppcoach.tracker.data.PitchSurface
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.ProxySpec
 import com.ppcoach.tracker.ui.CoachViewModel
@@ -223,7 +224,9 @@ private fun SendCard(vm: CoachViewModel, clip: Clip, progress: SendProgress?, s:
         if (!running && clip.proxyHeight > 0 && ProxySpec.reduced(askedW, askedH, clip.encodedWidth, clip.encodedHeight)) {
             Text(s.encoderReduced("${clip.encodedWidth}×${clip.encodedHeight}", "${askedW}×$askedH"), style = MaterialTheme.typography.bodyMedium, color = c.warning, modifier = Modifier.padding(top = 8.dp))
         }
-        if (canSend && clip.pitchShare in 0.0..0.4999) {
+        // The share is of grass, measured while preparing: on a dirt pitch it says nothing.
+        val dirt = vm.library.collectAsState().value.pitchOf(clip)?.surface == PitchSurface.DIRT
+        if (canSend && !dirt && clip.pitchShare in 0.0..0.4999) {
             Text(s.fewPitchWarning, style = MaterialTheme.typography.bodyMedium, color = c.warning, modifier = Modifier.padding(top = 8.dp))
         }
         if (canSend) {

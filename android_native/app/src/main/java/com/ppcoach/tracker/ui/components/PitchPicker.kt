@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.ppcoach.tracker.data.PitchSurface
 import com.ppcoach.tracker.data.SavedPitch
 import com.ppcoach.tracker.ui.i18n.LocalStrings
 import com.ppcoach.tracker.ui.theme.PpTheme
@@ -92,6 +93,7 @@ fun PitchPicker(pitches: List<SavedPitch>, selected: SavedPitch?, size: Int, onC
             style = MaterialTheme.typography.bodyMedium,
             color = if (selected?.measured == true) c.textSecondary else c.warning,
         )
+        if (selected?.surface == PitchSurface.DIRT) Text(s.pitchDirtNote, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
     }
 }
 
@@ -106,6 +108,7 @@ fun PitchEditorDialog(initial: SavedPitch, onDismiss: () -> Unit, onSave: (Saved
     val c = PpTheme.colors
     var name by remember { mutableStateOf(initial.name) }
     var size by remember { mutableStateOf(initial.size) }
+    var surface by remember { mutableStateOf(initial.surface) }
     var length by remember { mutableStateOf(initial.lengthM?.let(::formatMeters).orEmpty()) }
     var width by remember { mutableStateOf(initial.widthM?.let(::formatMeters).orEmpty()) }
     val error = SavedPitch.measuresError(length, width)
@@ -118,6 +121,9 @@ fun PitchEditorDialog(initial: SavedPitch, onDismiss: () -> Unit, onSave: (Saved
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it.take(SavedPitch.MAX_NAME) }, label = { Text(s.pitchName) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 FilterChips(listOf("11" to s.football11, "7" to s.football7), size.toString()) { size = it.toInt() }
+                Text(s.pitchSurfaceQuestion, style = MaterialTheme.typography.bodyMedium, color = c.textPrimary)
+                FilterChips(listOf(PitchSurface.GRASS to s.pitchSurfaceGrass, PitchSurface.DIRT to s.pitchSurfaceDirt), surface) { surface = it }
+                Text(s.pitchSurfaceHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
                 Text(s.pitchMetersHelp, style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val typical = com.ppcoach.tracker.data.PitchTemplate.dimensions(size)
@@ -138,7 +144,7 @@ fun PitchEditorDialog(initial: SavedPitch, onDismiss: () -> Unit, onSave: (Saved
             PrimaryButton(s.save, {
                 val both = length.isNotBlank() && width.isNotBlank()
                 onSave(initial.copy(
-                    name = name.trim(), size = size,
+                    name = name.trim(), size = size, surface = surface,
                     lengthM = if (both) SavedPitch.parseMeters(length) else null,
                     widthM = if (both) SavedPitch.parseMeters(width) else null,
                 ))
