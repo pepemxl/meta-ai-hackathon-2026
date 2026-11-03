@@ -23,6 +23,8 @@ from .calibration import calibrate
 from .calibration.sam_lines import SamLines
 from .chunks import iter_frames
 from .insights import MuseSpark, warnings_of
+from . import messages
+from .messages import t as _t
 from .meta_api import MetaClient, ResponseCache, Usage
 from .sam import SamSegmenter
 from .types import InputError, MetaError, TrackSet
@@ -32,7 +34,14 @@ log = logging.getLogger("ppcoachtracker_worker")
 
 def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None, job_id: int | None = None, raw_dir: Path | None = None, sleep=time.sleep,
             pitch_mode: str | None = None, calibration: dict | None = None, frames=None, camera: str | None = None,
-            play_area: dict | None = None, surface: str | None = None, surface_sample: dict | None = None) -> tuple[dict, TrackSet]:
+            play_area: dict | None = None, surface: str | None = None, surface_sample: dict | None = None,
+            language: str | None = None) -> tuple[dict, TrackSet]:
+    """The result's notes, limitations and insights in [language] (es, en; else es)."""
+    with messages.use(language):
+        return _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, calibration, frames, camera, play_area, surface, surface_sample)
+
+
+def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, calibration, frames, camera, play_area, surface, surface_sample) -> tuple[dict, TrackSet]:
     started = time.monotonic()
     clip = load_clip(clip_dir)
     if clip.frames_sent_per_concept > cfg.max_frames_per_job:
@@ -91,24 +100,22 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
     outside = sum(1 for r in trackset.rows if r.label == "player" and not area.contains(*r.foot)) if area is not None else 0
     shots, trackset, ball_report = post_sam(trackset, masks, cut_frames, ball_grass)
     if area is not None:
-        mask_notes = [f"Zona de juego marcada por el entrenador ({len(area.polygon) // 2} puntos, margen de {area.margin * 100:g} % del alto): "
-                      f"es la cancha de todo el video y se quitaron {outside} cajas de personas fuera de ella."]
+        mask_notes = [_t("play_area", points=len(area.polygon) // 2, margin=area.margin * 100, removed=outside)]
     else:
-        mask_notes = [f"Máscara de la cancha: {from_app} cuadros vinieron de la app y {len(missing)} se midieron del video."]
+        mask_notes = [_t("mask_source", from_app=from_app, measured=len(missing))]
     if surface == pitch_mod.DIRT:
-        mask_notes.append("Cancha de tierra (según los detalles de la cancha): la máscara y el balón se miden por el color de la tierra, no del pasto.")
+        mask_notes.append(_t("dirt_pitch"))
     if sample is not None:
-        mask_notes.append(f"Muestra {'de la tierra' if surface == pitch_mod.DIRT else 'del pasto'} del entrenador: la cancha es lo que tiene tono "
-                          f"{sample.hue[0]}–{sample.hue[1]}, saturación {sample.sat[0]}–{sample.sat[1]} y brillo {sample.val[0]}–{sample.val[1]}.")
+        mask_notes.append(_t("sample_dirt" if surface == pitch_mod.DIRT else "sample_grass", h0=sample.hue[0], h1=sample.hue[1],
+                            s0=sample.sat[0], s1=sample.sat[1], v0=sample.val[0], v1=sample.val[1]))
     elif surface_sample is not None:
-        mask_notes.append("Se ignoró la muestra de la cancha: no son rangos válidos.")
+        mask_notes.append(_t("sample_ignored"))
     if play_area and area is None:
-        mask_notes.append("Se ignoró la zona de juego marcada: solo se usa con la cámara fija todo el video." if camera != "static"
-                          else "Se ignoró la zona de juego marcada: no es un polígono válido.")
+        mask_notes.append(_t("play_area_moving" if camera != "static" else "play_area_invalid"))
     if not shots.used_mask:
-        mask_notes.append(f"Solo {shots.with_pitch} de {len(trackset.frames)} cuadros tienen cancha: no se usó la máscara y se analizó todo el video.")
+        mask_notes.append(_t("mask_unused", with_pitch=shots.with_pitch, total=len(trackset.frames)))
     if len(shots.counted) / clip.fps < shots_mod.MIN_COUNTED_SECONDS:
-        mask_notes.append(f"Solo {len(shots.counted) / clip.fps:.0f} s del video cuentan (sin acercamientos ni tramos sin cancha): las métricas son de poco tiempo.")
+        mask_notes.append(_t("few_seconds", seconds=len(shots.counted) / clip.fps))
 
 
     # The pitch in meters: only from the coach's points, never guessed.
@@ -128,7 +135,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
         counted_h = set(cal.homographies) & {f.frame for f in shots.counted}
         pitch = metrics_mod.pitch_metrics(TrackSet(rows=trackset.rows, frames=shots.counted), counted_h, cal.template.length, cal.template.width, cal.template.approximate, clip.fps)
         if pitch is None:
-            cal_notes.append("Menos de 10 s del video tienen la cancha calculada: no se dan métricas en metros.")
+            cal_notes.append(_t("short_meters"))
     analyze.last_calibration = cal  # for save_run (the viewer draws the pitch)
     analyze.last_masks = masks
     if raw_dir is not None:
@@ -140,27 +147,24 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
 
     notes = warnings_of(m) + mask_notes + cal_notes
     if tile_plan is not None:
-        why = (f"los jugadores miden unos {segmenter.player_px:.0f} px y SAM los vería de {segmenter.player_px * tiles_mod.SIZE / max(clip.width, clip.height):.0f}"
-               if segmenter.tile_reason == "small" else "video ancho")
-        notes.append(f"SAM vio el video en {len(tile_plan.tiles)} parte(s) de hasta {tiles_mod.SIZE} px sobre la cancha (escala {tile_plan.scale:g}; {why}), "
-                     f"con lo que no es cancha en negro; {segmenter.tile_joins} tracks se unieron entre partes.")
+        why = (_t("tiles_small", px=segmenter.player_px, seen=segmenter.player_px * tiles_mod.SIZE / max(clip.width, clip.height))
+               if segmenter.tile_reason == "small" else _t("tiles_wide"))
+        notes.append(_t("tiles", count=len(tile_plan.tiles), size=tiles_mod.SIZE, scale=tile_plan.scale, why=why, joins=segmenter.tile_joins))
     seen = tiles_mod.seen_px(segmenter.player_px, clip.width, clip.height, tile_plan)
     if seen is not None and seen < tiles_mod.MIN_SAM_PLAYER_PX:
         # Tiles cannot enlarge: a video that came small (an encoder that brought it down) stays small.
-        notes.append(f"Los jugadores miden unos {segmenter.player_px:.0f} px en el video de {clip.width}×{clip.height} y SAM los ve de unos {seen:.0f} px "
-                     f"(necesita unos {tiles_mod.MIN_SAM_PLAYER_PX}): pueden faltar los lejanos y los que van en grupo. "
-                     "Grabe o importe el video a más resolución, o más cerca de la cancha.")
+        notes.append(_t("players_small", px=segmenter.player_px, w=clip.width, h=clip.height, seen=seen, need=tiles_mod.MIN_SAM_PLAYER_PX))
     if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
-        notes.append(f"Se descartaron {len(trackset.frames) - len(shots.counted)} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.")
+        notes.append(_t("discarded", n=len(trackset.frames) - len(shots.counted)))
     if pitch is not None:
-        limitations = [f"Las métricas en metros salen del {round(100 * pitch['frames_with_homography'])} % del video (los cuadros con la cancha calculada); las de la imagen, de todo el video."]
+        limitations = [_t("lim_meters", pct=round(100 * pitch["frames_with_homography"]))]
         if pitch["approximate"]:
-            limitations.append(f"Se usaron las medidas por omisión de la cancha ({pitch['length_m']:g}×{pitch['width_m']:g} m): las distancias son aproximadas.")
+            limitations.append(_t("lim_default_size", length=pitch["length_m"], width=pitch["width_m"]))
     else:
-        limitations = ["Coordenadas de pantalla: sin la cancha calculada, las distancias y posiciones son fracciones de la imagen, no metros."]
-    limitations.append("Los tracks son trayectorias detectadas por SAM 3.1: un jugador que sale de cuadro y vuelve puede contar como otro track.")
+        limitations = [_t("lim_screen")]
+    limitations.append(_t("lim_tracks"))
     if segmenter.segmenter == "sam_simulator":
-        limitations.insert(0, "Análisis de desarrollo: la segmentación viene del simulador local, no de SAM 3.1.")
+        limitations.insert(0, _t("lim_simulator"))
 
     result = {
         "version": 1,
@@ -191,6 +195,7 @@ def analyze(clip_dir: Path, match: dict, cfg: Config, clip_id: int | None = None
             "cuts": len(cut_frames),
             "closeups": shots.closeups,
             "surface": surface,
+            "language": messages.current(),
             **({"surface_sample": sample.as_dict()} if sample is not None else {}),
             **({"play_area": {"points": len(area.polygon) // 2, "margin": area.margin, "removed": outside}} if area is not None else {}),
             **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
@@ -274,7 +279,8 @@ def run_job(api: PpApi, cfg: Config, job: dict, sleep=time.sleep) -> str:
                 raise InputError(f"cannot download {name}: {e}") from None
         result, trackset = analyze(work / "clip", job.get("match") or {}, cfg, clip_id=int(clip["id"]), job_id=job_id, raw_dir=work / "raw", sleep=sleep,
                                    pitch_mode=options.get("pitch_mode"), camera=options.get("camera"), calibration=job.get("calibration"),
-                                   play_area=options.get("play_area"), surface=options.get("surface"), surface_sample=options.get("surface_sample"))
+                                   play_area=options.get("play_area"), surface=options.get("surface"), surface_sample=options.get("surface_sample"),
+                                   language=options.get("language"))
         if cfg.debug_dir is not None:
             run = save_run(cfg.debug_dir, load_clip(work / "clip"), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)
             log.info("job %s: run saved in %s", job_id, run)

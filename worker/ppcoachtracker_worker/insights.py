@@ -12,6 +12,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from .messages import current, t as _t
 from .meta_api import MetaClient, cache_key
 from .types import MetaError
 
@@ -56,6 +57,15 @@ Reglas:
 - Equipo A es el local y equipo B el visitante; usa sus nombres si vienen.
 - Máximo 8 hallazgos. Responde solo con el JSON pedido."""
 
+# With analysis.language = en the same rules, and every text of the answer in English.
+SYSTEM_EN = SYSTEM.replace("en español", "en inglés") + """
+- Write the summary, every title, description and recommendation in English (the coach reads the app in English)."""
+
+
+def system_prompt() -> str:
+    """The rules in the job's language (messages.use); Spanish is the prompt as it always was, so its cache holds."""
+    return SYSTEM_EN if current() == "en" else SYSTEM
+
 
 def validate(obj: object, duration_ms: int) -> str | None:
     """None if [obj] follows SCHEMA (and the times fall in the clip), else the error."""
@@ -96,9 +106,9 @@ def validate(obj: object, duration_ms: int) -> str | None:
 def warnings_of(metrics: dict) -> list[str]:
     out = []
     if metrics.get("players_per_frame", 0) < 6:
-        out.append(f"Pocos jugadores a la vista: {metrics.get('players_per_frame', 0)} por cuadro en promedio.")
+        out.append(_t("few_players", n=metrics.get("players_per_frame", 0)))
     if metrics.get("ball", {}).get("seen_ratio", 0) < 0.2:
-        out.append(f"Balón casi no detectado: visto en {round(100 * metrics.get('ball', {}).get('seen_ratio', 0))} % de los cuadros.")
+        out.append(_t("ball_unseen", pct=round(100 * metrics.get("ball", {}).get("seen_ratio", 0))))
     return out
 
 
@@ -179,7 +189,7 @@ class MuseSpark:
         facts = facts_for(metrics, match, start_ms, pitch)
         end_ms = facts["clip"]["end_ms"]
         messages = [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": system_prompt()},
             {"role": "user", "content": json.dumps(facts, ensure_ascii=False)},
         ]
         text = self._ask(messages, "muse_spark.json")

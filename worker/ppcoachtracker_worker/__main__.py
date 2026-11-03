@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--pitch-mode", choices=["lines", "no_lines", "off"], help="as the coach answered (default: as lines)")
     a.add_argument("--camera", choices=["static", "moving"], help="static: one homography for the whole video (default: moving)")
     a.add_argument("--play-area", type=Path, help="the coach's play area (JSON {points: [{x, y}], margin} as analysis.play_area); only with --camera static")
+    a.add_argument("--language", choices=["es", "en"], help="language of the notes and of Muse Spark's insights (default: es)")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -53,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             touches = json.loads(args.touches.read_text(encoding="utf-8")) if args.touches else None
             play_area = json.loads(args.play_area.read_text(encoding="utf-8")) if args.play_area else None
             result, trackset = analyze(args.dir, match, cfg, raw_dir=args.dir / "raw", pitch_mode=args.pitch_mode, camera=args.camera, calibration=touches,
-                                       play_area=play_area)
+                                       play_area=play_area, language=args.language)
             debug_dir = args.debug_dir or cfg.debug_dir
             if debug_dir is not None:
                 print(f"run saved in {save_run(debug_dir, load_clip(args.dir), result, trackset, calibration=analyze.last_calibration, masks=analyze.last_masks, raw=analyze.last_raw)}")

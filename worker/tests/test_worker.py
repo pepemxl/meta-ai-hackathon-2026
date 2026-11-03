@@ -99,6 +99,38 @@ def test_the_coachs_sample_of_the_pitch_is_used_and_reported(meta, tmp_path, con
     assert any("Muestra del pasto del entrenador: la cancha es lo que tiene tono 35–85" in n for n in a["notes"])
 
 
+def test_the_language_of_the_job_writes_the_notes_and_asks_muse_spark_in_it(meta, tmp_path, config_for):
+    from ppcoachtracker_worker import insights, messages
+
+    clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
+    meta.register_clip(clip_dir, CONCEPTS)
+    results = {}
+    for language in ("en", "fr", None):
+        pp = FakePpApi(clip_dir, {**job_for(clip_dir, 2), "options": {"surface": "dirt", **({"language": language} if language else {})}}).start()
+        try:
+            api = PpApi(pp.url, "worker-secret")
+            assert run_job(api, config_for(meta.url, api_url=pp.url), api.next_job(), sleep=lambda s: None) == "done"
+        finally:
+            pp.stop()
+        results[language] = pp.results[0]["analysis"]
+    en = results["en"]
+    assert en["video"]["language"] == "en"
+    assert any(n.startswith("Dirt pitch (from the pitch's details)") for n in en["notes"])
+    assert any(n.startswith("Tracks are trajectories detected by SAM 3.1") for n in en["limitations"])
+    assert not any("cancha" in n for n in en["notes"] + en["limitations"])
+    # Unknown or missing: Spanish, as always.
+    for other in (results["fr"], results[None]):
+        assert other["video"]["language"] == "es"
+        assert any(n.startswith("Cancha de tierra") for n in other["notes"])
+    # Muse Spark gets the same rules, asked to answer in English.
+    with messages.use("en"):
+        assert insights.system_prompt() == insights.SYSTEM_EN and "in English" in insights.SYSTEM_EN and "en inglés" in insights.SYSTEM_EN
+    assert insights.system_prompt() == insights.SYSTEM and "en español" in insights.SYSTEM
+    with messages.use("en"):
+        assert messages.t("cal_few_marks", at="{at}", what="4 points").format(at="0:03") == "At 0:03 there are 4 points: with 4 any names fit, so 5 or more (points and painted lines) are needed to compute the pitch."
+    assert set(k for k, v in messages.TEXTS.items() if set(v) != {"es", "en"}) == set()
+
+
 def test_a_job_with_a_missing_chunk_fails_and_keeps_its_files(meta, tmp_path, config_for):
     clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
     (clip_dir / "video_part_002.mp4").unlink()

@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..chunks import Clip, iter_frames
+from ..messages import t as _t
 from ..types import MetaError, RetryableError, TrackSet
 from . import sam_lines
 from .propagate import Step, chain, motion_steps
@@ -126,8 +127,9 @@ def solve_frame(t: dict, template: Template, w: int, h: int) -> tuple[np.ndarray
     n = len(pts) + len(lines)
     entry = {"points": len(pts), "lines": len(lines), "used": False, "inliers": 0, "median_error_px": None}
     if n < MIN_CONSISTENT:
-        what = f"{len(pts)} puntos" + (f" y {len(lines)} líneas" if lines else "")
-        return None, entry, "En {at} hay " + what + ": con 4 cualquier nombre encaja, así que hacen falta 5 o más (puntos y líneas pintadas) para calcular la cancha."
+        what = _t("cal_marks_points", n=len(pts)) + (_t("cal_marks_lines", n=len(lines)) if lines else "")
+        # {at} stays for the caller, who knows the frame's time.
+        return None, entry, _t("cal_few_marks", at="{at}", what=what)
     pitch_pts = np.array([template.points[p["name"]] for p in pts]).reshape(-1, 2)
     img_pts = np.array([[p["x"] * w, p["y"] * h] for p in pts]).reshape(-1, 2)
     threshold = MAX_TOUCH_ERROR * h
@@ -145,7 +147,7 @@ def solve_frame(t: dict, template: Template, w: int, h: int) -> tuple[np.ndarray
         H, err = None, float("inf")
     entry.update(inliers=inl, median_error_px=round(err, 2) if np.isfinite(err) else None)
     if H is None or err > threshold:
-        return None, entry, "Los puntos y líneas marcados en {at} no encajan con la cancha y no se usaron."
+        return None, entry, _t("cal_marks_misfit", at="{at}")
     entry["used"] = True
     return H, entry, None
 
@@ -219,11 +221,11 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
     try:
         white, charged = sam_lines.find_white(lines, video)
     except (MetaError, RetryableError, OSError) as e:
-        notes.append(f"SAM no pudo buscar las líneas de la cancha ({str(e)[:120]}): la cancha queda solo con los puntos marcados.")
+        notes.append(_t("cal_sam_failed", error=str(e)[:120]))
         return chained, report, notes
     report.update(key_frames=sum(1 for g in video.order if g is not None), frames_charged=charged, found=len(white))
     if not white:
-        notes.append("SAM no encontró líneas de la cancha en los cuadros clave: la cancha queda solo con los puntos marcados.")
+        notes.append(_t("cal_sam_none"))
         return chained, report, notes
     # The camera's place from the first touched frame (a tripod or a broadcast camera does not move).
     k0 = min(keys)
@@ -267,7 +269,7 @@ def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, 
     confirmed = sum(1 for f in frames if f.get("confirmed"))
     report.update(used=len(new_keys), confirmed=confirmed, contradicted=len(contradicted), frames=frames[:60])
     if not new_keys and not contradicted and not confirmed:
-        notes.append("Las líneas que encontró SAM no confirmaron la cancha en ningún cuadro clave: queda la de los puntos marcados.")
+        notes.append(_t("cal_sam_unconfirmed"))
         return chained, report, notes
     if not new_keys and not contradicted:
         return chained, report, notes
@@ -288,8 +290,8 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     touches = (calibration or {}).get("frames") or []
     if not touches:
         if pitch_mode == "no_lines":
-            return None, ["Sin puntos marcados no se calcula la cancha: el análisis queda en posiciones de la imagen."]
-        return None, ["No hay puntos de la cancha marcados: marque al menos 5 puntos en un cuadro para medir en metros."]
+            return None, [_t("cal_no_points_no_lines")]
+        return None, [_t("cal_no_points")]
 
     pitch = calibration.get("pitch") or {}
     template = build(int(pitch.get("size") or 11), pitch.get("length_m"), pitch.get("width_m"))
@@ -399,7 +401,7 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     off |= _off_pitch_tracks(chained, by_frame, template, w, h, off_min)
     report["off_pitch_tracks"] = len(off)
     if off:
-        notes.append(f"{len(off)} persona(s) pasan casi todo el tiempo fuera de las líneas (jueces de línea, banca o cuerpo técnico): quedan sin equipo.")
+        notes.append(_t("cal_off_pitch", n=len(off)))
     homographies = {i: (Hm, method[k] if i == k else carried) for i, (Hm, k) in chained.items()}
 
     n = max(1, len(infos))
@@ -415,5 +417,5 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
         median_error=round(float(np.median(errs)) / h, 5) if errs else None,
     )
     if len(homographies) / n < 0.5:
-        notes.append(f"La cancha solo se calculó en el {round(100 * len(homographies) / n)} % del video.")
+        notes.append(_t("cal_partial", pct=round(100 * len(homographies) / n)))
     return PitchCalibration(template, w, h, homographies, report, marks, off), notes
