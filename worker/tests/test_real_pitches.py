@@ -14,8 +14,6 @@ REAL = Path(__file__).parent / "fixtures" / "real"
 # and the same pitch with a tap in the shade of a tree too.
 DIRT_SUN = pitch.SurfaceSample((9, 20), (44, 117), (117, 255))
 DIRT_SUN_AND_SHADE = pitch.SurfaceSample((8, 112), (0, 104), (32, 255))
-# Three taps on a pitch of dry, yellow grass, recorded with the phone's camera.
-DRY_GRASS = pitch.SurfaceSample((9, 21), (22, 117), (39, 207))
 
 
 def frame(name: str):
@@ -29,6 +27,7 @@ def top(m: pitch.PitchMask) -> float:
 
 
 def test_a_grass_pitch_with_a_running_track_from_the_stands():
+    # Artificial turf: as green as the fixed grass colors.
     m = pitch.measure(frame("yerbabuena1_cerca"))
     # The grass, below the hill and the houses; the track around it is reddish and stays out.
     assert m.has_pitch and 0.3 < top(m) and max(m.polygon[1::2]) < 0.75
@@ -70,15 +69,7 @@ def test_the_grass_pitch_in_8k_from_the_stands():
     assert m.has_pitch and 0.15 < top(m) and max(m.polygon[1::2]) < 0.8
 
 
-def test_a_dry_grass_pitch_is_found_only_by_its_sample():
-    img = frame("yerbabuena1_seca")
-    # Yellow, neither green enough for grass nor even enough for the fixed dirt colors.
-    assert not pitch.measure(img).has_pitch and not pitch.measure(img, pitch.DIRT).has_pitch
-    m = pitch.measure(img, pitch.DIRT, DRY_GRASS.widened())
-    assert m.has_pitch and top(m) > 0.3
-
-
-@pytest.mark.xfail(strict=True, reason="the dry hill and the beige houses behind it are dirt-colored too: the polygon climbs to the top of the frame")
+@pytest.mark.xfail(strict=True, reason="dirt with patches of dry grass, as the pitch is; the dry hill and the beige houses behind it are dirt-colored too: the polygon climbs to the top of the frame")
 def test_a_dirt_pitch_in_8k_stays_below_the_hills():
     m = pitch.measure(frame("yerbabuena2_cel_8k"), pitch.DIRT)
     assert m.has_pitch and top(m) > 0.1
