@@ -100,16 +100,18 @@ Otra excepción para el demo, el pitch y las capturas: imágenes y video de una 
 | 5 imágenes de una toma desde la grada, granates contra azules: tres en pasto, una en pasto sintético y una en tierra (`LOCAL_DATA/assets/Grupo_01/generated-image-1_*.png`, `jugada_01_pasto_sintetico.png`, `jugada_01_sin_pasto.png`) | Meta muse-image-1.0, por la Meta Model API (playground), 2 de noviembre de 2026 | [Meta Model API Terms of Service](https://dev.meta.ai/legal/terms-of-service) (actualizados el 9 de octubre de 2026, revisados el 2 de noviembre): "you own all rights, title, and interests in and to your Inputs and Outputs" (4.1) y "The Services are intended for your commercial use" (1); si una ley pide etiquetar el contenido de IA, cumplirlo es del usuario | Llevan la marca IPTC de contenido generado por IA. Sirven para capturas y diapositivas; la de tierra es la de la prueba de la cancha sin pasto. Respaldadas sin modificar en [assets/grupo_01/](assets/grupo_01/README.md) |
 | 3 videos de 10 s de la misma escena, animando la imagen (`LOCAL_DATA/assets/Grupo_01/image_20261102_*.mp4`) | Meta AI (Vibes), 2 de noviembre de 2026 | [Condiciones de las IA de Meta](https://www.facebook.com/policies/other-policies/ais-terms) (vigentes desde el 13 de mayo de 2026): el usuario es responsable del uso de lo generado; **no dicen de quién son los resultados ni si se permite el uso comercial**. Lo compartido queda sujeto a las Normas comunitarias de Meta | Uno de los tres lleva la marca IPTC. Se analizaron con SAM 3.1 + Muse Spark (dos de ellos) para las capturas del análisis. Usarlos con la nota "AI-generated with Meta muse-image-1.0 and Meta AI (Vibes)" y confirmar con las Reglas Oficiales del hackathon |
 
-## Video propio grabado con la app
+## Video propio
 
-Es lo que el proyecto prefiere para cualquier ejemplo versionado: grabado por el equipo con pp-coach-tracker. Los videos completos se quedan en `LOCAL_DATA/assets/` (pesan cientos de MB); en el repo solo van cuadros reducidos para las pruebas, sin personas identificables.
+Es lo que el proyecto prefiere para cualquier ejemplo versionado: grabado por el equipo, con pp-coach-tracker o con la cámara del teléfono para importarlo. Los videos completos se quedan en `LOCAL_DATA/assets/` (pesan cientos de MB); en el repo solo van cuadros reducidos para las pruebas, sin personas identificables.
 
 | Cancha | Clips | Qué hay en el repo | Notas |
 |---|---|---|---|
 | Yerbabuena 1: pasto con pista de atletismo, desde la grada | 4, de 20 a 57 s; dos a 1920×1080 y dos a 3840×2160, 30 fps | 2 cuadros de 640×360 en [worker/tests/fixtures/real/](../worker/tests/fixtures/real/README.md) | Grabada el 3 de noviembre de 2026 con la app 0.4.0, en horizontal y con la cámara en movimiento. Sin jugadores; un corredor pasa a lo lejos en un par de momentos, fuera de los cuadros versionados |
 | Yerbabuena 2: tierra | 6, de 10 a 13 s, a 1920×1080 y 30 fps | 2 cuadros de 640×360, en la misma carpeta | El mismo día. Sin personas |
+| Yerbabuena 1 y una cancha de pasto seco, con la cámara del teléfono | 6 videos de 11 a 32 s (720p, 1080p, 4K y 8K) y 2 fotos de 4096×3072 | 2 cuadros de 640×360, en la misma carpeta | El mismo día, sin la app: HEVC a 30 fps, en horizontal y sin marca de rotación. Para probar la importación. Dos personas a lo lejos en uno de los videos, fuera de los cuadros versionados |
+| Yerbabuena 2, con la cámara del teléfono | 10 videos de 14 a 71 s (720p, 1080p y dos en 8K) y 20 fotos de 4096×3072, desde varios lados y a ras de la cancha | 1 cuadro de 640×360, en la misma carpeta | Igual que el anterior. Sin personas; solo la sombra de quien graba |
 
-Los clips quedaron con la marca de rotación de 90° que la app 0.4.0 le ponía por error a lo grabado en horizontal: se reproducen de lado, aunque la imagen está derecha. La 0.4.1 corrige la grabación y la 0.4.2 permite girarlos en la app sin recodificar.
+Los clips quedaron con la marca de rotación de 90° que la app 0.4.0 le ponía por error a lo grabado en horizontal: se reproducen de lado, aunque la imagen está derecha. La 0.4.1 corrige la grabación y la 0.4.2 permite girarlos en la app sin recodificar. Los de la cámara del teléfono no tienen ese problema. Al importar un 8K, la copia para el análisis baja a 2160p como máximo.
 
 ## Checklist antes de publicar
 
