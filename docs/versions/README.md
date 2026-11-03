@@ -4,6 +4,7 @@ Cada versión publicada, con sus capturas, qué cambió y qué se probó ([promp
 
 | Versión | Fecha | Qué trae |
 |---|---|---|
+| [0.4.2](0.4.2/README.md) | 3 nov 2026 | Girar un video 90° a la izquierda o a la derecha antes de enviarlo, sin recodificar |
 | [0.4.1](0.4.1/README.md) | 3 nov 2026 | Los videos grabados en horizontal ya no quedan girados 90°; en el worker, la muestra de la cancha con margen |
 | [0.4.0](0.4.0/README.md) | 2 nov 2026 | QR de configuración, zona de juego, cancha de pasto o tierra con muestra de su color, análisis en el idioma de la app, cuenta demo; API 0.4.0 |
 | [0.3.0](0.3.0/README.md) | 30 oct 2026 | Pestaña de estadísticas con filtros, alineación inicial, distancia y velocidad por jugador desde el video, video para el análisis a su resolución original (4K), barra de estado en oscuro |
