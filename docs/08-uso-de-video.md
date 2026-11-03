@@ -84,6 +84,22 @@ La licencia no dice nada de IA. Mandar el clip a la Meta Model API para analizar
 |---|---|---|---|
 | [Play between two teams in a soccer match (43481)](https://mixkit.co/free-stock-video/play-between-two-teams-in-a-soccer-match-43481/) | Mixkit Stock Video Free License (revisada el 27 de octubre de 2026) | 5 s | Cancha semiprofesional de pasto sintético, dos equipos. Sirve para capturas o un fragmento del demo, pero es muy corto para el análisis completo: las métricas en metros piden 10 s o más de cancha calculada, y el análisis avisa con menos de 30 s que cuentan |
 
+## Contenido generado con IA
+
+Otra excepción para el demo, el pitch y las capturas: imágenes y video de una escena inventada, generados con IA. No reemplaza al video real: sirve para mostrar el flujo de la app (importar, marcar la cancha, enviar, ver el análisis), nunca como prueba de precisión, que se mide con video real ([results/](results/README.md)). Cuatro condiciones:
+
+1. **Los términos de la herramienta, no los de la plataforma en general.** Deben dejar que el autor use lo generado en un proyecto con premios. La Meta Model API sí: lo generado es del usuario y el servicio es para uso comercial. Una herramienta limitada a "uso personal" (como Microsoft Copilot con cuenta gratuita) no sirve sin revisarlo antes.
+2. **Se dice siempre.** En cada diapositiva, captura o tramo del video que lo use, con la herramienta: "AI-generated with Meta muse-image-1.0". No se presenta como un partido real.
+3. **Los originales no se tocan ni se versionan.** Se guardan en `LOCAL_DATA/assets/`, con sus marcas de IA en los metadatos (IPTC `trainedAlgorithmicMedia`, C2PA), y un `LEEME.md` por grupo con la herramienta, la fecha, la huella de cada archivo y los términos revisados.
+4. **Sin personas ni marcas reales.** La escena es inventada: ni jugadores reconocibles, ni escudos o patrocinadores reales.
+
+### Assets registrados
+
+| Asset | Herramienta | Términos | Notas |
+|---|---|---|---|
+| 3 imágenes de una toma desde la grada, granates contra azules en cancha de pasto (`LOCAL_DATA/assets/Grupo_01/generated-image-1_*.png`) | Meta muse-image-1.0, por la Meta Model API (playground), 2 de noviembre de 2026 | [Meta Model API Terms of Service](https://dev.meta.ai/legal/terms-of-service) (actualizados el 9 de octubre de 2026, revisados el 2 de noviembre): "you own all rights, title, and interests in and to your Inputs and Outputs" (4.1) y "The Services are intended for your commercial use" (1); si una ley pide etiquetar el contenido de IA, cumplirlo es del usuario | Llevan la marca IPTC de contenido generado por IA. Sirven para capturas y diapositivas |
+| 3 videos de 10 s de la misma escena, animando la imagen (`LOCAL_DATA/assets/Grupo_01/image_20261102_*.mp4`) | Meta AI (Vibes), 2 de noviembre de 2026 | [Condiciones de las IA de Meta](https://www.facebook.com/policies/other-policies/ais-terms) (vigentes desde el 13 de mayo de 2026): el usuario es responsable del uso de lo generado; **no dicen de quién son los resultados ni si se permite el uso comercial**. Lo compartido queda sujeto a las Normas comunitarias de Meta | Uno de los tres lleva la marca IPTC. Se analizaron con SAM 3.1 + Muse Spark (dos de ellos) para las capturas del análisis. Usarlos con la nota "AI-generated with Meta muse-image-1.0 and Meta AI (Vibes)" y confirmar con las Reglas Oficiales del hackathon |
+
 ## Checklist antes de publicar
 
 - [ ] Todo el video del demo y del pitch es propio, con permiso por escrito, con licencia Creative Commons o de stock con licencia comercial (sin versionar el archivo original).
@@ -91,4 +107,5 @@ La licencia no dice nada de IA. Mandar el clip a la Meta Model API para analizar
 - [ ] El repo no contiene videos, frames ni overlays de transmisiones de terceros.
 - [ ] El README indica la fuente y la licencia de cualquier material que no sea propio.
 - [ ] Cada dataset usado (Kaggle u otro) tiene licencia clara, origen creíble y no viene de una competencia con uso restringido.
-- [ ] Las Reglas Oficiales del hackathon no piden algo adicional sobre el contenido.
+- [ ] Lo generado con IA lo dice en cada diapositiva, captura o tramo del video, con la herramienta, y está registrado arriba con sus términos.
+- [ ] Las Reglas Oficiales del hackathon no piden algo adicional sobre el contenido (incluido el generado con IA).
