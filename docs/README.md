@@ -2,7 +2,7 @@
 
 Un celular que mide la cancha en metros: SAM 3.1 sigue a los jugadores y la calibración del entrenador pone sus posiciones en metros, también en canchas con líneas borradas o poca luz. Hecho para el **Meta Global AI Developer Hackathon** (Cerebral Valley, del 26 de octubre al 4 de noviembre de 2026).
 
-**Para construirlo, empieza por [prompts/](prompts/README.md).** Ahí está el orden de las etapas, el contexto que se pega en cada sesión del agente y el texto para declarar en la entrega qué es previo y qué se hizo durante el hackathon.
+**Para construirlo, empieza por [prompts/](prompts/README.md).** Ahí está el orden de las etapas y el contexto que se pega en cada sesión del agente. Qué es previo y qué se hizo durante el hackathon está declarado en [PRIOR_WORK.md](../PRIOR_WORK.md) (en inglés, con un resumen en español).
 
 La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. SAM 3.1 y Muse Spark ya se verificaron con la API real ([results/](results/README.md)); el simulador local de SAM previsto para desarrollar sin gastar créditos ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)) no se construyó. Usa solo dependencias con licencia permisiva (más `meta-sam-parser`, de Meta, para las máscaras de SAM). La API de producción vive en **https://ppcoachtracker.pepemxl.com** y el worker de producción corre en Docker en la máquina de desarrollo.
 
@@ -14,12 +14,12 @@ La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugado
 | [prompts/](prompts/README.md) | Prompts por etapa para que un agente de IA construya la app, la API, el worker y el despliegue, con criterios de aceptación y trampas conocidas |
 | [legal/](legal/README.md) | Textos legales (es/en): consentimiento de uso de video al subirlo, aviso de privacidad y formato de consentimiento para jugadores y tutores |
 | [10-privacidad-jugadores.md](10-privacidad-jugadores.md) | Privacidad: IDs en el pipeline, nombres opcionales que no salen a terceros, LFPDPPP y GDPR |
-| [08-uso-de-video.md](08-uso-de-video.md) | Qué video se puede usar en pruebas y qué nunca se publica (transmisiones, datasets, partidos amateur) |
+| [08-uso-de-video.md](08-uso-de-video.md) | Qué video se puede usar en pruebas y qué nunca se publica (transmisiones, datasets, partidos amateur); el video de stock, el generado con IA y el propio (dos canchas reales) |
 | [12-videos-largos-chunks.md](12-videos-largos-chunks.md) | Videos en chunks de 10 fps con un YAML por chunk (contrato entre app, API y worker): 1 min en desarrollo y 5 min en el demo, con 2 a 5 s de traslape, y subida en partes de 8 MB |
-| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo: simulador local de la API de SAM 3.1 (fuera del repo), cómo no se mezcla con SAM real y cómo pasar al demo |
+| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo planeado: un simulador local de la API de SAM 3.1 (fuera del repo) que **no se construyó** |
 | [14-modo-demo.md](14-modo-demo.md) | Cuentas demo: la app completa sin subir video ni gastar crédito de Meta, con un clip de prueba y su análisis dentro de la APK |
 | [11-stats-jugadores.md](11-stats-jugadores.md) | Estadísticas por jugador: qué llena el análisis y qué el entrenador, formato del reporte y cálculos agregados |
-| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: segmentador local de desarrollo (YOLOv8n) contra SAM 3.1 |
+| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: el detector local del prototipo (YOLOv8n, corrido una vez fuera del repo) contra SAM 3.1, y la cancha en metros |
 | [diseno.md](diseno.md) | Estilo visual de la app, tipo apps de Meta: colores claro y oscuro, tipografía, componentes, navegación e ícono |
 
 ## Antecedentes (diseño y prototipo previos al hackathon)
@@ -30,7 +30,7 @@ Describen el prototipo hecho antes del kickoff, que tenía un respaldo local. Si
 |---|---|
 | [learnings/](learnings/README.md) | Lo aprendido: análisis de video, cómo medir los cambios y el entorno de desarrollo y despliegue |
 
-Las versiones nuevas de la app, con sus capturas, van en `versions/` ([prompts/09-despliegue.md](prompts/09-despliegue.md#publicar-una-versión-de-la-app)).
+Las versiones de la app, de la 0.1.0 a la 0.4.3, con sus capturas, están en [versions/](versions/README.md) ([prompts/09-despliegue.md](prompts/09-despliegue.md#publicar-una-versión-de-la-app)).
 
 ## Resumen en una línea
 

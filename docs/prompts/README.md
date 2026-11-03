@@ -34,7 +34,7 @@ Los documentos marcados como **Antecedente** (aprendizajes) describen el prototi
 | 5 | [05-app-subida.md](05-app-subida.md) | App: login, sesión cifrada, subida con WorkManager, estado del análisis | 3, 4 |
 | 6 | [06-api-php.md](06-api-php.md) | La misma API en PHP para Cloud Provider, con pruebas de contrato por HTTP | 4 |
 | 7 | [07-consentimiento.md](07-consentimiento.md) | Páginas públicas de los textos legales (es/en), diálogo e historial de consentimiento en la app | 5, 6 |
-| 8a | [08a-simulador-sam.md](08a-simulador-sam.md) | Simulador local de la API de SAM 3.1 para desarrollo, **fuera de este repo** (sobre el tracker del prototipo) | — |
+| 8a | [08a-simulador-sam.md](08a-simulador-sam.md) | Simulador local de la API de SAM 3.1 para desarrollo, **fuera de este repo** (sobre el tracker del prototipo). **No se construyó** | — |
 | 8 | [08-worker.md](08-worker.md) | Worker de análisis solo con Meta: SAM 3.1 (en desarrollo, el simulador), métricas, Muse Spark, caché y costo medido | 4, 8a |
 | 9 | [09-despliegue.md](09-despliegue.md) | La API en https://ppcoachtracker.pepemxl.com con una base nueva, y cómo publicar una versión de la app | 6, 7 |
 | 10 | [10-app-analisis.md](10-app-analisis.md) | App: pestaña de estadísticas, alineación inicial, ver el análisis, 1080p, tipo de clip | 2, 5, 8 |
@@ -84,38 +84,17 @@ Antes de entregar hay que confirmar las versiones y licencias reales en `THIRD_P
 
 ## Texto para la entrega (callout)
 
-Para el README del repo y el formulario. Ajustar las fechas y la lista al terminar; que diga exactamente lo que pasó.
+Ya está escrito: el resumen va en el [README](../../README.md#prior-work-and-what-was-built-during-the-hackathon) y la declaración completa, con fechas y commits, en [PRIOR_WORK.md](../../PRIOR_WORK.md). Para el formulario, usar ese resumen. Si algo cambia antes de la entrega (otra versión, otro componente), actualizar los dos; que digan exactamente lo que pasó.
 
-```markdown
-## Prior work and what was built during the hackathon
+Dos cosas que el plan original decía distinto:
 
-**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and
-built a first prototype. From that work we kept only documentation: the
-design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`,
-and the step-by-step build prompts in `docs/prompts/`.
-Commit <hash> is the starting point: docs only, no application code.
-
-**During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this
-repository was written from scratch with an AI coding agent driven by those
-prompts: the Android app, the API (Node and PHP, deployed at
-https://ppcoachtracker.pepemxl.com), and the analysis worker, where SAM 3.1
-tracks players and the ball and Muse Spark writes the coaching insights, with
-no local model fallback. Also the pitch calibration and the metrics in meters.
-To save credits during development, the worker was exercised against a local
-stand-in for the SAM API built on our pre-hackathon prototype tracker
-(YOLOv8n); it is not part of this repository or the submission, and every
-analysis in the demo and in production comes from SAM 3.1.
-The git history shows every step.
-
-**Third-party components:** permissive licenses only (MIT, BSD, Apache-2.0);
-see THIRD_PARTY.md. Vision and language models are Meta's, via the Meta Model
-API.
-```
+- **El simulador local de SAM (etapa 8a) no se construyó.** El worker se probó con streams sintéticos y con SAM 3.1 real.
+- **El detector local del prototipo sí se usó una vez,** fuera del repo, para comparar con SAM 3.1 ([results/01](../results/01-cv-local-vs-sam31.md)). Se declara.
 
 ## Cómo verificar la construcción
 
 - **API:** las pruebas de contrato pasan contra Node en memoria, Node con MySQL y PHP por HTTP (incluida la subida en partes de un chunk de 5 min); `https://ppcoachtracker.pepemxl.com/health` responde con `db: true`.
 - **App:** las pruebas JVM pasan y los flujos de [arquitectura/04-flujos.md](../arquitectura/04-flujos.md) funcionan en el emulador contra la API local.
-- **Worker:** `npm run worker:test` pasa sin red. Con el simulador, un clip de chunks de 1 min termina en `ready` con `sam_simulator`. Con la key, el clip del demo en chunks de 5 min termina en `ready` con `backends.segmenter = "meta_sam"` y `backends.analyst = "muse_spark"`.
+- **Worker:** `npm run worker:test` pasa sin red. Con la key, el clip del demo en chunks de 5 min termina en `ready` con `backends.segmenter = "meta_sam"` y `backends.analyst = "muse_spark"`.
 - **Licencias:** `git grep -i -E "yolo|ultralytics|onnx"` no encuentra nada fuera de `docs/`, y `THIRD_PARTY.md` lista todas las dependencias.
 - **Documentación de arquitectura:** [arquitectura/](../arquitectura/README.md) describe lo construido; al cerrar cada etapa, actualizarla (sobre todo la tabla de qué existe y qué falta).

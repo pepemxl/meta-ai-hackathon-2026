@@ -22,28 +22,32 @@ Android app ──chunks──▶ API (PHP + MySQL) ◀──jobs── Worker (
                                                       metrics, findings
 ```
 
-- **App** ([`android_native/`](android_native/README.md), Kotlin + Jetpack Compose): records or imports a match, prepares a light analysis copy on the phone (10 fps, up to 720p, 1- or 5-minute chunks with overlap, plus a per-frame pitch mask), uploads it in resumable 8 MB parts, lets the coach mark the pitch and shows the analysis.
+- **App** ([`android_native/`](android_native/README.md), Kotlin + Jetpack Compose): records or imports a match, prepares a light analysis copy on the phone (10 fps at 720p, 1080p or the video's own resolution up to 2160p, 1- or 5-minute chunks with overlap, plus a per-frame pitch mask), uploads it in resumable 8 MB parts, lets the coach mark the pitch and shows the analysis.
 - **API** ([`api/`](api/README.md)): one HTTP contract with two implementations that pass the same tests: PHP 8.3 with no dependencies for production, and Node for development.
 - **Worker** ([`worker/`](worker/README.md), Python): sends each chunk to SAM 3.1 (one noun-phrase concept per request: each team and the ball), joins the tracks across chunks, solves the pitch in meters from the coach's marks, computes the metrics and asks Muse Spark for findings with a strict JSON schema.
 
 The architecture, with diagrams, is in [docs/arquitectura/](docs/arquitectura/README.md) (in Spanish).
 
-## Status (October 30, 2026)
+## Status (November 3, 2026)
 
 | | |
 |---|---|
-| App, API (Node and PHP) and worker | Built, with automated tests passing (app 68, Node 23, PHP 26, worker 92) |
-| SAM 3.1 and Muse Spark | **Verified with the real Meta Model API** on October 30: two 15-minute clips end to end, masks decoded with Meta's `meta-sam-parser`. Measured cost: about US$0.36 per minute of video (3 concepts at 10 fps) |
-| Results | [docs/results/](docs/results/README.md) (in Spanish): SAM 3.1 against a local detector and tracker used only during development (never shipped). SAM keeps one track per player and sees the ball in 85 % of frames, against 17 % |
-| Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. The worker now splits wide video (a panorama, or a long side over 2048 px) into overlapping tiles of up to 1024 px over the pitch and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama, at one SAM request per tile. The app still sends at most 1080p, which is not split |
+| App, API (Node and PHP) and worker | Built, with automated tests passing (app 86, Node 24, PHP 27, worker 117). App **0.4.3**; release notes for every version in [docs/versions/](docs/versions/README.md) (in Spanish) |
+| SAM 3.1 and Muse Spark | **Verified with the real Meta Model API** since October 30: two 15-minute clips end to end, masks decoded with Meta's `meta-sam-parser`. Measured cost: about US$0.36 per minute of video (3 concepts at 10 fps) |
+| Results | [docs/results/](docs/results/README.md) (in Spanish): SAM 3.1 against a local detector run once, outside this repository, for comparison (never shipped). SAM keeps one track per player and sees the ball in 85 % of frames, against 17 % |
+| Wide and 4K video | SAM resizes every frame to 1024 px on its long side, so players in a panorama vanish. The worker splits wide video (a panorama, or a long side over 2048 px) into overlapping tiles of up to 1024 px over the pitch and joins the tracks again: 0 → 19 players per frame on a 3840×800 panorama. The app can send the video at its own resolution, up to 2160p (an 8K import is brought down to 2160p) |
 | Still or moving camera | The coach ticks "the camera stays still the whole video" (tripod or panorama) and the worker uses one homography for the whole video; otherwise it follows the camera frame by frame |
-| Saved pitches | A pitch is saved once with its length and width in meters and reused on every visit |
+| Saved pitches | A pitch is saved once with its length and width in meters, its surface (grass, natural or artificial, or dirt) and an optional color sample tapped on a frame, and reused on every visit. Taps in a shade or on something gray are refused |
+| Play area | With a still camera, the coach marks the pitch's outline; players outside it (stands, bench) are ignored |
 | Lines with SAM (`PP_PITCH_SAM`) | Off: the `white line` concept and its masks work with the real API; whether SAM follows a painted stroke from a photo into the video is still unmeasured |
-| Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30 and updated the same day (`/health` reports the database) |
+| Language and demo | The findings come in the app's language (Spanish or English). A demo account runs the whole app on the phone, with a sample clip and its analysis, without uploading or spending Meta credit |
+| Recording and rotation | Landscape recordings keep the right orientation (0.4.1), and a clip can be turned 90° either way before it is sent, without re-encoding (0.4.2) |
+| Production API at https://ppcoachtracker.pepemxl.com | Deployed on October 30, API 0.4.0 since November 2 (`/health` reports the database). The app connects by scanning a setup QR |
 | Production worker | Running on the development host (Docker in WSL) since October 30 |
 | Run viewer (local only) | Shows a run over its video, and compares two runs of the same video side by side, overlaid or only where they differ |
-| Per-player statistics | The squad (numbers, positions, an alias that never leaves the phone) and each player's 17 stats per match: the coach's values win over the analysis, totals, per 90 minutes and pass accuracy. A report by squad number can be imported, and the coach links each analysis track to a player so their minutes come from the video. A **Stats** tab sorts the squad by any stat over the chosen matches (all, the last 3/5/10, a range of dates or picked ones), each tagged player shows distance, meters per minute and top speed from the video, and each match has its starting lineup on a pitch (9 formations of 11 and 4 of 7) |
+| Per-player statistics | The squad (numbers, positions, an alias that never leaves the phone) and each player's 17 stats per match: the coach's values win over the analysis, totals, per 90 minutes and pass accuracy. A report by squad number can be imported, and the coach links each analysis track to a player so their minutes come from the video. A **Stats** tab sorts the squad by any stat over the chosen matches, each tagged player shows distance, meters per minute and top speed from the video, and each match has its starting lineup on a pitch (9 formations of 11 and 4 of 7) |
 | Video retention | `api/php/bin/retention.php` deletes a clip's video 24 h after its analysis and after 30 days at most, keeping the analysis |
+| Known limits | Measured on our own footage: the pitch mask misses distant grass with tree shadows, leaves pitch in deep shade out, and on a dirt pitch can climb onto dry hills behind it ([worker/tests/test_real_pitches.py](worker/tests/test_real_pitches.py)) |
 
 ## Running it locally
 
@@ -51,9 +55,11 @@ From `api/`: `npm run db:up`, `npm run php:up && npm run php:migrate`, `npm run 
 
 ## Prior work and what was built during the hackathon
 
-**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and built a first prototype, which never ran SAM 3.1. From that work we kept only documentation: the design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`, and the step-by-step build prompts in `docs/prompts/`. Commit `2005a96` is the starting point: docs only, no application code.
+The full declaration, with dates and commits, is in **[PRIOR_WORK.md](PRIOR_WORK.md)**.
 
-**During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this repository was written from scratch with an AI coding agent driven by those prompts: the Android app, the API, the analysis worker with SAM 3.1 and Muse Spark and no local model fallback, the pitch calibration and the metrics in meters. The git history shows every step.
+**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and built a first prototype outside this repository, which never ran SAM 3.1. From that work we kept only documentation: the design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`, and the step-by-step build prompts in `docs/prompts/`. Commit `2005a96` (Oct 28) is the starting point: docs only, no application code; part of those docs was finished after the kickoff.
+
+**During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this repository was written from scratch with an AI coding agent (Claude Code) driven by those prompts: the Android app, the API, the analysis worker with SAM 3.1 and Muse Spark and no local model fallback, the pitch calibration and the metrics in meters, and the run viewer. The prototype's local detector was run once, outside the repository, only to compare it with SAM 3.1; the local SAM simulator we had planned was never built. The git history shows every step.
 
 **Third-party components:** permissive licenses only (MIT, BSD, Apache-2.0), plus Meta's own `meta-sam-parser` (SAM License) to decode SAM 3.1 masks; see [THIRD_PARTY.md](THIRD_PARTY.md). The vision and language models are Meta's, used through the Meta Model API.
 

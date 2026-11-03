@@ -1,6 +1,6 @@
 # Arquitectura de pp-coach-tracker
 
-Cómo está construido pp-coach-tracker durante el hackathon (app 0.4.0, API 0.4.0, worker 0.2.0) y qué falta. Describe lo que **existe en el código**; lo que todavía no, va marcado como *pendiente*. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
+Cómo está construido pp-coach-tracker durante el hackathon (app 0.4.3, API 0.4.0, worker 0.2.0) y qué falta. Describe lo que **existe en el código**; lo que todavía no, va marcado como *pendiente*. Los diagramas están en [Mermaid](https://mermaid.js.org/), que GitHub dibuja directamente.
 
 Las reglas de la construcción (sin respaldo local, solo licencias permisivas, un commit por función) están en [prompts/00-contexto.md](../prompts/00-contexto.md), y el detalle de cada pieza, en el prompt de su etapa.
 
@@ -69,7 +69,7 @@ flowchart LR
 | API Node (desarrollo y pruebas) y API PHP (producción), mismo contrato | Listo; la PHP **en producción** desde el 30 de octubre | `api/src/`, `api/php/` (4, 6, 9) |
 | Worker: SAM 3.1 por concepto, equipos, métricas en la imagen, Muse Spark con salida estructurada, caché y costo | Listo y **verificado con la API real** (dos clips de 15 min); máscaras con `meta-sam-parser`; ~US$0.36 por minuto | `worker/` (8) |
 | Worker: corridas guardadas, cortes, cuadros que cuentan, balón, posesión, árbitro | Listo; con SAM real, el balón en el 85 % de los cuadros y un track por jugador en cada chunk | `cuts.py`, `shots.py`, `ball.py`, `metrics.py` (11) |
-| Video ancho, 4K o con jugadores chicos: partir en videos de hasta 1024 px sobre la cancha, con lo demás en negro, y unir los tracks | Listo dentro del worker (`PP_TILES=auto`); probado a mano con SAM real (0 → 19 jugadores por cuadro). La app manda como mucho 1080p, que no se parte | `worker/ppcoachtracker_worker/tiles.py`, `tools/make_tiles.py` |
+| Video ancho, 4K o con jugadores chicos: partir en videos de hasta 1024 px sobre la cancha, con lo demás en negro, y unir los tracks | Listo dentro del worker (`PP_TILES=auto`); probado a mano con SAM real (0 → 19 jugadores por cuadro). La app puede mandar el video a su resolución, hasta 2160p (un 8K importado baja a 2160p) | `worker/ppcoachtracker_worker/tiles.py`, `tools/make_tiles.py` |
 | Worker: máscara de la cancha (de la app o medida) | Listo | `pitch.py` (12) |
 | Worker: cancha en metros con los puntos y las líneas del entrenador, propagada por la toma; métricas en metros | Listo; sin probar con un video de tripié propio | `calibration/` (13, 14) |
 | Worker: líneas de la cancha con SAM guiado por los trazos del entrenador | Escrito y **apagado** (`PP_PITCH_SAM`); el concepto `white line` y sus máscaras funcionan con SAM real, falta ver si SAM sigue un trazo | `calibration/sam_lines.py` (14) |
@@ -78,13 +78,17 @@ flowchart LR
 | Plantel y estadísticas por jugador y partido: lo del entrenador gana, totales, por 90 y precisión de pase, importar el reporte por dorsal | Listo; sin probar en pantalla | `data/Stats.kt`, `ui/screens/StatsScreens.kt` (2) |
 | Dorsales de los tracks del análisis: el entrenador liga cada track a un jugador y sus minutos pasan a las estadísticas del partido | Listo; sin probar en pantalla | `TrackTagsCard`, `Library.syncVideoMinutes` |
 | Pestaña de estadísticas con filtros (todos, últimos 3/5/10, fechas, elegidos), compartidos con la página del jugador; alineación inicial con 9 formaciones de 11 y 4 de 7 | Listo; probado en el emulador | `data/StatsFilter.kt`, `data/StartingLineup.kt`, `ui/screens/StatsTabScreen.kt` (10) |
-| Simulador local de SAM | **Pendiente** (fuera del repo) | etapa 8a |
+| Simulador local de SAM | **No se construyó**: el worker se probó con streams sintéticos y con SAM 3.1 real ([PRIOR_WORK.md](../../PRIOR_WORK.md)) | etapa 8a |
 | API en producción y worker desplegado | Listo: API en Hostinger; worker en Docker dentro de WSL en la máquina de desarrollo (se detiene si la laptop se suspende) | etapa 9, [05-despliegue.md](05-despliegue.md) |
 | Retención: borrar el video 24 h después del análisis y a los 30 días como máximo | Listo: cron diario en producción a las 04:30 desde el 30 de octubre | `api/php/bin/retention.php` |
+| App y API: QR de configuración, zona de juego, superficie de la cancha (pasto o tierra) con muestra de su color, análisis en el idioma de la app | Listo y desplegado (0.4.0); la muestra rechaza un toque en sombra o en algo gris (0.4.3) y el worker ignora una muestra que mezcla sombra y sol | `ui/screens/PitchTouchesScreen.kt`, `data/SurfaceSample.kt`, `worker/ppcoachtracker_worker/pitch.py` |
+| App: cuenta demo con un clip de prueba y su análisis dentro de la APK | Listo (0.4.0) | [14-modo-demo.md](../14-modo-demo.md) |
+| App: grabar en horizontal sin que el video quede girado, y girar un clip 90° antes de enviarlo sin recodificar | Listo (0.4.1 y 0.4.2); falta probarlo en un teléfono real | `ui/screens/RecordScreen.kt`, `data/VideoRotation.kt` |
+| Pruebas de la máscara con canchas reales propias (pasto sintético y terracería, con la app y con la cámara del teléfono) | Listo; dos límites abiertos: pasto lejano con sombras y el cerro seco detrás de la tierra | `worker/tests/test_real_pitches.py` |
 
 ## Decisiones que dan forma a todo
 
-1. **El teléfono hace el trabajo pesado de video.** La app genera una copia de 10 fps, máximo 720p (1080p opcional) y sin audio, partida en chunks, y ahí mismo mide dónde está la cancha. Así se sube un tercio de los cuadros, la subida se reanuda por partes y el servidor compartido no necesita ffmpeg ([12-videos-largos-chunks.md](../12-videos-largos-chunks.md)).
+1. **El teléfono hace el trabajo pesado de video.** La app genera una copia de 10 fps, a 720p, 1080p o la resolución original hasta 2160p, sin audio, partida en chunks, y ahí mismo mide dónde está la cancha. Así se sube un tercio de los cuadros, la subida se reanuda por partes y el servidor compartido no necesita ffmpeg ([12-videos-largos-chunks.md](../12-videos-largos-chunks.md)).
 2. **Hosting compartido para la API, cómputo aparte para la IA.** El hosting sirve bien PHP + MySQL, pero no procesos largos. El worker **pide** trabajos a la API, así que la API nunca tiene que llamar a nadie.
 3. **Un solo contrato, dos implementaciones.** La API Node sirve para desarrollar y probar rápido; la PHP corre en producción. Las dos pasan las mismas pruebas de contrato y comparten `api/db/schema.sql`.
 4. **Solo Meta para la IA.** SAM 3.1 sigue a jugadores y balón y Muse Spark escribe los hallazgos; no hay detector, tracker ni reglas locales. Las dependencias son solo de licencia permisiva, más `meta-sam-parser`, el decodificador de Meta para las máscaras de SAM (SAM License) ([THIRD_PARTY.md](../../THIRD_PARTY.md)).

@@ -131,13 +131,13 @@ flowchart LR
 |---|---|
 | SAM 3.1 y Muse Spark verificados con la API real y el costo medido; las pruebas usan streams sintéticos | Guardar el stream real de un clip propio como fixture de las pruebas |
 | Conceptos `player in <color> jersey` y `soccer ball`, medidos con SAM real: un track por jugador en cada chunk y balón en el 85 % de los cuadros | Un concepto para los porteros y el árbitro, que ningún color describe; que SAM encuentre a los dos equipos desde el inicio del chunk (a veces tarda de 5 a 30 s) |
-| Video ancho, 4K o con jugadores chicos para SAM (cámara táctica): el worker lo parte en videos de hasta 1024 px sobre la cancha, con lo que no es cancha en negro, y une los tracks (`tiles.py`, `PP_TILES`) | Que la app pueda mandar el video a su resolución (hoy, como mucho 1080p, que no se parte); probarlo con SAM real dentro del worker |
+| Video ancho, 4K o con jugadores chicos para SAM (cámara táctica): el worker lo parte en videos de hasta 1024 px sobre la cancha, con lo que no es cancha en negro, y une los tracks (`tiles.py`, `PP_TILES`) | Probarlo con SAM real dentro del worker con un video de la app a su resolución (hasta 2160p) |
 | Cámara fija (`options.camera = static`): una homografía para todo el video, sin pasada de movimiento | Probarlo con un video de tripié propio |
 | Zona de juego marcada por el entrenador (`options.play_area`), probada con datos sintéticos | Medir con la panorámica cuánta tribuna y pista quita y cuánto achica las partes |
 | SAM para las líneas, apagado: el concepto y los trazos como puntos, en dos peticiones con el formato documentado; el concepto y las máscaras ya probados con SAM real | Ver si SAM sigue un trazo de una foto a los cuadros del video y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige, y cuánto cuesta |
 | Metros donde el entrenador marcó la cancha | Probarlo con un video de tripié propio; con 5 marcas a ojo el error en la imagen no dice cuánto se corre la cancha |
 | Resultado con métricas por equipo | Estadísticas por dorsal: requiere etiquetar los tracks en la app |
-| El worker de producción corre en la máquina de desarrollo; el simulador no existe | Un servidor que no se suspenda; el simulador (etapa 8a, fuera del repo) |
+| El worker de producción corre en la máquina de desarrollo; el simulador no se construyó | Un servidor que no se suspenda |
 | El visor dibuja cajas, posesión y la cancha calculada, y compara dos corridas | Que dibuje las líneas pintadas y las máscaras de SAM |
 | `bin/retention.php` borra el video después del análisis; corre cada día en producción | – |
 
