@@ -31,6 +31,14 @@ class StringsTest {
 
 class ThemeContrastTest {
     @Test
+    fun theAnalysisLanguageIsTheAppsOnlyEsOrEn() {
+        assertEquals("en", com.ppcoach.tracker.ui.i18n.appLanguage("en"))
+        assertEquals("es", com.ppcoach.tracker.ui.i18n.appLanguage("es"))
+        // Another language chosen or on the phone: Spanish, as the app's texts.
+        assertEquals("es", com.ppcoach.tracker.ui.i18n.appLanguage("fr"))
+    }
+
+    @Test
     fun everyTextBackgroundPairPassesWcagAa() {
         for ((name, tokens) in listOf("light" to PpTokens.LIGHT, "dark" to PpTokens.DARK)) {
             for ((pair, fg, bg) in PpTokens.pairs(tokens)) {

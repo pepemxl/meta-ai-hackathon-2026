@@ -1237,4 +1237,7 @@ object En : Strings {
 
 val LocalStrings = staticCompositionLocalOf<Strings> { Es }
 
+/** The app's language: the coach's choice, else the phone's; only es or en (anything else is es). */
+fun appLanguage(chosen: String): String = if (chosen.ifEmpty { java.util.Locale.getDefault().language } == "en") "en" else "es"
+
 fun stringsFor(code: String): Strings = if (code == "en") En else Es

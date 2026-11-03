@@ -82,7 +82,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 )
                 .put("consent", Consent.clipBlock(settings.consentAt, BuildConfig.VERSION_NAME))
             val camera = AppGraph.library.value.cameraOf(clip)
-            val analysis = JSONObject().put("camera", camera)
+            // The analysis's texts (Muse Spark's insights, the notes) in the app's language.
+            val analysis = JSONObject().put("camera", camera).put("language", com.ppcoach.tracker.ui.i18n.appLanguage(settings.language))
             if (PitchMode.valid(clip.pitchMode)) analysis.put("pitch_mode", clip.pitchMode)
             // Grass or dirt, from the saved pitch's details: on dirt the worker looks for dirt, not grass.
             AppGraph.library.value.pitchOf(clip)?.let { p ->
