@@ -30,6 +30,21 @@ class SurfaceSampleTest {
         assertNull(SurfaceSample.fromPixels(IntArray(SurfaceSample.MIN_PIXELS - 1) { sun }))
         // A tap that took a red jersey too: refused, not a sample of every hue.
         assertNull(SurfaceSample.fromPixels(IntArray(100) { if (it < 20) 0xDC2828 else sun }))
+        assertEquals(SurfaceSample.Rejection.MIXED, SurfaceSample.rejection(IntArray(100) { if (it < 20) 0xDC2828 else sun }))
+        assertNull(SurfaceSample.rejection(IntArray(100) { sun }))
+    }
+
+    @Test
+    fun aTapInTheShadeOrOnSomethingGrayIsNotASample() {
+        // A tree's shade on a real dirt pitch is bluish (Yerbabuena 2: hue 97 to 110), even fairly saturated.
+        for (shadeOnDirt in intArrayOf(0x484E50, 0x222833)) {
+            assertNull(SurfaceSample.fromPixels(IntArray(100) { shadeOnDirt }))
+            assertEquals(SurfaceSample.Rejection.SHADE, SurfaceSample.rejection(IntArray(100) { shadeOnDirt }))
+        }
+        assertEquals(SurfaceSample.Rejection.SHADE, SurfaceSample.rejection(IntArray(100) { 0x808080 })) // gray
+        // Grass and dirt, in the sun or in a warm shade, are still samples.
+        for (surface in intArrayOf(sun, shade, 0x4C8C3C, 0x2E5A24)) assertTrue(SurfaceSample.fromPixels(IntArray(100) { surface }) != null)
+        assertEquals(SurfaceSample.Rejection.TOO_SMALL, SurfaceSample.rejection(IntArray(3) { sun }))
     }
 
     @Test

@@ -70,8 +70,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "Coach's sample of the grass, with a margin: the pitch is what has hue {h0}–{h1}, saturation {s0}–{s1} and value {v0}–{v1}.",
     },
     "sample_ignored": {
-        "es": "Se ignoró la muestra de la cancha: no son rangos válidos.",
-        "en": "The pitch sample was ignored: its ranges are not valid.",
+        "es": "Se ignoró la muestra de la cancha (no son rangos válidos o mezcla sombra o cielo con la cancha): se usaron los colores fijos.",
+        "en": "The pitch sample was ignored (its ranges are not valid or mix shade or sky with the pitch): the fixed colors were used.",
     },
     "play_area_moving": {
         "es": "Se ignoró la zona de juego marcada: solo se usa con la cámara fija todo el video.",

@@ -141,7 +141,9 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 val image = bmp ?: return
                 val p = saved ?: return vm.toast(s.sampleNeedsPitch)
                 if ((p.sample?.taps ?: 0) >= SurfaceSample.MAX_TAPS) return vm.toast(s.sampleFull)
-                val tap = SurfaceSample.fromPixels(patch(image, x, y)) ?: return vm.toast(s.sampleMixed(dirt))
+                val px = patch(image, x, y)
+                val tap = SurfaceSample.fromPixels(px)
+                    ?: return vm.toast(if (SurfaceSample.rejection(px) == SurfaceSample.Rejection.SHADE) s.sampleShade(dirt) else s.sampleMixed(dirt))
                 vm.savePitch(p.copy(sample = p.sample?.plus(tap) ?: tap))
                 vm.usePitch(clip.matchId, p.id)
             }

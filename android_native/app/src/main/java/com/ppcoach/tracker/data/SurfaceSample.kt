@@ -35,6 +35,9 @@ data class SurfaceSample(
     /** As POST /clips takes it (analysis.surface_sample). */
     fun apiJson(): JSONObject = JSONObject().put("hue", range(hue)).put("sat", range(sat)).put("val", range(value))
 
+    /** Why a patch is not a sample. */
+    enum class Rejection { TOO_SMALL, MIXED, SHADE }
+
     companion object {
         const val MAX_TAPS = 8
         // Around the 5–95 % of a patch, so the rest of the pitch (shade, sun) still fits.
@@ -50,10 +53,23 @@ data class SurfaceSample(
          */
         const val MAX_HUE_SPREAD = 24
         const val MAX_SAT_SPREAD = 60
+        /**
+         * Neither grass nor dirt is blue or violet, nor gray: a patch whose middle hue is in
+         * [SHADE_HUES] or whose middle saturation is under [MIN_SAT] fell in a shade (bluish on
+         * dirt: hue 97 to 110 in real pitches, against 13 to 17 in the sun) or on something else.
+         * With a tap in the sun its ranges would cover nearly every color, the sky too.
+         */
+        val SHADE_HUES = 90..170
+        const val MIN_SAT = 20
 
-        /** The sample of a patch of pixels (0xRRGGBB), or null when it is too small or mixes other colors. */
-        fun fromPixels(rgb: IntArray): SurfaceSample? {
-            if (rgb.size < MIN_PIXELS) return null
+        /** The sample of a patch of pixels (0xRRGGBB), or null when it is not one ([rejection] says why). */
+        fun fromPixels(rgb: IntArray): SurfaceSample? = measure(rgb).first
+
+        /** Why [fromPixels] gives no sample for this patch, or null when it gives one. */
+        fun rejection(rgb: IntArray): Rejection? = measure(rgb).second
+
+        private fun measure(rgb: IntArray): Pair<SurfaceSample?, Rejection?> {
+            if (rgb.size < MIN_PIXELS) return null to Rejection.TOO_SMALL
             val hs = IntArray(rgb.size)
             val ss = IntArray(rgb.size)
             val vs = IntArray(rgb.size)
@@ -70,8 +86,10 @@ data class SurfaceSample(
             fun pad(r: IntRange, pad: Int, max: Int) = (r.first - pad).coerceAtLeast(0)..(r.last + pad).coerceAtMost(max)
             val hue = middle(hs)
             val sat = middle(ss)
-            if (hue.last - hue.first > MAX_HUE_SPREAD || sat.last - sat.first > MAX_SAT_SPREAD) return null
-            return SurfaceSample(pad(hue, HUE_PAD, 180), pad(sat, SAT_PAD, 255), pad(middle(vs), VAL_PAD, 255))
+            if (hue.last - hue.first > MAX_HUE_SPREAD || sat.last - sat.first > MAX_SAT_SPREAD) return null to Rejection.MIXED
+            // middle() sorted them: the median is in the middle.
+            if (hs[hs.size / 2] in SHADE_HUES || ss[ss.size / 2] < MIN_SAT) return null to Rejection.SHADE
+            return SurfaceSample(pad(hue, HUE_PAD, 180), pad(sat, SAT_PAD, 255), pad(middle(vs), VAL_PAD, 255)) to null
         }
 
         fun fromJson(o: JSONObject?): SurfaceSample? {

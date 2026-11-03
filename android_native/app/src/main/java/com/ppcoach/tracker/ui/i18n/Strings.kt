@@ -339,6 +339,7 @@ interface Strings {
     val sampleNeedsPitch: String
     val sampleFull: String
     fun sampleMixed(dirt: Boolean): String
+    fun sampleShade(dirt: Boolean): String
     fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange): String
     val clearSample: String
     fun pitchOption(name: String, size: Int): String
@@ -761,6 +762,7 @@ object Es : Strings {
     override val sampleNeedsPitch = "Elige o guarda una cancha arriba para guardarle la muestra."
     override val sampleFull = "La muestra ya tiene 8 toques. Bórrala para empezar de nuevo."
     override fun sampleMixed(dirt: Boolean) = "Ese toque tomó otros colores (un jugador o una línea). Toca solo ${if (dirt) "la tierra" else "el pasto"}."
+    override fun sampleShade(dirt: Boolean) = "Ese toque cayó en sombra o en algo gris. Toca ${if (dirt) "la tierra" else "el pasto"} donde le da el sol."
     override fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange) =
         "Muestra de $taps ${if (taps == 1) "toque" else "toques"}: tono ${hue.first}–${hue.last}, saturación ${sat.first}–${sat.last}, brillo ${value.first}–${value.last}"
     override val clearSample = "Borrar la muestra"
@@ -1191,6 +1193,7 @@ object En : Strings {
     override val sampleNeedsPitch = "Pick or save a pitch above to keep the sample with it."
     override val sampleFull = "The sample already has 8 taps. Clear it to start again."
     override fun sampleMixed(dirt: Boolean) = "That tap took other colors (a player or a line). Tap only the ${if (dirt) "dirt" else "grass"}."
+    override fun sampleShade(dirt: Boolean) = "That tap landed on shade or on something gray. Tap the ${if (dirt) "dirt" else "grass"} where the sun is on it."
     override fun sampleSummary(taps: Int, hue: IntRange, sat: IntRange, value: IntRange) =
         "Sample of $taps ${if (taps == 1) "tap" else "taps"}: hue ${hue.first}–${hue.last}, saturation ${sat.first}–${sat.last}, value ${value.first}–${value.last}"
     override val clearSample = "Clear the sample"

@@ -45,6 +45,10 @@ DIRT_VAL = (100, 240)
 # Added to each side of the coach's sample before using it: a few taps miss the edges of the
 # pitch's colors (a 4-tap sample on turf covered 68 % of its pitch, under MIN_GRASS_IN_POLYGON).
 SAMPLE_MARGIN = {"hue": 3, "sat": 20, "val": 20}
+# A sample whose hues spread wider than this mixed a shade or the sky with the pitch (a sunny and a
+# bluish shady tap on dirt gave 8–112, the whole frame); grass and dirt taps together stay under 25.
+# Apps before 0.4.3 did not refuse those taps: the fixed colors are used instead.
+MAX_SAMPLE_HUE_SPAN = 45
 
 
 @dataclass(frozen=True)
@@ -125,7 +129,7 @@ class SurfaceSample:
 
 
 def sample_of(d) -> SurfaceSample | None:
-    """options.surface_sample → a SurfaceSample, or None when absent or not usable."""
+    """options.surface_sample → a SurfaceSample, or None when absent or not usable (hues too spread included)."""
     if not isinstance(d, dict):
         return None
     ranges = []
@@ -134,6 +138,8 @@ def sample_of(d) -> SurfaceSample | None:
         if not (isinstance(r, (list, tuple)) and len(r) == 2 and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= top for v in r) and r[0] <= r[1]):
             return None
         ranges.append((r[0], r[1]))
+    if ranges[0][1] - ranges[0][0] > MAX_SAMPLE_HUE_SPAN:
+        return None
     return SurfaceSample(*ranges)
 
 

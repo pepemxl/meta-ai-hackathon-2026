@@ -52,7 +52,9 @@ def test_the_same_grass_pitch_from_farther():
     assert pitch.measure(frame("yerbabuena1_lejos")).has_pitch
 
 
-@pytest.mark.xfail(strict=True, reason="a tap in the shade gives bluish hues; with one in the sun the ranges cover the sky too")
-def test_a_sample_with_a_tap_in_the_shade_still_leaves_the_sky_out():
-    m = pitch.measure(frame("yerbabuena2_sombra"), pitch.DIRT, DIRT_SUN_AND_SHADE.widened())
-    assert m.has_pitch and top(m) > 0.05
+def test_a_sample_with_a_tap_in_the_shade_is_ignored_rather_than_covering_the_sky():
+    # As it is, its ranges take the whole frame, sky included.
+    assert top(pitch.measure(frame("yerbabuena2_sombra"), pitch.DIRT, DIRT_SUN_AND_SHADE.widened())) == 0.0
+    # The worker does not use it (the app no longer takes such a tap); the sunny one stays.
+    assert pitch.sample_of(DIRT_SUN_AND_SHADE.as_dict()) is None
+    assert pitch.sample_of(DIRT_SUN.as_dict()) == DIRT_SUN
