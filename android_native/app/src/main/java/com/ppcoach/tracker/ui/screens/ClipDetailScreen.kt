@@ -23,6 +23,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Forward5
 import androidx.compose.material.icons.rounded.Replay5
+import androidx.compose.material.icons.rounded.RotateLeft
+import androidx.compose.material.icons.rounded.RotateRight
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -95,7 +97,9 @@ fun ClipDetailScreen(vm: CoachViewModel, lib: Library, clipId: Int, seekMs: Long
     var title by remember(clipId) { mutableStateOf(clip.title) }
     var notes by remember(clipId) { mutableStateOf(clip.notes) }
 
-    val player = remember(clipId) {
+    // A turned file is a new video for the player.
+    val edits = vm.videoEdits[clipId] ?: 0
+    val player = remember(clipId, edits) {
         ExoPlayer.Builder(context).build().apply {
             if (file != null && file.exists()) {
                 setMediaItem(MediaItem.fromUri(file.toURI().toString()))
@@ -107,7 +111,7 @@ fun ClipDetailScreen(vm: CoachViewModel, lib: Library, clipId: Int, seekMs: Long
             }
         }
     }
-    DisposableEffect(clipId) { onDispose { player.release() } }
+    DisposableEffect(player) { onDispose { player.release() } }
     LaunchedEffect(clipId) { vm.refreshRemote(clipId) }
 
     val infos by vm.progress(clipId).collectAsState(initial = emptyList())
@@ -124,7 +128,7 @@ fun ClipDetailScreen(vm: CoachViewModel, lib: Library, clipId: Int, seekMs: Long
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(0.dp)) {
                 if (file != null && file.exists()) {
-                    AndroidView(factory = { PlayerView(it).apply { this.player = player; setBackgroundColor(android.graphics.Color.BLACK) } }, modifier = Modifier.fillMaxSize())
+                    AndroidView(factory = { PlayerView(it).apply { setBackgroundColor(android.graphics.Color.BLACK) } }, update = { it.player = player }, modifier = Modifier.fillMaxSize())
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(s.videoMissing, color = c.textSecondary) }
                 }
@@ -132,6 +136,11 @@ fun ClipDetailScreen(vm: CoachViewModel, lib: Library, clipId: Int, seekMs: Long
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 IconButton(onClick = { player.seekTo((player.currentPosition - 5000).coerceAtLeast(0)) }) { Icon(Icons.Rounded.Replay5, "-5 s", tint = c.textPrimary) }
                 IconButton(onClick = { player.seekTo(player.currentPosition + 5000) }) { Icon(Icons.Rounded.Forward5, "+5 s", tint = c.textPrimary) }
+                // A play recorded or imported on its side: turned in its file, before it is sent.
+                if (file != null && file.exists() && vm.canRotate(clip) && (progress == null || progress.finished)) {
+                    IconButton(onClick = { vm.rotateClip(clipId, clockwise = false) }) { Icon(Icons.Rounded.RotateLeft, s.rotateLeft, tint = c.textPrimary) }
+                    IconButton(onClick = { vm.rotateClip(clipId, clockwise = true) }) { Icon(Icons.Rounded.RotateRight, s.rotateRight, tint = c.textPrimary) }
+                }
             }
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SendCard(vm, clip, progress, s)

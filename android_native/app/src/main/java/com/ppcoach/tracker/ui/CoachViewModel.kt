@@ -48,6 +48,8 @@ import androidx.core.content.FileProvider
 import com.ppcoach.tracker.data.ProxyPaths
 import com.ppcoach.tracker.data.Settings
 import com.ppcoach.tracker.data.StorageKind
+import com.ppcoach.tracker.data.VideoRotation
+import com.ppcoach.tracker.data.rotated
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,6 +98,8 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     val stack = mutableStateListOf<Screen>(Screen.Matches)
     var message by mutableStateOf<String?>(null)
     val thumbnails = mutableStateMapOf<Int, Bitmap?>()
+    /** Times each clip's file was turned in this session: the player reloads it when it changes. */
+    val videoEdits = mutableStateMapOf<Int, Int>()
     /** Clip waiting for the consent dialog before being sent. */
     var consentFor by mutableStateOf<Int?>(null)
     /** Clip waiting for "Do we compute the pitch?" and whether to send it after the answer. */
@@ -243,6 +247,41 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteProxy(clip: Clip) {
         proxyDir(clip)?.deleteRecursively()
         updateClip(clip.id) { it.copy(chunkCount = 0, chunkSeconds = 0, overlapMs = 0, proxyHeight = 0, encodedWidth = 0, encodedHeight = 0) }
+    }
+
+    /** A clip can be turned while it has not been sent: after that its analysis is of the video as it was. */
+    fun canRotate(clip: Clip): Boolean = clip.remoteId == 0 && clip.status in listOf(ClipStatus.LOCAL, ClipStatus.FAILED)
+
+    /**
+     * Turns the clip's video a quarter clockwise ([clockwise]) or counterclockwise, in its file. Its analysis
+     * copy is deleted (it was of the video as it was) and the coach's marks and play area turn with it.
+     */
+    fun rotateClip(clipId: Int, clockwise: Boolean) {
+        val clip = library.value.clip(clipId) ?: return
+        val file = videoFile(clip) ?: return
+        if (!canRotate(clip)) return
+        val quarters = if (clockwise) 1 else -1
+        viewModelScope.launch {
+            val s = com.ppcoach.tracker.ui.i18n.stringsFor(com.ppcoach.tracker.ui.i18n.appLanguage(settings.language))
+            if (withContext(Dispatchers.IO) { VideoRotation.rotate(file, quarters) } == null) {
+                toast(s.rotateFailed)
+                return@launch
+            }
+            Work.cancelClip(ctx, clipId)
+            proxyDir(clip)?.deleteRecursively()
+            AppGraph.commit { lib ->
+                lib.updateClip(clipId) {
+                    it.copy(
+                        width = it.height, height = it.width, status = ClipStatus.LOCAL, error = "",
+                        chunkCount = 0, chunkSeconds = 0, overlapMs = 0, proxyHeight = 0, encodedWidth = 0, encodedHeight = 0,
+                        pitchShare = -1.0, touches = it.touches?.rotated(quarters), playArea = it.playArea?.rotated(quarters),
+                    )
+                }
+            }
+            videoEdits[clipId] = (videoEdits[clipId] ?: 0) + 1
+            thumbnails.remove(clipId)
+            library.value.clip(clipId)?.let { loadThumbnail(it) }
+        }
     }
 
     /** Copies every clip not in [to] there (copy, verify size, delete). Returns how many moved. */

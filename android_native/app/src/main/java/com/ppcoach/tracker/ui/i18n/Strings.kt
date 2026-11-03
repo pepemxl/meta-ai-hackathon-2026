@@ -117,6 +117,9 @@ interface Strings {
     fun samCost(usd: String): String
     val deleteCopy: String
     val copyDeleted: String
+    val rotateLeft: String
+    val rotateRight: String
+    val rotateFailed: String
     val chunkProfile: String
     val profileDev: String
     val profileDemo: String
@@ -489,6 +492,9 @@ object Es : Strings {
     override fun samCost(usd: String) = "Costo estimado en SAM 3.1: US$$usd"
     override val deleteCopy = "Borrar la versión para análisis"
     override val copyDeleted = "Versión para análisis borrada"
+    override val rotateLeft = "Girar a la izquierda"
+    override val rotateRight = "Girar a la derecha"
+    override val rotateFailed = "No se pudo girar este video"
     override val chunkProfile = "Chunks del video para análisis"
     override val profileDev = "Chunks de 1 min (desarrollo)"
     override val profileDemo = "Chunks de 5 min (demo)"
@@ -916,6 +922,9 @@ object En : Strings {
     override fun samCost(usd: String) = "Estimated SAM 3.1 cost: US$$usd"
     override val deleteCopy = "Delete the analysis copy"
     override val copyDeleted = "Analysis copy deleted"
+    override val rotateLeft = "Rotate left"
+    override val rotateRight = "Rotate right"
+    override val rotateFailed = "This video could not be rotated"
     override val chunkProfile = "Analysis video chunks"
     override val profileDev = "1-min chunks (development)"
     override val profileDemo = "5-min chunks (demo)"
