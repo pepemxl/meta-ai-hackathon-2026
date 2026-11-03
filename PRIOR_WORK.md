@@ -8,7 +8,7 @@ The Meta Global AI Developer Hackathon ran from the kickoff on **October 26, 202
 |---|---|---|
 | Idea and design | The idea (soccer analysis with SAM 3.1 and Muse Spark), the product design, the visual style, the chunk format, the privacy approach and the legal texts | Refined as the build went: the pitch in meters from the coach's marks, painted lines, play area, surface sample, rotation |
 | Code | A first prototype, **outside this repository**. It never ran SAM 3.1: it had a local object detector, its own tracker and rule-based insights | **All the code in this repository**, written from scratch: Android app, API (Node and PHP), analysis worker, run viewer. Nothing from the prototype was copied into it |
-| Documentation | The design docs, lessons learned, legal texts and build prompts, as the starting point (see below) | Architecture updated to what exists, measured results, a new lesson on wide video, release notes for 7 versions, the demo mode |
+| Documentation | The design docs, lessons learned and legal texts (see below) | The build prompts (written after the kickoff, before the first line of code), architecture updated to what exists, measured results, a new lesson on wide video, release notes for 7 versions, the demo mode |
 | Deployment | — | Production API at https://ppcoachtracker.pepemxl.com (Oct 30), production worker, daily video-retention job |
 | AI models | — | SAM 3.1 and Muse Spark through the Meta Model API, verified with the real API on Oct 30 |
 
@@ -25,10 +25,10 @@ The repository starts with a README (`00bd029`, Oct 27), a `.gitignore` (`01c6c4
 - `docs/diseno.md`: the visual style;
 - `docs/learnings/01–03`: the prototype's lessons (background);
 - `docs/legal/`: the legal texts;
-- `docs/prompts/00–13`: the step-by-step build prompts for an AI coding agent, with acceptance criteria;
+- `docs/prompts/00–13`: the step-by-step build prompts for an AI coding agent, with acceptance criteria, **written after the kickoff** from the design and the prototype's lessons;
 - `docs/08`, `10`, `11`, `12`, `13`: video use, player privacy, per-player stats, the chunk format and the development environment.
 
-That documentation comes from the pre-hackathon design and prototype, and **part of it was finished after the kickoff and before the first line of code** (for example, the stock-video license reviews in `docs/08-uso-de-video.md` are dated Oct 27). On Oct 28, right after it, the planning notes, the prototype's screenshots and its improvement notes were removed from the repository; they remain in the history.
+The design docs, lessons and legal texts come from the pre-hackathon design and prototype. **The build prompts were written after the kickoff**, and other parts were finished then too, before the first line of code (for example, the stock-video license reviews in `docs/08-uso-de-video.md` are dated Oct 27). On Oct 28, right after it, the planning notes, the prototype's screenshots and its improvement notes were removed from the repository; they remain in the history.
 
 ## During the hackathon
 
@@ -60,4 +60,4 @@ Permissive licenses only (MIT, BSD, Apache-2.0, ISC), plus Meta's own `meta-sam-
 
 ---
 
-**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo solo se conserva la documentación de `docs/`, que entró en el commit `2005a96` (28 de octubre, sin código) y se terminó en parte después del kickoff. Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. Mientras se desarrollaba, el worker de este repo corrió en local contra un simulador de SAM para no gastar créditos: el detector local del prototipo, en Docker junto a él. Ese detector también es el punto de comparación en los resultados. Es código del prototipo, se quedó fuera del repo, nunca se desplegó y ningún análisis del demo ni de producción sale de él.
+**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo se conservan el diseño, los aprendizajes y los textos legales de `docs/`. Los prompts de construcción se escribieron después del kickoff; todo entró en el commit `2005a96` (28 de octubre, sin código). Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. Mientras se desarrollaba, el worker de este repo corrió en local contra un simulador de SAM para no gastar créditos: el detector local del prototipo, en Docker junto a él. Ese detector también es el punto de comparación en los resultados. Es código del prototipo, se quedó fuera del repo, nunca se desplegó y ningún análisis del demo ni de producción sale de él.

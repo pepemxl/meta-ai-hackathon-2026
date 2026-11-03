@@ -57,7 +57,7 @@ From `api/`: `npm run db:up`, `npm run php:up && npm run php:migrate`, `npm run 
 
 The full declaration, with dates and commits, is in **[PRIOR_WORK.md](PRIOR_WORK.md)**.
 
-**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and built a first prototype outside this repository, which never ran SAM 3.1. From that work we kept only documentation: the design docs and lessons learned in `docs/`, the legal texts in `docs/legal/`, and the step-by-step build prompts in `docs/prompts/`. Commit `2005a96` (Oct 28) is the starting point: docs only, no application code; part of those docs was finished after the kickoff.
+**Before the hackathon (Oct 20–25, 2026):** we designed pp-coach-tracker and built a first prototype outside this repository, which never ran SAM 3.1. From that work we kept only documentation: the design docs and lessons learned in `docs/` and the legal texts in `docs/legal/`. After the kickoff we wrote the step-by-step build prompts in `docs/prompts/`. Commit `2005a96` (Oct 28) is the starting point: docs only, no application code.
 
 **During the hackathon (Oct 26 – Nov 4, 2026):** all the code in this repository was written from scratch with an AI coding agent (Claude Code) driven by those prompts: the Android app, the API, the analysis worker with SAM 3.1 and Muse Spark and no local model fallback, the pitch calibration and the metrics in meters, and the run viewer. To save SAM credits while building, the local worker ran against a SAM simulator: the prototype's local detector, served with the same API as SAM 3.1. That prototype code stayed outside this repository and the submission, and every analysis in the demo and in production comes from SAM 3.1. The git history shows every step.
 

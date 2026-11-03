@@ -2,7 +2,7 @@
 
 Con estos prompts, un agente de programación (Claude Code, Muse Code u otro) escribe todo pp-coach-tracker durante el hackathon, partiendo de un repo que solo tiene `docs/`: la app Android, la API (Node para desarrollo y PHP para Cloud Provider), el worker de análisis y el visor.
 
-**Por qué así:** los organizadores aclararon que el código escrito antes del kickoff (26 de octubre de 2026) se puede usar, pero la entrega tiene que **declarar qué es previo y qué se hizo durante el hackathon**. Antes del kickoff se diseñó el proyecto y se hizo un prototipo. De ese trabajo solo se conserva la documentación de `docs/`; todo el código se escribe de nuevo con estos prompts.
+**Por qué así:** los organizadores aclararon que el código escrito antes del kickoff (26 de octubre de 2026) se puede usar, pero la entrega tiene que **declarar qué es previo y qué se hizo durante el hackathon**. Antes del kickoff se diseñó el proyecto y se hizo un prototipo. De ese trabajo solo se conserva la documentación de `docs/`. Estos prompts se escribieron después del kickoff, y todo el código se escribe de nuevo con ellos.
 
 Tres decisiones atraviesan todas las etapas:
 
