@@ -11,7 +11,7 @@ make.bat            :: pruebas JVM + APK de debug
 make.bat test       :: solo pruebas
 make.bat install    :: instala el APK de debug en el emulador o teléfono
 make.bat keystore   :: crea la llave de firma y keystore.properties (una sola vez)
-make.bat release    :: APK de release, firmado si existe keystore.properties
+make.bat release    :: APK de release, firmado si existe keystore.properties; lo copia a dist\ como pp-coach-tracker-VERSIÓN-release.apk y muestra la versión que lleva dentro
 make.bat setupqr OUT.png SERVER EMAIL_VAR [PASSWORD_VAR] [ENV_FILE]   :: QR de configuración para un entrenador
 ```
 

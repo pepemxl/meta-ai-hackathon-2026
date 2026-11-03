@@ -34,4 +34,4 @@ Las capturas de esta versión (pasto y tierra con el overlay morado, el toque re
 
 ## Archivo
 
-`android_native/dist/pp-coach-tracker-0.4.0.apk` (18.9 MB, no se versiona): release firmado con la llave de `keystore.properties`, con el clip de prueba de la cuenta demo.
+`android_native/dist/pp-coach-tracker-0.4.0-release.apk` (18.9 MB, no se versiona; lo deja ahí `make.bat release`): release firmado con la llave de `keystore.properties`, con el clip de prueba de la cuenta demo.

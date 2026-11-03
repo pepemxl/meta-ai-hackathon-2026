@@ -5,7 +5,8 @@ rem
 rem    make.bat            tests + debug APK (default)
 rem    make.bat test       JVM tests only
 rem    make.bat debug      debug APK only
-rem    make.bat release    release APK (signed if keystore.properties exists)
+rem    make.bat release    release APK (signed if keystore.properties exists), copied to dist\
+rem                        with its version in the name; prints the version inside it
 rem    make.bat keystore   creates the release key and keystore.properties (once)
 rem    make.bat install    installs the debug APK on the connected device/emulator
 rem    make.bat setupqr OUT.png SERVER EMAIL_VAR [PASSWORD_VAR] [ENV_FILE]
@@ -29,25 +30,36 @@ echo Unknown target "%TARGET%". Use: test, debug, release, keystore, install, se
 exit /b 1
 
 :all
-call gradlew.bat :app:testDebugUnitTest :app:assembleDebug || goto :failed
+call "%~dp0gradlew.bat" :app:testDebugUnitTest :app:assembleDebug || goto :failed
 echo.
-echo   Tests green. APK: app\build\outputs\apk\debug\app-debug.apk
+echo   Tests green. APK: app\build\outputs\apk\debug\ (pp-coach-tracker-VERSION-debug.apk)
 exit /b 0
 
 :test
-call gradlew.bat :app:testDebugUnitTest || goto :failed
+call "%~dp0gradlew.bat" :app:testDebugUnitTest || goto :failed
 echo   Tests green. Report: app\build\reports\tests\testDebugUnitTest\index.html
 exit /b 0
 
 :debug
-call gradlew.bat :app:assembleDebug || goto :failed
-echo   APK: app\build\outputs\apk\debug\app-debug.apk
+call "%~dp0gradlew.bat" :app:assembleDebug || goto :failed
+echo   APK: app\build\outputs\apk\debug\ (pp-coach-tracker-VERSION-debug.apk)
 exit /b 0
 
 :release
 if not exist keystore.properties echo   No keystore.properties: the release APK will be unsigned. Run make.bat keystore first.
-call gradlew.bat :app:assembleRelease || goto :failed
-echo   APK: app\build\outputs\apk\release\
+rem Only this build's APK in the folder, so the copy below is not an older version.
+if exist app\build\outputs\apk\release del /q app\build\outputs\apk\release\*.apk
+call "%~dp0gradlew.bat" :app:assembleRelease || goto :failed
+if not exist dist mkdir dist
+set "SDK=%LOCALAPPDATA%\Android\Sdk"
+if defined ANDROID_HOME set "SDK=%ANDROID_HOME%"
+set "BT="
+for /f "delims=" %%D in ('dir /b /ad /o:n "%SDK%\build-tools" 2^>nul') do set "BT=%SDK%\build-tools\%%D"
+for %%F in (app\build\outputs\apk\release\*.apk) do (
+  copy /y "%%F" dist\ >nul || goto :failed
+  echo   APK: dist\%%~nxF
+  if defined BT "%BT%\aapt2.exe" dump badging "%%F" 2>nul | findstr /b "package:"
+)
 exit /b 0
 
 :keystore
@@ -68,11 +80,11 @@ exit /b 0
 :install
 set "ADB=%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"
 if defined ANDROID_HOME set "ADB=%ANDROID_HOME%\platform-tools\adb.exe"
-"%ADB%" install -r app\build\outputs\apk\debug\app-debug.apk || goto :failed
+for %%F in (app\build\outputs\apk\debug\pp-coach-tracker-*-debug.apk) do "%ADB%" install -r "%%F" || goto :failed
 exit /b 0
 
 :clean
-call gradlew.bat clean
+call "%~dp0gradlew.bat" clean
 exit /b 0
 
 :failed

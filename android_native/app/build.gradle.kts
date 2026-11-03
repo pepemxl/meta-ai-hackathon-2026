@@ -72,6 +72,9 @@ android {
     }
 }
 
+// The APK says its version in its name: pp-coach-tracker-0.4.0-release.apk, -debug.apk.
+base { archivesName = "pp-coach-tracker-${android.defaultConfig.versionName}" }
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
