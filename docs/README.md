@@ -16,10 +16,10 @@ La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugado
 | [10-privacidad-jugadores.md](10-privacidad-jugadores.md) | Privacidad: IDs en el pipeline, nombres opcionales que no salen a terceros, LFPDPPP y GDPR |
 | [08-uso-de-video.md](08-uso-de-video.md) | Qué video se puede usar en pruebas y qué nunca se publica (transmisiones, datasets, partidos amateur); el video de stock, el generado con IA y el propio (dos canchas reales) |
 | [12-videos-largos-chunks.md](12-videos-largos-chunks.md) | Videos en chunks de 10 fps con un YAML por chunk (contrato entre app, API y worker): 1 min en desarrollo y 5 min en el demo, con 2 a 5 s de traslape, y subida en partes de 8 MB |
-| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo: el simulador local de la API de SAM 3.1 (nuestro detector local, en Docker junto al worker; su código no está en el repo) con el que se desarrolló sin gastar créditos, cómo no se mezcla con SAM real y cómo pasar al demo |
+| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo: el simulador local de la API de SAM 3.1 (el detector local del prototipo, en Docker junto al worker, fuera del repo) con el que se desarrolló sin gastar créditos, cómo no se mezcla con SAM real y cómo pasar al demo |
 | [14-modo-demo.md](14-modo-demo.md) | Cuentas demo: la app completa sin subir video ni gastar crédito de Meta, con un clip de prueba y su análisis dentro de la APK |
 | [11-stats-jugadores.md](11-stats-jugadores.md) | Estadísticas por jugador: qué llena el análisis y qué el entrenador, formato del reporte y cálculos agregados |
-| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: el detector local del simulador de SAM (YOLOv8n, su código no está en el repo) contra SAM 3.1, y la cancha en metros |
+| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: el detector local del prototipo, el mismo del simulador de SAM (YOLOv8n, fuera del repo) contra SAM 3.1, y la cancha en metros |
 | [diseno.md](diseno.md) | Estilo visual de la app, tipo apps de Meta: colores claro y oscuro, tipografía, componentes, navegación e ícono |
 
 ## Antecedentes (diseño y prototipo previos al hackathon)

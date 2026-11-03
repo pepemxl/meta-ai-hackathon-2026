@@ -7,7 +7,7 @@ The Meta Global AI Developer Hackathon ran from the kickoff on **October 26, 202
 | | Before the kickoff (Oct 20–25) | During the hackathon (Oct 26 – Nov 4) |
 |---|---|---|
 | Idea and design | The idea (soccer analysis with SAM 3.1 and Muse Spark), the product design, the visual style, the chunk format, the privacy approach and the legal texts | Refined as the build went: the pitch in meters from the coach's marks, painted lines, play area, surface sample, rotation |
-| Code | A first prototype, **outside this repository**. It never ran SAM 3.1: it had a local object detector, its own tracker and rule-based insights | **All the code in this repository**, written from scratch: Android app, API (Node and PHP), analysis worker, run viewer. Nothing from the prototype was copied |
+| Code | A first prototype, **outside this repository**. It never ran SAM 3.1: it had a local object detector, its own tracker and rule-based insights | **All the code in this repository**, written from scratch: Android app, API (Node and PHP), analysis worker, run viewer. Nothing from the prototype was copied into it |
 | Documentation | The design docs, lessons learned, legal texts and build prompts, as the starting point (see below) | Architecture updated to what exists, measured results, a new lesson on wide video, release notes for 7 versions, the demo mode |
 | Deployment | — | Production API at https://ppcoachtracker.pepemxl.com (Oct 30), production worker, daily video-retention job |
 | AI models | — | SAM 3.1 and Muse Spark through the Meta Model API, verified with the real API on Oct 30 |
@@ -46,13 +46,13 @@ All of this was written from Oct 28 to Nov 3 in 109 commits after `2005a96`, eac
 - **Our own test footage:** two real pitches (artificial turf and dirt) recorded on Nov 3 with the app and with the phone's camera; small frames of them are test fixtures in `worker/tests/fixtures/real/`.
 - **AI-generated images and videos** for screenshots, made on Nov 2 with Meta muse-image-1.0 and Meta AI (Vibes), labeled as such ([docs/08-uso-de-video.md](docs/08-uso-de-video.md)).
 
-## The local SAM simulator used during development
+## Prior code used during the hackathon: the local SAM simulator
 
-To avoid spending SAM 3.1 credits while the system was being built, **the worker of this repository ran locally against a SAM simulator**: our local object detector and tracker, served in Docker next to it with the same API as SAM 3.1 ([docs/13-entorno-desarrollo.md](docs/13-entorno-desarrollo.md)). That is how the app and the pipeline were first exercised end to end (the first local runs, on Oct 28, are labeled `sam_simulator`). From Oct 30, with the Meta key, the worker uses SAM 3.1.
+To avoid spending SAM 3.1 credits while the system was being built, **the worker of this repository ran locally against a SAM simulator**: the pre-hackathon prototype's local object detector and tracker, served in Docker next to it with the same API as SAM 3.1 ([docs/13-entorno-desarrollo.md](docs/13-entorno-desarrollo.md)). That is how the app and the pipeline were first exercised end to end (the first local runs, on Oct 28, are labeled `sam_simulator`). From Oct 30, with the Meta key, the worker uses SAM 3.1.
 
 - **Kept apart from real analyses:** the worker labels every simulator result `sam_simulator`, the app shows it as a development analysis ("simulator, not SAM 3.1") and the production API refuses it.
-- **Also a baseline:** the same detector, run directly on the same clips as SAM 3.1, is the comparison in [docs/results/01](docs/results/01-cv-local-vs-sam31.md) (`local_cv`).
-- **Not in the submission:** the detector's code is not in this repository and was never deployed. Every analysis in the demo and in production comes from SAM 3.1 and Muse Spark through the Meta Model API.
+- **Also a baseline:** the same prototype detector, run directly on the same clips as SAM 3.1 on Oct 30, is the comparison in [docs/results/01](docs/results/01-cv-local-vs-sam31.md) (`local_cv`).
+- **Not in the submission:** the detector is prototype code; it stayed outside this repository, on the development machine only, and was never deployed. Every analysis in the demo and in production comes from SAM 3.1 and Muse Spark through the Meta Model API.
 
 ## Third-party components
 
@@ -60,4 +60,4 @@ Permissive licenses only (MIT, BSD, Apache-2.0, ISC), plus Meta's own `meta-sam-
 
 ---
 
-**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo solo se conserva la documentación de `docs/`, que entró en el commit `2005a96` (28 de octubre, sin código) y se terminó en parte después del kickoff. Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. Mientras se desarrollaba, el worker de este repo corrió en local contra un simulador de SAM (nuestro detector local, en Docker junto a él) para no gastar créditos; ese detector también es el punto de comparación en los resultados. Su código no está en el repo, nunca se desplegó y ningún análisis del demo ni de producción sale de él.
+**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo solo se conserva la documentación de `docs/`, que entró en el commit `2005a96` (28 de octubre, sin código) y se terminó en parte después del kickoff. Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. Mientras se desarrollaba, el worker de este repo corrió en local contra un simulador de SAM para no gastar créditos: el detector local del prototipo, en Docker junto a él. Ese detector también es el punto de comparación en los resultados. Es código del prototipo, se quedó fuera del repo, nunca se desplegó y ningún análisis del demo ni de producción sale de él.

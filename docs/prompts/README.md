@@ -86,7 +86,7 @@ Antes de entregar hay que confirmar las versiones y licencias reales en `THIRD_P
 
 Ya está escrito: el resumen va en el [README](../../README.md#prior-work-and-what-was-built-during-the-hackathon) y la declaración completa, con fechas y commits, en [PRIOR_WORK.md](../../PRIOR_WORK.md). Para el formulario, usar ese resumen. Si algo cambia antes de la entrega (otra versión, otro componente), actualizar los dos; que digan exactamente lo que pasó.
 
-Se declara que, durante el desarrollo, el worker local corrió contra el simulador de SAM (etapa 8a: nuestro detector local, cuyo código no está en el repo) para no gastar créditos, y que ese detector es el punto de comparación de [results/01](../results/01-cv-local-vs-sam31.md).
+Se declara que, durante el desarrollo, el worker local corrió contra el simulador de SAM (etapa 8a: el detector local del prototipo, que se quedó fuera del repo) para no gastar créditos, y que ese detector es el punto de comparación de [results/01](../results/01-cv-local-vs-sam31.md).
 
 ## Cómo verificar la construcción
 
