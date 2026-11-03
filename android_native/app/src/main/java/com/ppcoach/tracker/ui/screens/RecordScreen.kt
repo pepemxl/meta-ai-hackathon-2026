@@ -101,10 +101,12 @@ fun RecordScreen(vm: CoachViewModel, matchId: Int) {
                 VideoCapture.withOutput(recorder)
             }
             var recording by remember { mutableStateOf<Recording?>(null) }
+            var previewView by remember { mutableStateOf<PreviewView?>(null) }
             var startedAt by remember { mutableLongStateOf(0L) }
             var elapsed by remember { mutableLongStateOf(0L) }
             AndroidView(factory = { ctx ->
                 PreviewView(ctx).also { view ->
+                    previewView = view
                     val providerFuture = ProcessCameraProvider.getInstance(ctx)
                     providerFuture.addListener({
                         val provider = providerFuture.get()
@@ -154,6 +156,10 @@ fun RecordScreen(vm: CoachViewModel, matchId: Int) {
                             recording = null
                         } else {
                             val (clip, file) = vm.newClipFile(matchId) ?: return@clickable
+                            // The capture was built while the screen was still portrait, and the activity is not
+                            // recreated when it turns: without this the video comes out turned 90°. The rotation
+                            // is fixed when the recording starts, so it follows the side the phone is held on.
+                            previewView?.display?.let { capture.targetRotation = it.rotation }
                             val pending = capture.output.prepareRecording(context, FileOutputOptions.Builder(file).build())
                             val prepared = if (hasAudio) pending.withAudioEnabled() else pending
                             startedAt = System.currentTimeMillis()
