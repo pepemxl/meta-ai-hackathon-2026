@@ -4,6 +4,7 @@ Cada versión publicada, con sus capturas, qué cambió y qué se probó ([promp
 
 | Versión | Fecha | Qué trae |
 |---|---|---|
+| [0.4.3](0.4.3/README.md) | 3 nov 2026 | La muestra de la cancha rechaza un toque en la sombra o en algo gris; el worker ignora las que mezclan sombra y sol |
 | [0.4.2](0.4.2/README.md) | 3 nov 2026 | Girar un video 90° a la izquierda o a la derecha antes de enviarlo, sin recodificar |
 | [0.4.1](0.4.1/README.md) | 3 nov 2026 | Los videos grabados en horizontal ya no quedan girados 90°; en el worker, la muestra de la cancha con margen |
 | [0.4.0](0.4.0/README.md) | 2 nov 2026 | QR de configuración, zona de juego, cancha de pasto o tierra con muestra de su color, análisis en el idioma de la app, cuenta demo; API 0.4.0 |
