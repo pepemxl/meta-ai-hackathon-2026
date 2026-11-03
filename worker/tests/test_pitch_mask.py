@@ -189,6 +189,22 @@ def test_a_dirt_pitch_is_found_by_the_color_of_dirt_and_not_by_grass():
     assert grass_around_box(img, ball, pitch.DIRT) > 0.9 and grass_around_box(img, ball) == 0.0
 
 
+def test_a_narrow_sample_still_finds_the_pitch_with_its_margin():
+    import cv2
+
+    # Turf in two shades (stripes of hue 50 and 42) below the stands; a few taps caught only the first.
+    hsv = np.zeros((360, 640, 3), np.uint8)
+    hsv[:] = (100, 40, 200)
+    hsv[120:] = (50, 150, 120)
+    for x in range(0, 640, 16):
+        hsv[120:, x:x + 8] = (42, 150, 120)
+    img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    taps = pitch.SurfaceSample((44, 55), (130, 170), (100, 140))
+    assert not pitch.measure(img, pitch.GRASS, taps).has_pitch
+    m = pitch.measure(img, pitch.GRASS, taps.widened())
+    assert m.has_pitch and min(m.polygon[1::2]) > 0.3
+
+
 def test_the_coachs_sample_finds_a_dull_pitch_the_fixed_colors_miss():
     from ppcoachtracker_worker import tiles
     from ppcoachtracker_worker.pipeline import grass_around_box
@@ -209,6 +225,8 @@ def test_the_coachs_sample_finds_a_dull_pitch_the_fixed_colors_miss():
     tap = pitch.sample_of({"hue": [11, 19], "sat": [76, 116], "val": [155, 215]})
     cells = pitch.sample_cells(np.array([[[0xB9, 0x96, 0x73], [0x8C, 0x71, 0x55]]]), tap)
     assert cells.tolist() == [[True, False]]
+    # Used with a margin on each side, inside OpenCV's limits.
+    assert pitch.SurfaceSample((1, 178), (40, 75), (240, 250)).widened() == pitch.SurfaceSample((0, 180), (20, 95), (220, 255))
     # Not usable: upside down, out of range, missing, not whole numbers.
     for bad in ({"hue": [20, 10], "sat": [0, 255], "val": [0, 255]}, {"hue": [0, 200], "sat": [0, 255], "val": [0, 255]},
                 {"hue": [0, 10], "sat": [0, 255]}, {"hue": [0, 10.5], "sat": [0, 255], "val": [0, 255]}, [1, 2], None):

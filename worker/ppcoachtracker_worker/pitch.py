@@ -42,6 +42,9 @@ GRASS, DIRT = "grass", "dirt"
 DIRT_HUE = (5, 30)  # brown and tan: the beige walls are paler, the trees darker
 DIRT_SAT = (55, 160)  # above 160: red jerseys and skin in the sun
 DIRT_VAL = (100, 240)
+# Added to each side of the coach's sample before using it: a few taps miss the edges of the
+# pitch's colors (a 4-tap sample on turf covered 68 % of its pitch, under MIN_GRASS_IN_POLYGON).
+SAMPLE_MARGIN = {"hue": 3, "sat": 20, "val": 20}
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,12 @@ class SurfaceSample:
 
     def as_dict(self) -> dict:
         return {"hue": list(self.hue), "sat": list(self.sat), "val": list(self.val)}
+
+    def widened(self) -> SurfaceSample:
+        """The ranges with SAMPLE_MARGIN on each side, inside OpenCV's limits."""
+        def grow(r, key, top):
+            return (max(0, r[0] - SAMPLE_MARGIN[key]), min(top, r[1] + SAMPLE_MARGIN[key]))
+        return SurfaceSample(grow(self.hue, "hue", 180), grow(self.sat, "sat", 255), grow(self.val, "val", 255))
 
 
 def sample_of(d) -> SurfaceSample | None:

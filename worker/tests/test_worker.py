@@ -86,7 +86,7 @@ def test_a_dirt_pitch_measures_its_mask_from_the_video_and_says_so(meta, tmp_pat
 def test_the_coachs_sample_of_the_pitch_is_used_and_reported(meta, tmp_path, config_for):
     clip_dir = make_clip(tmp_path / "clip", total_ms=12000, chunk_seconds=7, overlap_ms=2000)
     meta.register_clip(clip_dir, CONCEPTS)
-    sample = {"hue": [35, 85], "sat": [60, 255], "val": [40, 255]}
+    sample = {"hue": [40, 80], "sat": [60, 250], "val": [40, 255]}
     pp = FakePpApi(clip_dir, {**job_for(clip_dir, 2), "options": {"surface": "grass", "surface_sample": sample}}).start()
     try:
         api = PpApi(pp.url, "worker-secret")
@@ -96,7 +96,9 @@ def test_the_coachs_sample_of_the_pitch_is_used_and_reported(meta, tmp_path, con
     a = pp.results[0]["analysis"]
     assert a["video"]["surface"] == "grass" and a["video"]["surface_sample"] == sample
     assert any(n.startswith("Máscara de la cancha: 0 cuadros vinieron de la app") for n in a["notes"])
-    assert any("Muestra del pasto del entrenador: la cancha es lo que tiene tono 35–85" in n for n in a["notes"])
+    # The result keeps the coach's sample; the note says what was used, with the margin.
+    assert any("Muestra del pasto del entrenador, con un margen: la cancha es lo que tiene tono 37–83, saturación 40–255 y brillo 20–255" in n
+               for n in a["notes"])
 
 
 def test_the_language_of_the_job_writes_the_notes_and_asks_muse_spark_in_it(meta, tmp_path, config_for):

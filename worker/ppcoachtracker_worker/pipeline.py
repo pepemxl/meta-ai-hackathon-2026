@@ -57,8 +57,9 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
     # What the pitch is made of (the coach said so): grass, or dirt with no grass at all.
     surface = pitch_mod.surface_of(surface)
     segmenter.surface = surface
-    # The coach's sample of that grass or dirt: its colors instead of the fixed ones.
-    sample = pitch_mod.sample_of(surface_sample)
+    # The coach's sample of that grass or dirt: its colors, with a margin, instead of the fixed ones.
+    coach_sample = pitch_mod.sample_of(surface_sample)
+    sample = coach_sample.widened() if coach_sample is not None else None
     segmenter.sample = sample
     # The play area the coach marked: with a still camera it is the pitch of every frame.
     area = pitch_mod.from_play_area(play_area, clip.width, clip.height) if camera == "static" else None
@@ -196,7 +197,7 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
             "closeups": shots.closeups,
             "surface": surface,
             "language": messages.current(),
-            **({"surface_sample": sample.as_dict()} if sample is not None else {}),
+            **({"surface_sample": coach_sample.as_dict()} if coach_sample is not None else {}),
             **({"play_area": {"points": len(area.polygon) // 2, "margin": area.margin, "removed": outside}} if area is not None else {}),
             **({"tiles": {"count": len(tile_plan.tiles), "size": tiles_mod.SIZE, "scale": tile_plan.scale, "overlap_px": tile_plan.overlap_px,
                           "joins": segmenter.tile_joins, "reason": segmenter.tile_reason,

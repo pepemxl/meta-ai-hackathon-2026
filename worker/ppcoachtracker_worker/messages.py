@@ -62,12 +62,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "Dirt pitch (from the pitch's details): the mask and the ball are measured by the color of the dirt, not of the grass.",
     },
     "sample_dirt": {
-        "es": "Muestra de la tierra del entrenador: la cancha es lo que tiene tono {h0}–{h1}, saturación {s0}–{s1} y brillo {v0}–{v1}.",
-        "en": "Coach's sample of the dirt: the pitch is what has hue {h0}–{h1}, saturation {s0}–{s1} and value {v0}–{v1}.",
+        "es": "Muestra de la tierra del entrenador, con un margen: la cancha es lo que tiene tono {h0}–{h1}, saturación {s0}–{s1} y brillo {v0}–{v1}.",
+        "en": "Coach's sample of the dirt, with a margin: the pitch is what has hue {h0}–{h1}, saturation {s0}–{s1} and value {v0}–{v1}.",
     },
     "sample_grass": {
-        "es": "Muestra del pasto del entrenador: la cancha es lo que tiene tono {h0}–{h1}, saturación {s0}–{s1} y brillo {v0}–{v1}.",
-        "en": "Coach's sample of the grass: the pitch is what has hue {h0}–{h1}, saturation {s0}–{s1} and value {v0}–{v1}.",
+        "es": "Muestra del pasto del entrenador, con un margen: la cancha es lo que tiene tono {h0}–{h1}, saturación {s0}–{s1} y brillo {v0}–{v1}.",
+        "en": "Coach's sample of the grass, with a margin: the pitch is what has hue {h0}–{h1}, saturation {s0}–{s1} and value {v0}–{v1}.",
     },
     "sample_ignored": {
         "es": "Se ignoró la muestra de la cancha: no son rangos válidos.",
