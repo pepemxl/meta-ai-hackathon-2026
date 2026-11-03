@@ -67,6 +67,11 @@ final class Schema
             $db->exec('ALTER TABLE clips ADD COLUMN surface_sample TEXT NULL AFTER surface');
             $done[] = 'clips.surface_sample';
         }
+        // El idioma de los textos del análisis.
+        if (!self::hasColumn($db, 'clips', 'language')) {
+            $db->exec('ALTER TABLE clips ADD COLUMN language VARCHAR(8) NULL AFTER surface_sample');
+            $done[] = 'clips.language';
+        }
         // La zona de juego que marca el entrenador con la cámara quieta.
         if (!self::hasColumn($db, 'clips', 'play_area')) {
             $db->exec('ALTER TABLE clips ADD COLUMN play_area TEXT NULL AFTER camera');

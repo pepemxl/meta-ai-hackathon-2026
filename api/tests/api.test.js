@@ -484,6 +484,9 @@ test('pitch_mode, camera and play_area are validated, stored and given to the wo
   const badSurface = await register(app, h.clipBody({ analysis: { surface: 'turf' } }));
   assert.equal(badSurface.status, 400);
   assert.deepEqual(badSurface.body.fields, ['analysis.surface']);
+  const badLanguage = await register(app, h.clipBody({ analysis: { language: 'fr' } }));
+  assert.equal(badLanguage.status, 400);
+  assert.deepEqual(badLanguage.body.fields, ['analysis.language']);
   for (const surface_sample of [{ hue: [20, 10], sat: [0, 255], val: [0, 255] }, { hue: [0, 200], sat: [0, 255], val: [0, 255] }, { hue: [0, 10], sat: [0, 255] }, [1, 2]]) {
     const badSample = await register(app, h.clipBody({ analysis: { surface_sample } }));
     assert.equal(badSample.status, 400);
@@ -496,11 +499,12 @@ test('pitch_mode, camera and play_area are validated, stored and given to the wo
   }
   const none = await register(app, h.clipBody());
   assert.equal(none.body.pitch_mode, null);
-  const reg = await register(app, h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static', surface: 'dirt', surface_sample: { hue: [11, 19], sat: [76, 116], val: [155, 215] }, play_area: AREA } }));
+  const reg = await register(app, h.clipBody({ analysis: { pitch_mode: 'no_lines', camera: 'static', surface: 'dirt', surface_sample: { hue: [11, 19], sat: [76, 116], val: [155, 215] }, language: 'en', play_area: AREA } }));
   assert.equal(reg.body.pitch_mode, 'no_lines');
   assert.equal(reg.body.camera, 'static');
   assert.equal(reg.body.surface, 'dirt');
   assert.deepEqual(reg.body.surface_sample, { hue: [11, 19], sat: [76, 116], val: [155, 215] });
+  assert.equal(reg.body.language, 'en');
   assert.deepEqual(reg.body.play_area, AREA);
   const id = reg.body.clip_id;
   assert.equal((await request(app).post(`/clips/${id}/calibration`).set('Authorization', h.COACH1).send(CAL)).status, 200);
@@ -510,7 +514,7 @@ test('pitch_mode, camera and play_area are validated, stored and given to the wo
   let next;
   // Other tests may leave jobs queued in MySQL: claim until this clip's.
   do next = await request(app).get('/internal/jobs/next').set('Authorization', h.WORKER); while (next.status === 200 && next.body.clip.id !== id);
-  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static', surface: 'dirt', surface_sample: { hue: [11, 19], sat: [76, 116], val: [155, 215] }, play_area: AREA });
+  assert.deepEqual(next.body.options, { pitch_mode: 'no_lines', camera: 'static', surface: 'dirt', surface_sample: { hue: [11, 19], sat: [76, 116], val: [155, 215] }, language: 'en', play_area: AREA });
   assert.deepEqual(next.body.calibration, CAL);
 });
 

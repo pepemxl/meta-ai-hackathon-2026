@@ -12,6 +12,8 @@ final class Calibration
     // De qué es la cancha (los detalles de la cancha guardada en la app):
     // pasto, o tierra sin pasto (el worker busca entonces el color de la tierra).
     public const SURFACES = ['grass', 'dirt'];
+    // El idioma de los textos del análisis (el de la app): Muse Spark y las notas escriben en él.
+    public const LANGUAGES = ['es', 'en'];
     public const MAX_REFERENCES = 6;
     private const MAX_FRAMES = 20;
     private const MAX_LINES = 20;
@@ -65,6 +67,22 @@ final class Calibration
             return [true, null];
         }
         return in_array($m, self::SURFACES, true) ? [true, $m] : [false, null];
+    }
+
+    /** analysis.language de POST /clips → [ok, valor] (null si falta). */
+    public static function language(mixed $analysis): array
+    {
+        if ($analysis === null) {
+            return [true, null];
+        }
+        if (!is_array($analysis)) {
+            return [false, null];
+        }
+        $m = $analysis['language'] ?? null;
+        if ($m === null) {
+            return [true, null];
+        }
+        return in_array($m, self::LANGUAGES, true) ? [true, $m] : [false, null];
     }
 
     /**

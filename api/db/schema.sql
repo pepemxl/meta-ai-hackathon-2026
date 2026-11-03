@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS clips (
   surface VARCHAR(16) NULL,
   -- La muestra del pasto o la tierra que tomó el entrenador (JSON: hue, sat, val como [mín, máx]), o NULL.
   surface_sample TEXT NULL,
+  -- es | en | NULL: el idioma de los textos del análisis (el de la app); NULL = es.
+  language VARCHAR(8) NULL,
   -- La zona de juego que marcó el entrenador con la cámara quieta (JSON: points, margin), o NULL.
   play_area TEXT NULL,
   -- Cuándo borró el video el cron de retención (bin/retention.php), o NULL.

@@ -7,7 +7,7 @@ const multer = require('multer');
 const storage = require('./storage');
 const { verifyPassword, signToken, verifyToken, isDemoToken, matchStaticToken, safeEqual } = require('./auth');
 const { CONSENT_VERSION, parseClipConsent, parseConsentEvent, currentState, iso } = require('./consent');
-const { MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parseSurfaceSample, parsePlayArea, parseCalibration } = require('./calibration');
+const { MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parseSurfaceSample, parseLanguage, parsePlayArea, parseCalibration } = require('./calibration');
 
 const VERSION = require('../package.json').version;
 
@@ -39,7 +39,8 @@ const MAX_REFERENCE_BYTES = 2 * 1024 * 1024;
  *                                          analysis.camera: static (one homography) or moving;
  *                                          analysis.play_area: the coach's polygon + margin (still camera);
  *                                          analysis.surface: grass or dirt (the pitch has no grass);
- *                                          analysis.surface_sample: the coach's HSV sample of it
+ *                                          analysis.surface_sample: the coach's HSV sample of it;
+ *                                          analysis.language: es or en, the language of the analysis's texts
  *   POST /clips/:id/calibration            the coach's points and painted lines on the pitch; 409 once the worker took the clip
  *   PUT  /clips/:id/references/:n          a reference picture of the pitch (JPEG, n = 1..6); 409 once the worker took the clip
  *   PUT  /clips/:id/chunks/:n/video        one raw part of a chunk at ?offset=
@@ -148,6 +149,7 @@ function createApp({
       camera: clip.camera ?? null,
       surface: clip.surface ?? null,
       surface_sample: clip.surface_sample ? JSON.parse(clip.surface_sample) : null,
+      language: clip.language ?? null,
       play_area: clip.play_area ? JSON.parse(clip.play_area) : null,
       video_deleted: Boolean(clip.video_deleted_at),
       received: chunks.map((c) => ({ number: c.number, sha256: c.sha256 })),
@@ -222,6 +224,8 @@ function createApp({
     const sample = parseSurfaceSample(b.analysis);
     if (sample.error) bad.push('analysis.surface_sample');
     const sampleJson = sample.value ? JSON.stringify(sample.value) : null;
+    const language = parseLanguage(b.analysis);
+    if (language.error) bad.push('analysis.language');
     const playArea = parsePlayArea(b.analysis);
     if (playArea.error) bad.push('analysis.play_area');
     const playAreaJson = playArea.value ? JSON.stringify(playArea.value) : null;
@@ -242,14 +246,14 @@ function createApp({
       const id = await repo.createClip({
         coach_id: req.coachId, client_clip_id: b.client_clip_id, match_id: matchId, title: b.title,
         duration_ms: b.duration_ms, chunk_count: b.chunk_count, chunk_seconds: b.chunk_seconds, overlap_ms: b.overlap_ms,
-        pitch_mode: pitchMode.value, camera: camera.value, surface: surface.value, surface_sample: sampleJson, play_area: playAreaJson,
+        pitch_mode: pitchMode.value, camera: camera.value, surface: surface.value, surface_sample: sampleJson, language: language.value, play_area: playAreaJson,
       });
       clip = await repo.getClip(id);
     } else {
       const profileChanged = clip.chunk_count !== b.chunk_count || clip.chunk_seconds !== b.chunk_seconds || clip.overlap_ms !== b.overlap_ms;
       const fields = { title: b.title, duration_ms: b.duration_ms, match_id: matchId };
       // The answer is fixed once the worker took the clip.
-      if (!UPLOAD_BLOCKED.includes(clip.status)) Object.assign(fields, { pitch_mode: pitchMode.value, camera: camera.value, surface: surface.value, surface_sample: sampleJson, play_area: playAreaJson });
+      if (!UPLOAD_BLOCKED.includes(clip.status)) Object.assign(fields, { pitch_mode: pitchMode.value, camera: camera.value, surface: surface.value, surface_sample: sampleJson, language: language.value, play_area: playAreaJson });
       if (profileChanged && !UPLOAD_BLOCKED.includes(clip.status)) {
         // The app regenerated the chunks with another profile: the old ones are useless.
         await repo.deleteChunks(clip.id);
@@ -427,6 +431,7 @@ function createApp({
       options: {
         pitch_mode: clip.pitch_mode ?? null, camera: clip.camera ?? null, surface: clip.surface ?? null,
         surface_sample: clip.surface_sample ? JSON.parse(clip.surface_sample) : null,
+        language: clip.language ?? null,
         play_area: clip.play_area ? JSON.parse(clip.play_area) : null,
       },
       calibration: clip.calibration ? JSON.parse(clip.calibration) : null,

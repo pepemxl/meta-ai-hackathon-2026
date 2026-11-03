@@ -148,6 +148,7 @@ final class App
             'camera' => $clip['camera'] ?? null,
             'surface' => $clip['surface'] ?? null,
             'surface_sample' => empty($clip['surface_sample']) ? null : json_decode($clip['surface_sample']),
+            'language' => $clip['language'] ?? null,
             'play_area' => empty($clip['play_area']) ? null : json_decode($clip['play_area']),
             'video_deleted' => !empty($clip['video_deleted_at']),
             'received' => array_map(fn($c) => ['number' => $c['number'], 'sha256' => $c['sha256']], $this->repo()->chunks($clip['id'])),
@@ -256,6 +257,10 @@ final class App
             $bad[] = 'analysis.surface_sample';
         }
         $sampleJson = $sample === null ? null : json_encode($sample);
+        [$languageOk, $language] = Calibration::language($b['analysis'] ?? null);
+        if (!$languageOk) {
+            $bad[] = 'analysis.language';
+        }
         [$playAreaOk, $playArea] = Calibration::playArea($b['analysis'] ?? null);
         if (!$playAreaOk) {
             $bad[] = 'analysis.play_area';
@@ -287,7 +292,7 @@ final class App
             $id = $this->repo()->createClip([
                 'coach_id' => $coach, 'client_clip_id' => $b['client_clip_id'], 'match_id' => $matchId, 'title' => $b['title'],
                 'duration_ms' => $b['duration_ms'], 'chunk_count' => $b['chunk_count'], 'chunk_seconds' => $b['chunk_seconds'], 'overlap_ms' => $b['overlap_ms'],
-                'pitch_mode' => $pitchMode, 'camera' => $camera, 'surface' => $surface, 'surface_sample' => $sampleJson, 'play_area' => $playAreaJson,
+                'pitch_mode' => $pitchMode, 'camera' => $camera, 'surface' => $surface, 'surface_sample' => $sampleJson, 'language' => $language, 'play_area' => $playAreaJson,
             ]);
         } else {
             $id = $clip['id'];
@@ -298,6 +303,7 @@ final class App
                 $fields['camera'] = $camera;
                 $fields['surface'] = $surface;
                 $fields['surface_sample'] = $sampleJson;
+                $fields['language'] = $language;
                 $fields['play_area'] = $playAreaJson;
             }
             $changed = $clip['chunk_count'] !== $b['chunk_count'] || $clip['chunk_seconds'] !== $b['chunk_seconds'] || $clip['overlap_ms'] !== $b['overlap_ms'];
@@ -595,6 +601,7 @@ final class App
             'options' => [
                 'pitch_mode' => $clip['pitch_mode'] ?? null, 'camera' => $clip['camera'] ?? null, 'surface' => $clip['surface'] ?? null,
                 'surface_sample' => empty($clip['surface_sample']) ? null : json_decode($clip['surface_sample']),
+                'language' => $clip['language'] ?? null,
                 'play_area' => empty($clip['play_area']) ? null : json_decode($clip['play_area']),
             ],
             'calibration' => empty($clip['calibration']) ? null : json_decode($clip['calibration']),

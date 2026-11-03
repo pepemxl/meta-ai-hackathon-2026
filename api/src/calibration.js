@@ -9,6 +9,8 @@ const CAMERA_MODES = ['static', 'moving'];
 // What the pitch is made of (the saved pitch's details in the app): grass, or
 // dirt with no grass at all (the worker then looks for the color of dirt).
 const SURFACES = ['grass', 'dirt'];
+// The language of the analysis's texts (the app's): Muse Spark and the notes write in it.
+const LANGUAGES = ['es', 'en'];
 const POINT_NAME = /^[a-z0-9_]{1,40}$/;
 const MAX_FRAMES = 20;
 
@@ -57,6 +59,15 @@ function parseSurfaceSample(analysis) {
     value[k] = [r[0], r[1]];
   }
   return { value };
+}
+
+/** analysis.language of POST /clips → {value} (null when absent) or {error}. */
+function parseLanguage(analysis) {
+  if (analysis === undefined || analysis === null) return { value: null };
+  if (typeof analysis !== 'object') return { error: true };
+  const m = analysis.language;
+  if (m === undefined || m === null) return { value: null };
+  return LANGUAGES.includes(m) ? { value: m } : { error: true };
 }
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -191,4 +202,4 @@ function parseCalibration(body) {
   return { value };
 }
 
-module.exports = { PITCH_MODES, CAMERA_MODES, SURFACES, MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parseSurfaceSample, parsePlayArea, parseCalibration };
+module.exports = { PITCH_MODES, CAMERA_MODES, SURFACES, MAX_REFERENCES, parsePitchMode, parseCamera, parseSurface, parseSurfaceSample, parseLanguage, parsePlayArea, parseCalibration };
