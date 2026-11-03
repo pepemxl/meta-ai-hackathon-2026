@@ -4,7 +4,7 @@ Un celular que mide la cancha en metros: SAM 3.1 sigue a los jugadores y la cali
 
 **Para construirlo, empieza por [prompts/](prompts/README.md).** Ahí está el orden de las etapas y el contexto que se pega en cada sesión del agente. Qué es previo y qué se hizo durante el hackathon está declarado en [PRIOR_WORK.md](../PRIOR_WORK.md) (en inglés, con un resumen en español).
 
-La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. SAM 3.1 y Muse Spark ya se verificaron con la API real ([results/](results/README.md)); el simulador local de SAM previsto para desarrollar sin gastar créditos ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)) no se construyó. Usa solo dependencias con licencia permisiva (más `meta-sam-parser`, de Meta, para las máscaras de SAM). La API de producción vive en **https://ppcoachtracker.pepemxl.com** y el worker de producción corre en Docker en la máquina de desarrollo.
+La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. SAM 3.1 y Muse Spark ya se verificaron con la API real ([results/](results/README.md)); mientras se desarrollaba, el worker usó un simulador local de SAM, fuera del repo, para no gastar créditos ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)). Usa solo dependencias con licencia permisiva (más `meta-sam-parser`, de Meta, para las máscaras de SAM). La API de producción vive en **https://ppcoachtracker.pepemxl.com** y el worker de producción corre en Docker en la máquina de desarrollo.
 
 ## Para construir
 
@@ -16,10 +16,10 @@ La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugado
 | [10-privacidad-jugadores.md](10-privacidad-jugadores.md) | Privacidad: IDs en el pipeline, nombres opcionales que no salen a terceros, LFPDPPP y GDPR |
 | [08-uso-de-video.md](08-uso-de-video.md) | Qué video se puede usar en pruebas y qué nunca se publica (transmisiones, datasets, partidos amateur); el video de stock, el generado con IA y el propio (dos canchas reales) |
 | [12-videos-largos-chunks.md](12-videos-largos-chunks.md) | Videos en chunks de 10 fps con un YAML por chunk (contrato entre app, API y worker): 1 min en desarrollo y 5 min en el demo, con 2 a 5 s de traslape, y subida en partes de 8 MB |
-| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo planeado: un simulador local de la API de SAM 3.1 (fuera del repo) que **no se construyó** |
+| [13-entorno-desarrollo.md](13-entorno-desarrollo.md) | Entorno de desarrollo: el simulador local de la API de SAM 3.1 (nuestro detector local, en Docker junto al worker; su código no está en el repo) con el que se desarrolló sin gastar créditos, cómo no se mezcla con SAM real y cómo pasar al demo |
 | [14-modo-demo.md](14-modo-demo.md) | Cuentas demo: la app completa sin subir video ni gastar crédito de Meta, con un clip de prueba y su análisis dentro de la APK |
 | [11-stats-jugadores.md](11-stats-jugadores.md) | Estadísticas por jugador: qué llena el análisis y qué el entrenador, formato del reporte y cálculos agregados |
-| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: el detector local del prototipo (YOLOv8n, corrido una vez fuera del repo) contra SAM 3.1, y la cancha en metros |
+| [results/](results/README.md) | Resultados medidos sobre video real, con equipos anonimizados: el detector local del simulador de SAM (YOLOv8n, su código no está en el repo) contra SAM 3.1, y la cancha en metros |
 | [diseno.md](diseno.md) | Estilo visual de la app, tipo apps de Meta: colores claro y oscuro, tipografía, componentes, navegación e ícono |
 
 ## Antecedentes (diseño y prototipo previos al hackathon)

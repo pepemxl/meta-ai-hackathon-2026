@@ -46,10 +46,13 @@ All of this was written from Oct 28 to Nov 3 in 109 commits after `2005a96`, eac
 - **Our own test footage:** two real pitches (artificial turf and dirt) recorded on Nov 3 with the app and with the phone's camera; small frames of them are test fixtures in `worker/tests/fixtures/real/`.
 - **AI-generated images and videos** for screenshots, made on Nov 2 with Meta muse-image-1.0 and Meta AI (Vibes), labeled as such ([docs/08-uso-de-video.md](docs/08-uso-de-video.md)).
 
-## Prior code used during the hackathon, and what was not built
+## The local SAM simulator used during development
 
-- **The prototype's local detector was run once, outside this repository,** on Oct 30, to compare it with SAM 3.1 on the same clips ([docs/results/01](docs/results/01-cv-local-vs-sam31.md), where it appears as `local_cv`). It is not part of the submission, ships nowhere and no analysis in the app comes from it.
-- **The local SAM simulator** planned in `docs/13-entorno-desarrollo.md` and `docs/prompts/08a-simulador-sam.md` (a stand-in for the SAM API on top of the prototype's detector, to save credits) **was never built.** The worker was developed against synthetic SAM streams in its tests and the real Meta Model API. The app and the viewer still recognize a `sam_simulator` label, which no run has used.
+To avoid spending SAM 3.1 credits while the system was being built, **the worker of this repository ran locally against a SAM simulator**: our local object detector and tracker, served in Docker next to it with the same API as SAM 3.1 ([docs/13-entorno-desarrollo.md](docs/13-entorno-desarrollo.md)). That is how the app and the pipeline were first exercised end to end (the first local runs, on Oct 28, are labeled `sam_simulator`). From Oct 30, with the Meta key, the worker uses SAM 3.1.
+
+- **Kept apart from real analyses:** the worker labels every simulator result `sam_simulator`, the app shows it as a development analysis ("simulator, not SAM 3.1") and the production API refuses it.
+- **Also a baseline:** the same detector, run directly on the same clips as SAM 3.1, is the comparison in [docs/results/01](docs/results/01-cv-local-vs-sam31.md) (`local_cv`).
+- **Not in the submission:** the detector's code is not in this repository and was never deployed. Every analysis in the demo and in production comes from SAM 3.1 and Muse Spark through the Meta Model API.
 
 ## Third-party components
 
@@ -57,4 +60,4 @@ Permissive licenses only (MIT, BSD, Apache-2.0, ISC), plus Meta's own `meta-sam-
 
 ---
 
-**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo solo se conserva la documentación de `docs/`, que entró en el commit `2005a96` (28 de octubre, sin código) y se terminó en parte después del kickoff. Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. El detector local del prototipo solo se corrió una vez, fuera del repo, para comparar con SAM 3.1; el simulador local de SAM no se construyó.
+**En español:** antes del kickoff (20–25 de octubre) se diseñó el proyecto y se hizo un prototipo fuera de este repo, que nunca usó SAM 3.1. De ese trabajo solo se conserva la documentación de `docs/`, que entró en el commit `2005a96` (28 de octubre, sin código) y se terminó en parte después del kickoff. Todo el código del repo (app, API, worker y visor) se escribió durante el hackathon, del 28 de octubre al 3 de noviembre, en 109 commits hechos con un agente de programación. Mientras se desarrollaba, el worker de este repo corrió en local contra un simulador de SAM (nuestro detector local, en Docker junto a él) para no gastar créditos; ese detector también es el punto de comparación en los resultados. Su código no está en el repo, nunca se desplegó y ningún análisis del demo ni de producción sale de él.

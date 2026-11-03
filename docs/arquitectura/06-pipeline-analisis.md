@@ -137,7 +137,7 @@ flowchart LR
 | SAM para las líneas, apagado: el concepto y los trazos como puntos, en dos peticiones con el formato documentado; el concepto y las máscaras ya probados con SAM real | Ver si SAM sigue un trazo de una foto a los cuadros del video y medir con un video propio de noche o con líneas gastadas cuántos cuadros confirma o corrige, y cuánto cuesta |
 | Metros donde el entrenador marcó la cancha | Probarlo con un video de tripié propio; con 5 marcas a ojo el error en la imagen no dice cuánto se corre la cancha |
 | Resultado con métricas por equipo | Estadísticas por dorsal: requiere etiquetar los tracks en la app |
-| El worker de producción corre en la máquina de desarrollo; el simulador no se construyó | Un servidor que no se suspenda |
+| El worker de producción corre en la máquina de desarrollo; el simulador de SAM vive fuera del repo, solo para desarrollo | Un servidor que no se suspenda |
 | El visor dibuja cajas, posesión y la cancha calculada, y compara dos corridas | Que dibuje las líneas pintadas y las máscaras de SAM |
 | `bin/retention.php` borra el video después del análisis; corre cada día en producción | – |
 

@@ -1,6 +1,6 @@
 # Entorno de desarrollo: simulador de SAM 3.1
 
-> **No se construyó.** Este es el plan de antes de tener la key. En cuanto llegó (30 de octubre), el worker se probó directo con SAM 3.1 real, y sus pruebas usan streams sintéticos. El detector local del prototipo solo se corrió una vez, sin simulador, para comparar con SAM ([results/01](results/01-cv-local-vs-sam31.md)). Lo que hay en el código para reconocer un análisis del simulador (`sam_simulator`) se queda como protección. Ver [PRIOR_WORK.md](../PRIOR_WORK.md).
+> **Así se desarrollaron la app y el pipeline**, sin gastar créditos de SAM: el worker de este repo corrió en local contra el simulador (nuestro detector local, en Docker junto a él; su código no está en el repo). Las primeras corridas, del 28 de octubre, son `sam_simulator`. Desde el 30 de octubre, el demo y producción usan SAM 3.1 real. El mismo detector, corrido directo, es el punto de comparación de [results/01](results/01-cv-local-vs-sam31.md). Se declara en [PRIOR_WORK.md](../PRIOR_WORK.md).
 
 Para no gastar los $150 de créditos (ni depender de la key) mientras se construye, el worker se desarrolla contra un **simulador local de la API de SAM 3.1**. Es un servidor HTTP que responde como SAM, pero por dentro usa el **segmentador local del prototipo previo** (YOLOv8n con su tracker IoU y la asignación de equipo por color). El demo y la producción usan SAM 3.1 de verdad.
 

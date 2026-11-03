@@ -24,7 +24,7 @@ flowchart TB
 | `README.md` | Qué es el proyecto y dónde empezar |
 | `THIRD_PARTY.md` | Cada dependencia con su versión y licencia (todas permisivas) |
 | `PRIOR_WORK.md` | Qué es previo al hackathon y qué se hizo durante él, con fechas y commits (para la entrega) |
-| `.env.example` | Nombres de las variables: Meta API, worker, simulador (planeado, no se construyó), API local y valores de producción (`PROD_*`). El `.env` real no se versiona |
+| `.env.example` | Nombres de las variables: Meta API, worker, simulador (solo desarrollo, fuera del repo), API local y valores de producción (`PROD_*`). El `.env` real no se versiona |
 | `.gitignore` | Excluye `.env`, videos, `LOCAL_DATA/`, `/data/`, `.local/`, builds y llaves. `/data/` va anclado a la raíz: sin la barra dejaba fuera el paquete `data` de la app |
 
 ## `android_native/`: la app
