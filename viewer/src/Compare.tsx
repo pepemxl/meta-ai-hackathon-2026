@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { agreement, matchFrame, perSecond, runMetrics, runName, sameVideo, Second } from './runDiff';
-import { Box, fmt, getJson, globalFrame, jersey, loadTracks, Result, SEVERITY, Tracks } from './data';
+import { Box, fmt, getJson, globalFrame, jersey, loadTracks, Result, Tracks } from './data';
+import { useT } from './i18n';
 
 type Run = { id: string; result: Result; tracks: Tracks; name: string };
 type Mode = 'side' | 'overlay' | 'diff';
@@ -10,26 +11,27 @@ const RUN_COLOR = ['#FB8C00', '#7B2FF7'];
 
 /** Two runs of the same video: the boxes of both, where they differ, their metrics and their findings. */
 export function CompareView({ ids }: { ids: [string, string] }) {
+  const t = useT();
   const [runs, setRuns] = useState<[Run, Run] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     Promise.all(ids.map((id) => Promise.all([getJson<Result>(`/api/runs/${id}/result.json`), loadTracks(id)])))
       .then((both) => {
-        const named = both.map(([result, tracks], i) => ({ id: ids[i], result, tracks, name: runName(result) }));
+        const named = both.map(([result, tracks], i) => ({ id: ids[i], result, tracks, name: runName(result, t.segmenterName) }));
         // Two runs with the same segmenter: tell them apart by their id.
         if (named[0].name === named[1].name) named.forEach((r) => (r.name = `${r.name} · ${r.id}`));
         setRuns(named as [Run, Run]);
       })
       .catch((e) => setError(String(e)));
-  }, [ids]);
+  }, [ids, t]);
   if (error) return <div className="card muted">{error}</div>;
-  if (!runs) return <div className="card muted">Cargando las dos corridas…</div>;
+  if (!runs) return <div className="card muted">{t.loadingTwo}</div>;
   const [a, b] = runs;
   const colors = { A: jersey(a.result.match.home_color), B: jersey(a.result.match.away_color) };
   return (
     <>
       {!sameVideo(a.tracks, b.tracks) && (
-        <div className="banner">Las dos corridas no tienen los mismos chunks ni los mismos cuadros: la comparación cuadro por cuadro no es válida.</div>
+        <div className="banner">{t.notSameVideo}</div>
       )}
       <ComparePlayer runs={runs} colors={colors} />
       <CompareStats runs={runs} colors={colors} />
@@ -38,15 +40,15 @@ export function CompareView({ ids }: { ids: [string, string] }) {
           <div className="card" key={r.id}>
             <h2>
               <span className="dot" style={{ background: RUN_COLOR[i] }} />
-              Hallazgos · {r.name}
+              {t.findings} · {r.name}
             </h2>
             <p className="muted">
               {r.result.backends.analyst} · {r.result.summary}
             </p>
-            {!r.result.insights.length && <p className="muted">Sin hallazgos.</p>}
+            {!r.result.insights.length && <p className="muted">{t.noFindings}</p>}
             {r.result.insights.map((x, n) => (
               <div className="insight" key={n}>
-                <span className={`chip ${x.severity}`}>{SEVERITY[x.severity] || x.severity}</span>{' '}
+                <span className={`chip ${x.severity}`}>{t.severity[x.severity] || x.severity}</span>{' '}
                 <span className="muted tnum">
                   {fmt(x.t_start_ms)}–{fmt(x.t_end_ms)}
                 </span>
@@ -94,6 +96,7 @@ function drawBox(ctx: CanvasRenderingContext2D, g: Geom, b: Box, color: string, 
 }
 
 function ComparePlayer({ runs, colors }: { runs: [Run, Run]; colors: { A: string; B: string } }) {
+  const t = useT();
   const [a, b] = runs;
   const videoA = useRef<HTMLVideoElement>(null);
   const videoB = useRef<HTMLVideoElement>(null);
@@ -198,9 +201,9 @@ function ComparePlayer({ runs, colors }: { runs: [Run, Run]; colors: { A: string
       <div className="controls">
         {(
           [
-            ['side', 'Lado a lado'],
-            ['overlay', 'Superpuestas'],
-            ['diff', 'Diferencias'],
+            ['side', t.side],
+            ['overlay', t.overlay],
+            ['diff', t.diff],
           ] as [Mode, string][]
         ).map(([k, label]) => (
           <button key={k} className={mode === k ? 'on' : ''} onClick={() => setMode(k)}>
@@ -213,32 +216,32 @@ function ComparePlayer({ runs, colors }: { runs: [Run, Run]; colors: { A: string
           </button>
         ))}
         <button className={showBall ? 'on' : ''} onClick={() => setShowBall(!showBall)}>
-          Balón
+          {t.ball}
         </button>
         <button className={showIds ? 'on' : ''} onClick={() => setShowIds(!showIds)}>
           IDs
         </button>
       </div>
       <p className="muted tnum">
-        cuadro {frame ?? '– (traslape)'} · {nowMs !== null ? fmt(nowMs) : '–'} · {a.name}: {players(fa)} · {b.name}: {players(fb)} · en las dos: {m.pairs.length} ·
-        solo {a.name}: {m.onlyA.length} · solo {b.name}: {m.onlyB.length}
+        {t.frame} {frame ?? t.overlap} · {nowMs !== null ? fmt(nowMs) : '–'} · {a.name}: {players(fa)} · {b.name}: {players(fb)} · {t.inBoth}: {m.pairs.length} ·
+        {t.only} {a.name}: {m.onlyA.length} · {t.only} {b.name}: {m.onlyB.length}
       </p>
       <div className="legend muted">
-        {mode === 'overlay' && <span>{a.name} con línea continua, {b.name} punteada; colores de equipo.</span>}
+        {mode === 'overlay' && <span>{t.overlayLegend(a.name, b.name)}</span>}
         {mode === 'diff' && (
           <>
             <span>
               <span className="dot" style={{ background: RUN_COLOR[0] }} />
-              Solo {a.name}
+              {t.onlyRun(a.name)}
             </span>
             <span>
               <span className="dot" style={{ background: RUN_COLOR[1] }} />
-              Solo {b.name}
+              {t.onlyRun(b.name)}
             </span>
-            <span>En gris, lo que encontraron las dos (IoU ≥ 0.3); el balón en círculo</span>
+            <span>{t.diffLegend}</span>
           </>
         )}
-        {mode === 'side' && <span>El video de la derecha sigue al de la izquierda; usa los controles de la izquierda.</span>}
+        {mode === 'side' && <span>{t.sideLegend}</span>}
       </div>
       <SecondsChart seconds={seconds} names={[a.name, b.name]} nowMs={nowMs} onSeek={seek} />
     </div>
@@ -246,16 +249,18 @@ function ComparePlayer({ runs, colors }: { runs: [Run, Run]; colors: { A: string
 }
 
 function RunLabel({ i, name, n }: { i: number; name: string; n: number }) {
+  const t = useT();
   return (
     <div className="run-label">
       <span className="dot" style={{ background: RUN_COLOR[i] }} />
-      <strong>{name}</strong> <span className="muted tnum">{n} jugadores</span>
+      <strong>{name}</strong> <span className="muted tnum">{n} {t.players}</span>
     </div>
   );
 }
 
 /** Players per frame each second for both runs, and below, the seconds where each saw the ball. Click to jump. */
 function SecondsChart({ seconds, names, nowMs, onSeek }: { seconds: [Second[], Second[]]; names: [string, string]; nowMs: number | null; onSeek: (ms: number) => void }) {
+  const t = useT();
   const all = [...seconds[0], ...seconds[1]];
   if (!all.length) return null;
   const t0 = Math.min(...all.map((s) => s.t_ms));
@@ -272,7 +277,7 @@ function SecondsChart({ seconds, names, nowMs, onSeek }: { seconds: [Second[], S
   };
   return (
     <div className="seconds-chart" onClick={click}>
-      <div className="muted">Jugadores por cuadro (promedio por segundo; máximo {top.toFixed(0)})</div>
+      <div className="muted">{t.secondsTitle(top.toFixed(0))}</div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         {seconds.map((list, i) => (
           <path key={i} d={path(list)} fill="none" stroke={RUN_COLOR[i]} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
@@ -280,9 +285,9 @@ function SecondsChart({ seconds, names, nowMs, onSeek }: { seconds: [Second[], S
         {nowMs !== null && <line x1={x(nowMs)} x2={x(nowMs)} y1={0} y2={H} stroke="currentColor" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
       </svg>
       {seconds.map((list, i) => (
-        <div key={i} className="ball-strip" title={`Balón visto · ${names[i]}`}>
+        <div key={i} className="ball-strip" title={t.ballSeenBy(names[i])}>
           {list.map((s, k) => (s.ball ? <div key={k} style={{ left: `${(x(s.t_ms) / W) * 100}%`, width: `${(1000 / (t1 - t0)) * 100}%`, background: RUN_COLOR[i] }} /> : null))}
-          <span className="strip-name">Balón · {names[i]}</span>
+          <span className="strip-name">{t.ball} · {names[i]}</span>
         </div>
       ))}
     </div>
@@ -290,38 +295,39 @@ function SecondsChart({ seconds, names, nowMs, onSeek }: { seconds: [Second[], S
 }
 
 function CompareStats({ runs, colors }: { runs: [Run, Run]; colors: { A: string; B: string } }) {
+  const t = useT();
   const [a, b] = runs;
   const ma = useMemo(() => runMetrics(a.result, a.tracks), [a]);
   const mb = useMemo(() => runMetrics(b.result, b.tracks), [b]);
   const ag = useMemo(() => agreement(a.tracks, b.tracks), [a, b]);
   const pct = (v: number | null | undefined) => (v === null || v === undefined ? '–' : `${Math.round(v * 100)} %`);
   const num = (v: number | null | undefined, d = 1) => (v === null || v === undefined ? '–' : v.toFixed(d));
-  const home = a.result.match.home || 'Local';
-  const away = a.result.match.away || 'Visitante';
+  const home = a.result.match.home || t.home;
+  const away = a.result.match.away || t.away;
   const rows: [string, string, string][] = [
-    ['Segmentador', a.result.backends.segmenter, b.result.backends.segmenter],
-    ['Hallazgos', a.result.backends.analyst, b.result.backends.analyst],
-    ['Tiempo de proceso', ma.processingSeconds === null ? '–' : `${Math.round(ma.processingSeconds)} s`, mb.processingSeconds === null ? '–' : `${Math.round(mb.processingSeconds)} s`],
-    ['Costo de SAM', ma.usd === null ? '–' : `US$${ma.usd.toFixed(2)}`, mb.usd === null ? '–' : `US$${mb.usd.toFixed(2)}`],
-    ['Jugadores por cuadro', num(ma.playersPerFrame.total), num(mb.playersPerFrame.total)],
+    [t.segmenter, a.result.backends.segmenter, b.result.backends.segmenter],
+    [t.findings, a.result.backends.analyst, b.result.backends.analyst],
+    [t.processing, ma.processingSeconds === null ? '–' : `${Math.round(ma.processingSeconds)} s`, mb.processingSeconds === null ? '–' : `${Math.round(mb.processingSeconds)} s`],
+    [t.samCost, ma.usd === null ? '–' : `US$${ma.usd.toFixed(2)}`, mb.usd === null ? '–' : `US$${mb.usd.toFixed(2)}`],
+    [t.playersPerFrame, num(ma.playersPerFrame.total), num(mb.playersPerFrame.total)],
     [`  ${home}`, num(ma.playersPerFrame.A), num(mb.playersPerFrame.A)],
     [`  ${away}`, num(ma.playersPerFrame.B), num(mb.playersPerFrame.B)],
-    ['  Sin equipo', num(ma.playersPerFrame.none), num(mb.playersPerFrame.none)],
-    ['Alto medio de la caja', pct(ma.boxHeight), pct(mb.boxHeight)],
-    ['Tracks', String(ma.tracks), String(mb.tracks)],
-    ['Duración mediana del track', `${num(ma.trackSecondsMedian)} s`, `${num(mb.trackSecondsMedian)} s`],
-    ['Cajas en tracks de 60 s o más', pct(ma.boxesInLongTracks), pct(mb.boxesInLongTracks)],
-    ['Balón detectado', pct(ma.ballDetected), pct(mb.ballDetected)],
-    ['Balón visto (con relleno)', pct(ma.ballSeen), pct(mb.ballSeen)],
-    [`Posesión ${home} / ${away}`, `${pct(ma.possession.A)} / ${pct(ma.possession.B)}`, `${pct(mb.possession.A)} / ${pct(mb.possession.B)}`],
-    ['Cambios de posesión', String(ma.possessionChanges ?? '–'), String(mb.possessionChanges ?? '–')],
-    ['Posesión más larga', `${fmt(ma.longestPossessionMs.A)} / ${fmt(ma.longestPossessionMs.B)}`, `${fmt(mb.longestPossessionMs.A)} / ${fmt(mb.longestPossessionMs.B)}`],
+    [`  ${t.noTeam}`, num(ma.playersPerFrame.none), num(mb.playersPerFrame.none)],
+    [t.boxHeight, pct(ma.boxHeight), pct(mb.boxHeight)],
+    [t.tracks, String(ma.tracks), String(mb.tracks)],
+    [t.trackMedian, `${num(ma.trackSecondsMedian)} s`, `${num(mb.trackSecondsMedian)} s`],
+    [t.longTracks, pct(ma.boxesInLongTracks), pct(mb.boxesInLongTracks)],
+    [t.ballDetected, pct(ma.ballDetected), pct(mb.ballDetected)],
+    [t.ballSeenFill, pct(ma.ballSeen), pct(mb.ballSeen)],
+    [t.possessionOf(home, away), `${pct(ma.possession.A)} / ${pct(ma.possession.B)}`, `${pct(mb.possession.A)} / ${pct(mb.possession.B)}`],
+    [t.possessionChanges, String(ma.possessionChanges ?? '–'), String(mb.possessionChanges ?? '–')],
+    [t.longestPossession, `${fmt(ma.longestPossessionMs.A)} / ${fmt(ma.longestPossessionMs.B)}`, `${fmt(mb.longestPossessionMs.A)} / ${fmt(mb.longestPossessionMs.B)}`],
   ];
   const share = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '–');
   return (
     <div className="compare-cols">
       <div className="card">
-        <h2>Métricas</h2>
+        <h2>{t.metrics}</h2>
         <table>
           <thead>
             <tr>
@@ -345,47 +351,47 @@ function CompareStats({ runs, colors }: { runs: [Run, Run]; colors: { A: string;
           </tbody>
         </table>
         <p className="muted">
-          Medido igual en las dos desde sus cajas (tracks.json), salvo posesión, cambios y tiempo, que vienen de cada result.json.{' '}
+          {t.compareMetricsHelp}{' '}
           <span className="dot" style={{ background: colors.A }} />
           {home} <span className="dot" style={{ background: colors.B }} />
           {away}
         </p>
       </div>
       <div className="card">
-        <h2>Coincidencia cuadro por cuadro</h2>
+        <h2>{t.agreement}</h2>
         <table>
           <tbody>
             <tr>
-              <td className="muted">Jugadores que encontraron las dos (IoU ≥ 0.3)</td>
-              <td className="tnum">{ag.matched.toLocaleString('es-MX')}</td>
+              <td className="muted">{t.agMatched}</td>
+              <td className="tnum">{ag.matched.toLocaleString(t.locale)}</td>
             </tr>
             <tr>
-              <td className="muted">De {a.name} que también encontró {b.name}</td>
+              <td className="muted">{t.agAlsoFound(a.name, b.name)}</td>
               <td className="tnum">{share(ag.matched, ag.matched + ag.onlyA)}</td>
             </tr>
             <tr>
-              <td className="muted">De {b.name} que también encontró {a.name}</td>
+              <td className="muted">{t.agAlsoFound(b.name, a.name)}</td>
               <td className="tnum">{share(ag.matched, ag.matched + ag.onlyB)}</td>
             </tr>
             <tr>
-              <td className="muted">Solo {a.name} / solo {b.name}</td>
+              <td className="muted">{t.agOnly(a.name, b.name)}</td>
               <td className="tnum">
-                {ag.onlyA.toLocaleString('es-MX')} / {ag.onlyB.toLocaleString('es-MX')}
+                {ag.onlyA.toLocaleString(t.locale)} / {ag.onlyB.toLocaleString(t.locale)}
               </td>
             </tr>
             <tr>
-              <td className="muted">Mismo equipo en las que encontraron las dos</td>
+              <td className="muted">{t.agSameTeam}</td>
               <td className="tnum">{share(ag.sameTeam, ag.bothTeam)}</td>
             </tr>
             <tr>
-              <td className="muted">Cuadros con balón: las dos / solo {a.name} / solo {b.name}</td>
+              <td className="muted">{t.agBall(a.name, b.name)}</td>
               <td className="tnum">
                 {ag.ballBoth} / {ag.ballOnlyA} / {ag.ballOnlyB}
               </td>
             </tr>
           </tbody>
         </table>
-        <p className="muted">Usa "Diferencias" en el video para ver en qué cuadros y dónde difieren.</p>
+        <p className="muted">{t.agHelp}</p>
       </div>
     </div>
   );

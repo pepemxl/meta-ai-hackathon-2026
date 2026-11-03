@@ -2,6 +2,7 @@
 // meters and what the camera covers, and the calibration's report with the
 // error of each of the coach's marks.
 import { applyH, Box, invert3, Mark, Pitch, Result, toMeters } from './data';
+import { useT } from './i18n';
 
 const MARGIN_M = 6;
 const VIOLET = '#7B2FF7';
@@ -17,6 +18,7 @@ export function TopDown({ pitch, h, boxes, marks, colors }: { pitch: Pitch; h: n
   const sy = (y: number) => vh / 2 - y;
   const inv = h ? invert3(h) : null;
   const inView = (p: [number, number] | null): p is [number, number] => !!p && Math.abs(p[0]) < vw && Math.abs(p[1]) < vh;
+  const t = useT();
 
   // What the camera sees: the image border taken to the pitch (only the part in front of the horizon).
   const view: [number, number][] = [];
@@ -38,7 +40,7 @@ export function TopDown({ pitch, h, boxes, marks, colors }: { pitch: Pitch; h: n
   });
 
   return (
-    <svg className="topdown" viewBox={`0 0 ${vw} ${vh}`} role="img" aria-label="La cancha vista desde arriba">
+    <svg className="topdown" viewBox={`0 0 ${vw} ${vh}`} role="img" aria-label={t.topDownLabel}>
       <rect x={0} y={0} width={vw} height={vh} className="grass" />
       {view.length > 2 && <polygon points={view.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')} className="view" />}
       {pitch.lines.map(([name, a, b]) => (
@@ -85,10 +87,9 @@ type Report = {
   lines?: string;
 };
 
-const METHOD: Record<string, string> = { manual: 'marcada', static: 'cámara fija', propagated: 'seguida', meta_sam: 'con SAM' };
-
 /** The calibration's report (result.calibration) and the error of each mark in its frame, in pixels and meters. */
 export function Calibration({ result, pitch, size }: { result: Result; pitch: Pitch | null; size: { width: number; height: number } }) {
+  const t = useT();
   const r = result.calibration as Report | undefined;
   if (!r && !pitch) return null;
   const pct = (v?: number) => (v === undefined ? '–' : `${Math.round(v * 1000) / 10} %`);
@@ -108,26 +109,25 @@ export function Calibration({ result, pitch, size }: { result: Result; pitch: Pi
   const errs = rows.flatMap((x) => (x.meters === null ? [] : [x.meters])).sort((a, b) => a - b);
   return (
     <div className="card">
-      <h2>Cancha en metros</h2>
+      <h2>{t.pitchInMeters}</h2>
       {r && (
         <p className="tnum">
-          Cancha de {r.pitch?.size ?? '?'} de {r.pitch?.length_m}×{r.pitch?.width_m} m ({r.pitch?.source === 'coach' ? 'medidas del entrenador' : 'medidas por omisión'}) ·
-          cámara {r.camera === 'static' ? 'fija' : 'en movimiento'} · calculada en {pct(r.frames_with_homography)} de los cuadros
-          {r.by_method && ` (${Object.entries(r.by_method).filter(([, v]) => v > 0).map(([k, v]) => `${METHOD[k] ?? k} ${pct(v)}`).join(', ')})`}
-          {r.median_error !== undefined && r.median_error !== null && ` · error mediano de las marcas ${Math.round(r.median_error * size.height * 10) / 10} px`}
-          {r.lines && ` · líneas de SAM: ${r.lines === 'sam' ? 'sí' : 'no'}`}
+          {t.calLine(String(r.pitch?.size ?? '?'), String(r.pitch?.length_m), String(r.pitch?.width_m), r.pitch?.source === 'coach', r.camera === 'static', pct(r.frames_with_homography))}
+          {r.by_method && ` (${Object.entries(r.by_method).filter(([, v]) => v > 0).map(([k, v]) => `${t.method[k] ?? k} ${pct(v)}`).join(', ')})`}
+          {r.median_error !== undefined && r.median_error !== null && t.medianError(Math.round(r.median_error * size.height * 10) / 10)}
+          {r.lines && t.samLines(r.lines === 'sam')}
         </p>
       )}
       {r?.key_frames && r.key_frames.length > 0 && (
         <table>
           <thead>
-            <tr><th>Cuadro marcado</th><th>Puntos</th><th>Líneas</th><th>Coinciden</th><th>Error mediano</th><th>Usado</th></tr>
+            <tr>{t.keyHead.map((h) => <th key={h}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {r.key_frames.map((k) => (
               <tr key={k.frame} className="tnum">
                 <td>{k.frame}</td><td>{k.points}</td><td>{k.lines}</td><td>{k.inliers}</td>
-                <td>{k.median_error_px === null ? '–' : `${k.median_error_px} px`}</td><td>{k.used ? 'sí' : 'no'}</td>
+                <td>{k.median_error_px === null ? '–' : `${k.median_error_px} px`}</td><td>{k.used ? t.yes : t.no}</td>
               </tr>
             ))}
           </tbody>
@@ -136,12 +136,11 @@ export function Calibration({ result, pitch, size }: { result: Result; pitch: Pi
       {rows.length > 0 && (
         <>
           <p className="muted">
-            Cada marca contra donde la homografía de su cuadro pone ese punto: en la imagen y en la cancha. Mediana {errs.length ? `${errs[Math.floor(errs.length / 2)].toFixed(2)} m` : '–'},
-            máximo {errs.length ? `${errs[errs.length - 1].toFixed(2)} m` : '–'}. En el video, la marca es el punto blanco y la línea violeta llega a donde la pone la homografía.
+            {t.marksHelp(errs.length ? `${errs[Math.floor(errs.length / 2)].toFixed(2)} m` : '–', errs.length ? `${errs[errs.length - 1].toFixed(2)} m` : '–')}
           </p>
           <table>
             <thead>
-              <tr><th>Marca</th><th>Cuadro</th><th>En la imagen</th><th>En la cancha</th></tr>
+              <tr>{t.marksHead.map((h) => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {rows

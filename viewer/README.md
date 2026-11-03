@@ -21,6 +21,8 @@ Las corridas guardan las marcas y los puntos de la plantilla en `tracks.json` (`
 
 `?run=<id>` en la dirección abre esa corrida (un enlace directo).
 
+**Idioma:** el toggle **ES / EN** de la barra superior cambia toda la interfaz (`src/i18n.ts`, un texto por clave en los dos idiomas). La elección queda en el navegador; sin ella, se usa el idioma del navegador. `?lang=en` (o `es`) lo fija desde la dirección, útil para capturas. Los textos del análisis (resumen, hallazgos, notas) vienen del worker en el idioma del clip.
+
 ## Comparar dos corridas
 
 Marca dos corridas en la lista (la casilla de cada una) y toca **Comparar**: sirve para comparar un segmentador local contra SAM 3.1 o para medir un cambio antes y después, siempre sobre los mismos chunks. Muestra:

@@ -1,4 +1,5 @@
 // Shapes of a saved run (worker/ppcoachtracker_worker/debug.py) and helpers.
+import type { Texts } from './i18n';
 
 export type RunSummary = {
   id: string;
@@ -167,17 +168,20 @@ export function fmt(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Runs grouped by the local day they were generated, in the order they come (newest first); undated ones last. */
-export function runsByDay(runs: RunSummary[], now = new Date()): { day: string; runs: RunSummary[] }[] {
+/**
+ * Runs grouped by the local day they were generated, in the order they come (newest first); undated ones last.
+ * [key] does not change with the language (the open days are kept by it); [day] is the label in [t]'s.
+ */
+export function runsByDay(runs: RunSummary[], t: Texts, now = new Date()): { key: string; day: string; runs: RunSummary[] }[] {
   const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   const label = (d: Date) => {
-    if (key(d) === key(now)) return 'Hoy';
-    if (key(d) === key(yesterday)) return 'Ayer';
-    const s = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (key(d) === key(now)) return t.today;
+    if (key(d) === key(yesterday)) return t.yesterday;
+    const s = d.toLocaleDateString(t.locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
-  const groups = new Map<string, { day: string; runs: RunSummary[] }>();
+  const groups = new Map<string, { key: string; day: string; runs: RunSummary[] }>();
   const undated: RunSummary[] = [];
   for (const r of runs) {
     const d = r.generated_at ? new Date(r.generated_at) : null;
@@ -185,17 +189,15 @@ export function runsByDay(runs: RunSummary[], now = new Date()): { day: string; 
       undated.push(r);
       continue;
     }
-    const g = groups.get(key(d)) ?? { day: label(d), runs: [] };
+    const g = groups.get(key(d)) ?? { key: key(d), day: label(d), runs: [] };
     g.runs.push(r);
     groups.set(key(d), g);
   }
-  return [...groups.values(), ...(undated.length ? [{ day: 'Sin fecha', runs: undated }] : [])];
+  return [...groups.values(), ...(undated.length ? [{ key: 'undated', day: t.undated, runs: undated }] : [])];
 }
 
 /** The local time a run was generated (14:05), or ''. */
-export function runTime(r: RunSummary): string {
+export function runTime(r: RunSummary, locale: string): string {
   const d = r.generated_at ? new Date(r.generated_at) : null;
-  return d && !isNaN(d.getTime()) ? d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  return d && !isNaN(d.getTime()) ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 }
-
-export const SEVERITY: Record<string, string> ={ high: 'IMPORTANTE', medium: 'A REVISAR', low: 'DETALLE', info: 'DATO' };

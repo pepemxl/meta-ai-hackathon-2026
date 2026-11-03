@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompareView } from './Compare';
-import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, marksFor, Result, runsByDay, RunSummary, runTime, SEVERITY, Tracks } from './data';
+import { applyH, fmt, getJson, globalFrame, jersey, loadTracks, marksFor, Result, runsByDay, RunSummary, runTime, Tracks } from './data';
+import { initialLang, Lang, LangContext, saveLang, TEXTS, useT } from './i18n';
 import { Calibration, TopDown } from './PitchView';
 
 export function App() {
@@ -13,6 +14,15 @@ export function App() {
   // Days shown open in the list: the newest, and the one of a run opened by link.
   const [openDays, setOpenDays] = useState<Set<string>>(new Set());
   const tick = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id].slice(-2)));
+  const [lang, setLang] = useState<Lang>(initialLang);
+  const t = TEXTS[lang];
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+  const choose = (l: Lang) => {
+    setLang(l);
+    saveLang(l);
+  };
 
   useEffect(() => {
     getJson<RunSummary[]>('/api/runs')
@@ -21,29 +31,36 @@ export function App() {
         // ?run=<id> opens that run (a link to it); else the newest.
         const wanted = new URLSearchParams(location.search).get('run');
         if (r.length) setSelected(r.find((x) => x.id === wanted)?.id ?? r[0].id);
-        const days = runsByDay(r);
-        setOpenDays(new Set(days.filter((g, i) => i === 0 || g.runs.some((x) => x.id === wanted)).map((g) => g.day)));
+        const days = runsByDay(r, TEXTS.es);
+        setOpenDays(new Set(days.filter((g, i) => i === 0 || g.runs.some((x) => x.id === wanted)).map((g) => g.key)));
       })
       .catch((e) => setError(String(e)));
   }, []);
 
   return (
-    <>
+    <LangContext.Provider value={{ lang, t }}>
       <header className="topbar">
         <h1>pp-coach-tracker</h1>
-        <span className="muted">Visor de corridas del worker</span>
+        <span className="muted">{t.subtitle}</span>
+        <div className="lang-toggle" role="group" aria-label="Idioma / Language">
+          {(['es', 'en'] as Lang[]).map((l) => (
+            <button key={l} className={lang === l ? 'on' : ''} aria-pressed={lang === l} onClick={() => choose(l)}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </header>
       <div className="layout">
         <aside>
           <div className="card">
-            <h2>Corridas</h2>
+            <h2>{t.runs}</h2>
             {error && <p className="muted">{error}</p>}
-            {runs && !runs.length && <p className="muted">No hay corridas. Corre el worker con DEBUG_DIR o `analyze --debug-dir`.</p>}
-            {runs && runsByDay(runs).map((g) => (
-              <details key={g.day} className="run-day" open={openDays.has(g.day)}
+            {runs && !runs.length && <p className="muted">{t.noRuns}</p>}
+            {runs && runsByDay(runs, t).map((g) => (
+              <details key={g.key} className="run-day" open={openDays.has(g.key)}
                 onToggle={(e) => {
                   const open = e.currentTarget.open;
-                  setOpenDays((d) => (open === d.has(g.day) ? d : new Set(open ? [...d, g.day] : [...d].filter((x) => x !== g.day))));
+                  setOpenDays((d) => (open === d.has(g.key) ? d : new Set(open ? [...d, g.key] : [...d].filter((x) => x !== g.key))));
                 }}>
                 <summary className="run-day-title">{g.day} <span className="tnum">· {g.runs.length}</span></summary>
                 <ul className="runs">
@@ -51,12 +68,12 @@ export function App() {
                     <li key={r.id} className={!comparing && r.id === selected ? 'selected' : ''} onClick={() => { setSelected(r.id); setComparing(null); }}>
                       <div className="run-row">
                         <span>
-                          {r.match?.home || 'Local'} vs {r.match?.away || 'Visitante'} <SegmenterChip segmenter={r.segmenter} />
+                          {r.match?.home || t.home} vs {r.match?.away || t.away} <SegmenterChip segmenter={r.segmenter} />
                         </span>
-                        <input type="checkbox" title="Comparar" checked={ticked.includes(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => tick(r.id)} />
+                        <input type="checkbox" title={t.compare} checked={ticked.includes(r.id)} onClick={(e) => e.stopPropagation()} onChange={() => tick(r.id)} />
                       </div>
                       <div className="muted tnum">
-                        {runTime(r) && `${runTime(r)} · `}clip {r.clip_id ?? '–'} · {r.chunks ?? '?'} chunks · {r.frames ?? '?'} cuadros
+                        {runTime(r, t.locale) && `${runTime(r, t.locale)} · `}clip {r.clip_id ?? '–'} · {r.chunks ?? '?'} chunks · {r.frames ?? '?'} {t.frames}
                       </div>
                       <div className="muted">{r.id}</div>
                     </li>
@@ -67,9 +84,9 @@ export function App() {
             {runs && runs.length > 1 && (
               <div className="compare-bar">
                 <button className="primary" disabled={ticked.length !== 2} onClick={() => setComparing([ticked[0], ticked[1]])}>
-                  Comparar {ticked.length}/2
+                  {t.compare} {ticked.length}/2
                 </button>
-                <span className="muted">Marca dos corridas del mismo video (un segmentador local contra SAM, o antes y después de un cambio).</span>
+                <span className="muted">{t.compareHelp}</span>
               </div>
             )}
           </div>
@@ -80,11 +97,11 @@ export function App() {
           ) : selected ? (
             <RunView key={selected} run={selected} />
           ) : (
-            <div className="card empty muted">Elige una corrida.</div>
+            <div className="card empty muted">{t.pickRun}</div>
           )}
         </main>
       </div>
-    </>
+    </LangContext.Provider>
   );
 }
 
@@ -94,6 +111,7 @@ function SegmenterChip({ segmenter }: { segmenter?: string }) {
 }
 
 function RunView({ run }: { run: string }) {
+  const t = useT();
   const [result, setResult] = useState<Result | null>(null);
   const [tracks, setTracks] = useState<Tracks | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,11 +124,11 @@ function RunView({ run }: { run: string }) {
       .catch((e) => setError(String(e)));
   }, [run]);
   if (error) return <div className="card muted">{error}</div>;
-  if (!result || !tracks) return <div className="card muted">Cargando…</div>;
+  if (!result || !tracks) return <div className="card muted">{t.loading}</div>;
   const colors = { A: jersey(result.match.home_color), B: jersey(result.match.away_color) };
   return (
     <>
-      {result.backends.segmenter !== 'meta_sam' && <div className="banner">Análisis de desarrollo: {result.backends.segmenter}, no SAM 3.1</div>}
+      {result.backends.segmenter !== 'meta_sam' && <div className="banner">{t.devBanner(result.backends.segmenter)}</div>}
       <Player run={run} tracks={tracks} result={result} colors={colors} />
       <Calibration result={result} pitch={tracks.pitch} size={{ width: result.video.width, height: result.video.height }} />
       <div className="card summary">
@@ -122,24 +140,24 @@ function RunView({ run }: { run: string }) {
       </div>
       <Stats result={result} colors={colors} />
       <div className="card">
-        <h2>Hallazgos</h2>
-        {!result.insights.length && <p className="muted">Sin hallazgos.</p>}
+        <h2>{t.findings}</h2>
+        {!result.insights.length && <p className="muted">{t.noFindings}</p>}
         {result.insights.map((i, n) => (
           <div className="insight" key={n}>
             <span className="spark-star">✦</span>
-            <span className={`chip ${i.severity}`}>{SEVERITY[i.severity] || i.severity}</span>{' '}
+            <span className={`chip ${i.severity}`}>{t.severity[i.severity] || i.severity}</span>{' '}
             <span className="muted tnum">
               {fmt(i.t_start_ms)}–{fmt(i.t_end_ms)}
             </span>
             <div className="title">{i.title}</div>
             <div>{i.description}</div>
-            {i.recommendation && <div className="muted">Qué hacer: {i.recommendation}</div>}
+            {i.recommendation && <div className="muted">{t.whatToDo}: {i.recommendation}</div>}
           </div>
         ))}
       </div>
       {(result.notes.length > 0 || result.limitations.length > 0) && (
         <div className="card">
-          <h2>Avisos y límites</h2>
+          <h2>{t.notes}</h2>
           <ul>
             {[...result.notes, ...result.limitations].map((l, n) => (
               <li key={n} className="muted">
@@ -152,7 +170,7 @@ function RunView({ run }: { run: string }) {
       <div className="card">
         <details>
           <summary>
-            <strong>Resultado completo (result.json)</strong>
+            <strong>{t.fullResult}</strong>
           </summary>
           <pre>{JSON.stringify(result, null, 1)}</pre>
         </details>
@@ -162,6 +180,7 @@ function RunView({ run }: { run: string }) {
 }
 
 function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; result: Result; colors: { A: string; B: string } }) {
+  const t = useT();
   const video = useRef<HTMLVideoElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [chunkIdx, setChunkIdx] = useState(0);
@@ -315,29 +334,29 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
           </button>
         ))}
         <button className={showBall ? 'on' : ''} onClick={() => setShowBall(!showBall)}>
-          Balón
+          {t.ball}
         </button>
         <button className={showIds ? 'on' : ''} onClick={() => setShowIds(!showIds)}>
           IDs
         </button>
         {tracks.masks.size > 0 && (
           <button className={showMask ? 'on' : ''} onClick={() => setShowMask(!showMask)}>
-            Máscara
+            {t.mask}
           </button>
         )}
         {tracks.pitch && (
           <button className={showPitch ? 'on' : ''} onClick={() => setShowPitch(!showPitch)}>
-            Líneas calculadas
+            {t.computedLines}
           </button>
         )}
         {tracks.pitch && tracks.pitch.marks.length > 0 && (
           <button className={showMarks ? 'on' : ''} onClick={() => setShowMarks(!showMarks)}>
-            Marcas
+            {t.marks}
           </button>
         )}
         <span className="muted tnum">
-          cuadro {frame ?? '– (traslape)'} · {nowMs !== null ? fmt(nowMs) : '–'} · {frame !== null ? tracks.byFrame.get(frame)?.length ?? 0 : 0} objetos
-          {tracks.pitch && frame !== null ? ` · cancha: ${tracks.pitch.homographies.get(frame)?.source ?? 'sin calcular'}` : ''}
+          {t.frame} {frame ?? t.overlap} · {nowMs !== null ? fmt(nowMs) : '–'} · {frame !== null ? tracks.byFrame.get(frame)?.length ?? 0 : 0} {t.objects}
+          {tracks.pitch && frame !== null ? t.pitchState(tracks.pitch.homographies.get(frame)?.source ?? t.notComputed) : ''}
         </span>
       </div>
       <div className="timeline" onClick={(e) => {
@@ -357,13 +376,13 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
       <div className="legend muted">
         <span>
           <span className="dot" style={{ background: colors.A }} />
-          {result.match.home || 'Local'}
+          {result.match.home || t.home}
         </span>
         <span>
           <span className="dot" style={{ background: colors.B }} />
-          {result.match.away || 'Visitante'}
+          {result.match.away || t.away}
         </span>
-        <span>Posesión por segundo, como la cuenta el worker; en gris, lo descartado sin cancha (toca para saltar)</span>
+        <span>{t.timelineLegend}</span>
       </div>
       {tracks.pitch && (
         <div className="topdown-wrap">
@@ -375,8 +394,8 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
             colors={colors}
           />
           <p className="muted">
-            Desde arriba, con la homografía del cuadro: los jugadores por sus pies, en sombra lo que ve la cámara y, en violeta, cuánto se corre cada marca en la cancha.
-            {frame !== null && !tracks.pitch.homographies.get(frame) && ' Este cuadro no tiene la cancha calculada.'}
+            {t.topDownHelp}
+            {frame !== null && !tracks.pitch.homographies.get(frame) && t.topDownNoPitch}
           </p>
         </div>
       )}
@@ -385,6 +404,7 @@ function Player({ run, tracks, result, colors }: { run: string; tracks: Tracks; 
 }
 
 function Stats({ result, colors }: { result: Result; colors: { A: string; B: string } }) {
+  const t = useT();
   const row = (label: string, a: string, b: string) => (
     <tr>
       <td className="muted">{label}</td>
@@ -397,7 +417,7 @@ function Stats({ result, colors }: { result: Result; colors: { A: string; B: str
   const B = result.teams.B;
   return (
     <div className="card">
-      <h2>Métricas</h2>
+      <h2>{t.metrics}</h2>
       <table>
         <thead>
           <tr>
@@ -413,15 +433,15 @@ function Stats({ result, colors }: { result: Result; colors: { A: string; B: str
           </tr>
         </thead>
         <tbody>
-          {row('Posesión', pct(A?.possession), pct(B?.possession))}
-          {row('Jugadores por cuadro', String(A?.players_per_frame ?? '–'), String(B?.players_per_frame ?? '–'))}
-          {row('Tracks', String(A?.tracks ?? '–'), String(B?.tracks ?? '–'))}
-          {row('Posesión más larga', fmt(A?.longest_possession_ms ?? 0), fmt(B?.longest_possession_ms ?? 0))}
+          {row(t.possession, pct(A?.possession), pct(B?.possession))}
+          {row(t.playersPerFrame, String(A?.players_per_frame ?? '–'), String(B?.players_per_frame ?? '–'))}
+          {row(t.tracks, String(A?.tracks ?? '–'), String(B?.tracks ?? '–'))}
+          {row(t.longestPossession, fmt(A?.longest_possession_ms ?? 0), fmt(B?.longest_possession_ms ?? 0))}
         </tbody>
       </table>
       <p className="muted tnum">
-        Balón visto {pct(result.ball?.seen_ratio)} · {result.possession_changes} cambios de posesión · {result.video.chunks} chunks de {result.video.chunk_seconds} s
-        (traslape {result.video.overlap_ms} ms) · {Object.entries(result.backends.usage || {}).map(([k, v]) => `${k} ${v}`).join(', ')}
+        {t.statsLine(pct(result.ball?.seen_ratio), result.possession_changes, result.video.chunks, result.video.chunk_seconds, result.video.overlap_ms)} ·{' '}
+        {Object.entries(result.backends.usage || {}).map(([k, v]) => `${k} ${v}`).join(', ')}
       </p>
     </div>
   );

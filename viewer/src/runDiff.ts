@@ -169,10 +169,9 @@ export function sameVideo(a: Tracks, b: Tracks): boolean {
 }
 
 /** A short name for a run: what segmented it. */
-export function runName(r: Result): string {
+export function runName(r: Result, names: Record<string, string>): string {
   const s = r.backends.segmenter;
   if (s === 'meta_sam') return 'SAM 3.1';
-  if (s === 'local_cv') return 'CV local';
-  if (s === 'sam_simulator') return 'Simulador';
-  return s || 'Corrida';
+  if (s === 'local_cv' || s === 'sam_simulator') return names[s];
+  return s || names.run;
 }
