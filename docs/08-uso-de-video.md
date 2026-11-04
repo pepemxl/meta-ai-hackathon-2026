@@ -25,6 +25,7 @@ Descargar partidos de YouTube viola sus términos de servicio, y los derechos de
 |---|---|---|
 | Probar el pipeline en una máquina, sin publicar nada | Bajo en la práctica, aunque técnicamente incumple los términos de YouTube | Permitido para iterar. Los videos van en `LOCAL_DATA/` o `data/`, que no se versionan (`*.mp4` ya está en `.gitignore`) |
 | Frames, overlays o resultados en el repo público | Medio | No. Usar solo clips propios para cualquier ejemplo versionado |
+| Dibujos derivados sin píxeles del video: cajas sobre negro, líneas proyectadas, la cancha desde arriba | Bajo | Permitido en el repo y en el demo, con las condiciones de [Dibujos derivados](#dibujos-derivados-sin-píxeles-del-video) |
 | Números agregados de una prueba local, sin cuadros, con equipos anonimizados y sin datos que identifiquen el partido | Bajo | Permitido en [results/](results/README.md) |
 | Video demo o pitch con la transmisión | Alto | No |
 | Videos con licencia Creative Commons en YouTube | Bajo, respetando la atribución | Permitido; anotar la fuente y la licencia en el README |
@@ -99,6 +100,17 @@ Otra excepción para el demo, el pitch y las capturas: imágenes y video de una 
 |---|---|---|---|
 | 5 imágenes de una toma desde la grada, granates contra azules: tres en pasto, una en pasto sintético y una en tierra (`LOCAL_DATA/assets/Grupo_01/generated-image-1_*.png`, `jugada_01_pasto_sintetico.png`, `jugada_01_sin_pasto.png`) | Meta muse-image-1.0, por la Meta Model API (playground), 2 de noviembre de 2026 | [Meta Model API Terms of Service](https://dev.meta.ai/legal/terms-of-service) (actualizados el 9 de octubre de 2026, revisados el 2 de noviembre): "you own all rights, title, and interests in and to your Inputs and Outputs" (4.1) y "The Services are intended for your commercial use" (1); si una ley pide etiquetar el contenido de IA, cumplirlo es del usuario | Llevan la marca IPTC de contenido generado por IA. Sirven para capturas y diapositivas; la de tierra es la de la prueba de la cancha sin pasto. Respaldadas sin modificar en [assets/grupo_01/](assets/grupo_01/README.md) |
 | 3 videos de 10 s de la misma escena, animando la imagen (`LOCAL_DATA/assets/Grupo_01/image_20261102_*.mp4`) | Meta AI (Vibes), 2 de noviembre de 2026 | [Condiciones de las IA de Meta](https://www.facebook.com/policies/other-policies/ais-terms) (vigentes desde el 13 de mayo de 2026): el usuario es responsable del uso de lo generado; **no dicen de quién son los resultados ni si se permite el uso comercial**. Lo compartido queda sujeto a las Normas comunitarias de Meta | Uno de los tres lleva la marca IPTC. Se analizaron con SAM 3.1 + Muse Spark (dos de ellos) para las capturas del análisis. Usarlos con la nota "AI-generated with Meta muse-image-1.0 and Meta AI (Vibes)" y confirmar con las Reglas Oficiales del hackathon |
+
+## Dibujos derivados, sin píxeles del video
+
+Decisión del equipo del 4 de noviembre de 2026. Un análisis de video de terceros se puede mostrar como dibujo, en el repo y en el demo, si cumple todo esto:
+
+1. **Ningún píxel del video:** fondo negro o liso; solo cajas, puntos, líneas de la cancha proyectadas y la cancha vista desde arriba.
+2. **Nada que identifique el partido:** sin nombres de equipos, liga, fecha, marcador, anuncios ni texto del video; los equipos como A y B.
+3. **Un tramo corto:** unos segundos, para mostrar cómo trabaja el análisis, no el partido.
+4. **Se dice qué es:** el documento que lo usa aclara que el video es de terceros, que no está en el repo y que el dibujo no tiene píxeles de él.
+
+El primero es [results/05-partido-completo-sam-vs-local.gif](results/05-partido-completo-sam-vs-local.md): 15 s de las cajas de SAM 3.1 y del detector local sobre negro.
 
 ## Video propio
 
