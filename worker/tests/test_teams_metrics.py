@@ -53,10 +53,12 @@ def test_possession_pressers_and_changes():
         owner_x = 0.225 if i < 20 and i not in (5, 6) else 0.725
         rows.append(TrackRow(i, f.t_ms, f.source_frame, 9, "ball", owner_x - 0.01, 0.54, 0.02, 0.02))
     m = compute(TrackSet(rows=rows, frames=frames), fps=10)
-    assert m["teams"]["A"]["possession"] == pytest.approx(0.5)
+    # The ball jumps half the screen in a frame: a pass. The blip is ignored, and
+    # the two frames in flight at 2.0 s are still A's (B gains it at 2.2 s, from then on).
+    assert m["teams"]["A"]["possession"] == pytest.approx(0.55)
     assert m["possession_changes"] == 1
-    assert m["events"][0]["t_ms"] == 2000
-    assert m["teams"]["A"]["longest_possession_ms"] == 2000
+    assert m["events"][0]["t_ms"] == 2200
+    assert m["teams"]["A"]["longest_possession_ms"] == 2200
     assert m["teams"]["B"]["pressers_per_frame"] > 0
     assert m["teams"]["A"]["shape"]["frames"] == 40
     assert m["teams"]["B"]["shape"] is None  # fewer than 3 players

@@ -135,7 +135,8 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
             trackset = TrackSet(rows=players_rows + ball_rows, frames=trackset.frames)
         rows = []
         for r in trackset.rows:
-            m_xy = cal.to_meters(r.frame, r.foot) if r.label == "player" else None
+            # The ball by the bottom of its box too: the possession is measured in meters there.
+            m_xy = cal.to_meters(r.frame, r.foot)
             r = r.with_(mx=m_xy[0], my=m_xy[1]) if m_xy else r
             # Outside the lines most of the time: a linesman or the bench, not a team's player.
             rows.append(r.with_(team="") if r.label == "player" and r.track_id in cal.off_pitch else r)

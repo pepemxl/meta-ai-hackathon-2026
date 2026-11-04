@@ -46,7 +46,7 @@ flowchart TB
 | Máscara de la cancha | La de la app (YAML de cada chunk) o, donde no viene, medida con la misma regla. Los cuadros sin cancha no cuentan y un jugador cuenta si sus pies caen en la cancha | `pitch.py`, [etapa 12](../prompts/12-mascara-cancha.md) |
 | Cortes y cuadros que cuentan | Un corte cuando el histograma de tono y saturación salta 0.44 o más (los tracks empiezan de nuevo). No cuentan los acercamientos (una persona de más de 1/3 del alto), por tomas | `cuts.py`, `shots.py`, [etapa 11](../prompts/11-worker-calidad.md) |
 | Balón | Una trayectoria por candidato, cada una con su Kalman; gana la que dura y pasa junto a los pies. Huecos de hasta 5 cuadros solo dentro de una trayectoria; un balón sin pasto alrededor se descarta, y con la cancha en metros también uno a más de 2 m fuera de las líneas (anuncios, grada, banca), y el balón se vuelve a elegir | `ball.py`, [etapa 11](../prompts/11-worker-calidad.md) |
-| Posesión | Se gana a 0.06 y se suelta cuando nadie del equipo está a 0.09; dura hasta 2 s sin ver el balón; la racha mínima se cuenta en cuadros con balón | `metrics.py` |
+| Posesión | Se gana al sostener el balón 1 s a menos de 0.06 de pantalla (2 m con cancha en metros) y se suelta cuando nadie del equipo está a 0.09 (3 m); un pase o un tiro (más de 9 m/s) no se la da a nadie nuevo; dura hasta 2 s sin ver el balón; la racha mínima se cuenta en cuadros con balón | `metrics.py` |
 
 Todos los tiempos del resultado (`t_ms`, `t_start_ms`…) son del video **original**, traducidos con el mapa de cada chunk: "ver en el video" usa el mismo reloj que el clip del teléfono.
 

@@ -118,22 +118,53 @@ def test_an_advert_more_confident_than_the_real_ball_is_not_chosen():
 
 
 def test_possession_hysteresis():
-    fr = frames(12)
+    fr = frames(42)
     players_of = {f.frame: [player(f.frame, 1, 0.40, 0.4), player(f.frame, 2, 0.6, 0.4, team="B")] for f in fr}
-    # The ball moves away from A's player: it keeps possession up to 0.09, loses it after.
-    xs = [0.42, 0.42, 0.46, 0.49, 0.50, 0.505, 0.51, 0.515, 0.52, 0.57, 0.58, 0.60]
+    # The ball walks away from A's player (0.1 of screen per second, under a pass) to B's.
+    xs = [0.42] * 12 + [0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49] + [0.49] * 4 + [0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56] + [0.57] * 12
     balls = {f.frame: ball_row(f.frame, xs[f.frame], 0.53) for f in fr}
     raw = metrics.raw_owner(fr, players_of, balls)
-    assert raw[:2] == ["A", "A"]
+    # A gains it after 1 s at its feet, and that second is A's from the start.
+    assert raw[:12] == ["A"] * 12
     # At x=0.49 A is 0.07 away (outside 0.06 but inside 0.09): still A.
-    assert raw[3] == "A"
-    assert raw[8] is None  # 0.10 from A: released, nobody near
-    assert raw[9:] == ["B", "B", "B"]  # B gains it once within 0.06
+    assert raw[18:23] == ["A"] * 5
+    assert raw[24] is None  # 0.09 from A: released, nobody near
+    assert raw[25:30] == [None] * 5
+    assert raw[30:] == ["B"] * 12  # B within 0.06 for 1 s: B from its first frame
     # Without seeing the ball, possession lasts up to 2 s, then nobody.
-    fr2 = frames(30)
-    b2 = {0: ball_row(0, 0.42, 0.53)}
+    fr2 = frames(35)
+    b2 = {i: ball_row(i, 0.42, 0.53) for i in range(10)}
     raw2 = metrics.raw_owner(fr2, {f.frame: players_of[0] for f in fr2}, b2)
-    assert raw2[20] == "A" and raw2[21] is None
+    assert raw2[29] == "A" and raw2[30] is None
+
+
+def test_a_touch_shorter_than_a_second_does_not_change_possession():
+    fr = frames(40)
+    near = set(range(15, 20)) | set(range(25, 40))  # B's player on the ball: 0.5 s, then for good
+    players_of = {f.frame: [player(f.frame, 1, 0.40, 0.4),
+                            player(f.frame, 2, 0.40, 0.41, team="B") if f.frame in near else player(f.frame, 2, 0.6, 0.4, team="B")] for f in fr}
+    balls = {f.frame: ball_row(f.frame, 0.42, 0.53) for f in fr}
+    raw = metrics.raw_owner(fr, players_of, balls)
+    assert raw[:25] == ["A"] * 25
+    assert raw[25:] == ["B"] * 15
+
+
+def test_possession_in_meters_and_not_to_whoever_a_pass_goes_by():
+    fr = frames(60)
+
+    def at(i, tid, team, x, mx):
+        return TrackRow(i, i * 100, i * 3, tid, "player", x, 0.4, 0.04, 0.12, team=team, mx=mx, my=0.0)
+
+    # On screen everyone is far from the ball; in meters A's player is 1.5 m away.
+    players_of = {f.frame: [at(f.frame, 1, "A", 0.1, 0.0), at(f.frame, 2, "B", 0.8, 20.0)] for f in fr}
+    # Then a pass at 15 m/s that goes by B's player and stops 10 m past him.
+    mxs = [1.5] * 12 + [min(30.0, 1.5 + 1.5 * k) for k in range(1, 49)]
+    balls = {i: TrackRow(i, i * 100, i * 3, 99, "ball", 0.49, 0.49, 0.02, 0.02, 0.9, mx=m, my=0.0) for i, m in enumerate(mxs)}
+    raw = metrics.raw_owner(fr, players_of, balls)
+    assert raw[:12] == ["A"] * 12
+    assert raw[14] == "A"  # in flight: still A's
+    assert "B" not in raw
+    assert raw[-1] is None
 
 
 def test_referee_in_yellow_with_a_team_in_white_has_no_team():

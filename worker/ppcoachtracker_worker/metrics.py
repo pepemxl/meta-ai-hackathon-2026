@@ -1,10 +1,13 @@
-"""Team metrics in SCREEN coordinates (no pitch calibration yet).
+"""Team metrics in SCREEN coordinates, plus the ones in meters when there is a pitch.
 
-Foot point = bottom center of the box. Possession with hysteresis (gained at
-0.06, released when nobody of the team is within 0.09, kept up to 2 s without
-seeing the ball); runs with fewer than MIN_RUN frames with ball are noise
-(between two runs of the same team they count for that team, otherwise for
-nobody); nothing joins across a break (cut or discarded stretch).
+Foot point = bottom center of the box. Possession with hysteresis: a team gains
+the ball after holding it 1 s (within 0.06 of screen, or 2 m when the frame has
+meters; those frames count for it from the start), loses it when nobody of the
+team is within 0.09 (3 m) and keeps it up to 2 s without seeing the ball; a ball
+faster than a run (a pass, a shot) gives it to nobody new. Runs with fewer than
+MIN_RUN frames with ball are noise (between two runs of the same team they count
+for that team, otherwise for nobody); nothing joins across a break (cut or
+discarded stretch).
 """
 
 from __future__ import annotations
@@ -37,49 +40,93 @@ def ball_per_frame(trackset: TrackSet) -> dict[int, TrackRow]:
 
 
 RELEASE_DISTANCE = 0.09
+# The same in meters, on the frames with a homography (0.06 of a wide shot is ~5 m).
+OWNER_DISTANCE_M = 2.0
+RELEASE_DISTANCE_M = 3.0
+CONFIRM_FRAMES = 10  # frames with ball (1 s at 10 fps) a team must hold it to gain it
+# Faster than this the ball is in a pass or a shot: whoever it passes by does not get it.
+PASS_SPEED_M = 9.0  # m/s; a player running with the ball stays under ~8
+PASS_SPEED = 0.11  # screen per second, the same in a wide shot
+SPEED_SPAN_MS = (200, 500)  # the earlier ball the speed is measured against
 MAX_UNSEEN_MS = 2000
 
 
 def _team_distance(players: list[TrackRow], team: str, ball: TrackRow) -> float:
-    bc = ball.center
-    d = [min(_dist(p.foot, bc), _dist(p.center, bc)) for p in players if p.team == team]
+    if ball.mx is not None:
+        d = [math.hypot(p.mx - ball.mx, p.my - ball.my) for p in players if p.team == team and p.mx is not None]
+    else:
+        bc = ball.center
+        d = [min(_dist(p.foot, bc), _dist(p.center, bc)) for p in players if p.team == team]
     return min(d) if d else math.inf
+
+
+def _ball_speed(ball: TrackRow, t_ms: int, recent: list[tuple[int, TrackRow]]) -> float | None:
+    """m/s against a ball seen 0.2 to 0.5 s before (screen per second without meters on both)."""
+    for t0, b0 in reversed(recent):
+        dt = t_ms - t0
+        if dt < SPEED_SPAN_MS[0]:
+            continue
+        if dt > SPEED_SPAN_MS[1]:
+            return None
+        if ball.mx is not None and b0.mx is not None:
+            return math.hypot(ball.mx - b0.mx, ball.my - b0.my) * 1000 / dt
+        if ball.mx is None and b0.mx is None:
+            return _dist(ball.center, b0.center) * 1000 / dt
+        return None
+    return None
 
 
 def raw_owner(frames: list[FrameInfo], players_of: dict[int, list[TrackRow]], balls: dict[int, TrackRow], breaks: set[int] | None = None) -> list[str | None]:
     """Team in possession per frame, with hysteresis.
 
-    A team gains the ball when one of its players is within OWNER_DISTANCE
-    (closer than the other team) and keeps it until nobody of the team is
-    within RELEASE_DISTANCE. Without seeing the ball the possession lasts up to
-    2 s. A break (cut, discarded stretch) resets it.
+    A team is a candidate on a frame when one of its players is within
+    OWNER_DISTANCE (OWNER_DISTANCE_M with meters) and closer than the other team.
+    It gains the ball after CONFIRM_FRAMES candidate frames in a row (frames
+    without ball or with the ball in a pass do not break the row), and those
+    frames go to it; it keeps the ball until nobody of the team is within
+    RELEASE_DISTANCE. A touch by the other team shorter than that changes
+    nothing. Without seeing the ball the possession lasts up to 2 s. A break
+    (cut, discarded stretch) resets it.
     """
     breaks = breaks or set()
     out: list[str | None] = []
     state: str | None = None
     last_seen: int | None = None
-    for f in frames:
+    pending: str | None = None  # the team holding it without having gained it yet
+    pending_from, pending_n = 0, 0
+    recent: list[tuple[int, TrackRow]] = []
+    for i, f in enumerate(frames):
         if f.frame in breaks:
-            state, last_seen = None, None
+            state, last_seen, pending, recent = None, None, None, []
         ball = balls.get(f.frame)
         if ball is None:
-            if state is not None and last_seen is not None and f.t_ms - last_seen > MAX_UNSEEN_MS:
-                state = None
+            if last_seen is not None and f.t_ms - last_seen > MAX_UNSEEN_MS:
+                state, pending = None, None
             out.append(state)
             continue
         last_seen = f.t_ms
+        speed = _ball_speed(ball, f.t_ms, recent)
+        recent = [(t, b) for t, b in recent if f.t_ms - t <= SPEED_SPAN_MS[1]] + [(f.t_ms, ball)]
+        if speed is not None and speed > (PASS_SPEED_M if ball.mx is not None else PASS_SPEED):
+            out.append(state)
+            continue
+        meters = ball.mx is not None
+        owner_d, release_d = (OWNER_DISTANCE_M, RELEASE_DISTANCE_M) if meters else (OWNER_DISTANCE, RELEASE_DISTANCE)
         players = players_of.get(f.frame, [])
         d = {t: _team_distance(players, t, ball) for t in ("A", "B")}
-        if state is not None:
-            other = "B" if state == "A" else "A"
-            if d[other] <= OWNER_DISTANCE and d[other] < d[state]:
-                state = other
-            elif d[state] > RELEASE_DISTANCE:
-                state = None
-        if state is None:
-            best = min(("A", "B"), key=lambda t: d[t])
-            if d[best] <= OWNER_DISTANCE:
-                state = best
+        if state is not None and d[state] > release_d:
+            state = None
+        best = min(("A", "B"), key=lambda t: d[t])
+        candidate = best if d[best] <= owner_d and d[best] < d["B" if best == "A" else "A"] else None
+        if candidate is None or candidate == state:
+            pending = None
+        else:
+            if candidate != pending:
+                pending, pending_from, pending_n = candidate, i, 0
+            pending_n += 1
+            if pending_n >= CONFIRM_FRAMES:
+                state, pending = candidate, None
+                out[pending_from:] = [state] * (i - pending_from)
         out.append(state)
     return out
 
