@@ -149,3 +149,15 @@ def test_referee_in_yellow_with_a_team_in_white_has_no_team():
     assert teams.team_for_color(labs[("w", 9)], "white", "blue") == ""
     # Declared colors wrong (most tracks far from both): nothing is taken away.
     assert teams.third_group({k: rgb_to_lab(np.array(JERSEY_RGB["green"])) for k in labs}, "white", "blue") == set()
+
+
+def test_with_the_pitch_in_meters_a_ball_beyond_the_lines_is_dropped():
+    # Test03: 22 of SAM's 23 wrong balls in 40 frames were on the ad boards, the stands or the bench.
+    def candidate(frame):
+        return TrackRow(frame, frame * 100, frame, 1, "ball", 0.5, 0.5, 0.01, 0.01)
+
+    meters = {0: (10.0, 5.0), 1: (54.0, 0.0), 2: (0.0, 37.5), 3: None}  # foot → meters, by frame
+    rows = [candidate(f) for f in range(4)]
+    kept, dropped = ball.on_pitch(rows, lambda f, foot: meters[f], 105.0, 68.0)
+    assert [r.frame for r in kept] == [0, 1, 3]  # 1.5 m beyond the goal line stays; 3.5 m beyond the touchline goes
+    assert dropped == 1

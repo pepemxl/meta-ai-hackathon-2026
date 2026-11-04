@@ -126,6 +126,13 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
         segmenter.simulator |= lines.simulator
     pitch = None
     if cal is not None:
+        # The ball again without the candidates beyond the lines (ad boards, stands, bench).
+        candidates, off = ball_mod.on_pitch([r for r in shots.trackset.rows if r.label == "ball"], cal.to_meters, cal.template.length, cal.template.width)
+        if off:
+            players_rows = [r for r in trackset.rows if r.label == "player"]
+            ball_rows, ball_report = ball_mod.select(candidates, players_rows, shots.counted, shots.breaks, ball_grass)
+            ball_report["dropped_off_pitch"] = off
+            trackset = TrackSet(rows=players_rows + ball_rows, frames=trackset.frames)
         rows = []
         for r in trackset.rows:
             m_xy = cal.to_meters(r.frame, r.foot) if r.label == "player" else None

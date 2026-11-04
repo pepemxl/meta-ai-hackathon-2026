@@ -12,6 +12,10 @@ hence one per candidate.
 - Gaps of up to 5 frames are filled only INSIDE one trajectory (interp=1):
   filling between two different trajectories invents a pass.
 - Nothing is carried across a break (cut or discarded stretch).
+- With the pitch in meters, a candidate whose ground point falls more than
+  OFF_PITCH_M beyond the lines is dropped and the ball is chosen again
+  (pipeline.py): in a 49-minute broadcast 22 of SAM's 23 wrong balls in a
+  sample of 40 frames were on the ad boards, the stands or the bench.
 """
 
 from __future__ import annotations
@@ -28,6 +32,19 @@ MAX_MISSES = 5
 MIN_FRAMES = 5
 NEAR_FEET = 0.08
 MIN_GRASS_AROUND = 1 / 3
+OFF_PITCH_M = 2.0
+
+
+def on_pitch(rows: list[TrackRow], to_meters, length: float, width: float) -> tuple[list[TrackRow], int]:
+    """The ball candidates not beyond the lines by more than OFF_PITCH_M (to_meters(frame, foot)
+    gives None without a homography: kept). Returns (rows, how many were dropped)."""
+    kept = []
+    for r in rows:
+        m = to_meters(r.frame, r.foot)
+        if m is not None and (abs(m[0]) > length / 2 + OFF_PITCH_M or abs(m[1]) > width / 2 + OFF_PITCH_M):
+            continue
+        kept.append(r)
+    return kept, len(rows) - len(kept)
 
 
 class Kalman:
