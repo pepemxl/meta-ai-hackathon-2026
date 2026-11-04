@@ -58,7 +58,9 @@ SNAP = 0.012
 # Objects per request (SAM docs) and frames billed at least per request.
 MAX_OBJECTS = 16
 MIN_BILLED_FRAMES = 50
-MAX_KEY_FRAMES = 900
+# Key frames for SAM's lines: one per second of the whole video, and over an hour
+# spread evenly (900 from the start left a 49-minute clip without a pitch after minute 16).
+MAX_KEY_FRAMES = 3600
 MIN_WHITE_PX = 60
 # Quality filter (measured in the prototype with local lines; same numbers for SAM).
 MAX_TEMPLATE_TO_WHITE_PX = 2.5

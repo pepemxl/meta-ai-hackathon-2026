@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import pitchscene as ps
-from ppcoachtracker_worker.calibration import calibrate, sam_lines
+from ppcoachtracker_worker.calibration import calibrate, key_frame_indices, sam_lines
 from ppcoachtracker_worker.calibration.solver import Camera, pitch_error_m, project
 from ppcoachtracker_worker.calibration.template import circle_polyline
 from ppcoachtracker_worker.chunks import load_clip
@@ -241,3 +241,12 @@ def test_sam_re_anchoring_goes_in_rounds_past_where_the_chain_stopped(monkeypatc
     assert calls[0] == [10] and calls[-1] == [90]  # one key frame reached per round
     assert sorted(out) == list(range(n))
     assert {g for g, m in method.items() if m == "meta_sam"} == set(range(10, n, 10))
+
+
+def test_key_frames_cover_the_whole_video():
+    # Test03: 900 key frames from the start left a 49-minute clip without a pitch after minute 16.
+    k = key_frame_indices(29460, 10.0)
+    assert (k.step, len(k), k[-1]) == (10, 2946, 29450)
+    two_hours = key_frame_indices(72000, 10.0)
+    assert len(two_hours) == sam_lines.MAX_KEY_FRAMES and two_hours[-1] >= 72000 - two_hours.step
+    assert key_frame_indices(50, 10.0) == range(0, 50, 10)

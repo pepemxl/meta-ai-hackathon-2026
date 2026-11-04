@@ -212,6 +212,13 @@ def _reference_pictures(clip: Clip, refs: list[dict]) -> list["sam_lines.Referen
     return out
 
 
+def key_frame_indices(frames: int, fps: float) -> range:
+    """The frames sent to SAM for its lines: one per second over the whole video,
+    spread evenly when that is more than sam_lines.MAX_KEY_FRAMES."""
+    step = max(1, round(fps), math.ceil(frames / sam_lines.MAX_KEY_FRAMES))
+    return range(0, frames, step)
+
+
 def _with_sam_lines(lines, video, chained, keys, template, w, h, steps, accept, method, patience=1, max_carry=None):
     """SAM's lines on the key frames: new keys where the template falls on them,
     cuts where they contradict the propagated pitch; then the chain again."""
@@ -358,8 +365,7 @@ def calibrate(clip: Clip, trackset: TrackSet, calibration: dict | None, pitch_mo
     if lines is not None and (pitch_mode != "no_lines" or painted):
         # The key frames go into SAM's video as the frames pass for the motion.
         stroke_frames = {touched_at[i]: st for i, st in touched_strokes.items() if i in touched_at}
-        step = max(1, round(clip.fps))
-        wanted = set(range(0, len(infos), step)[:sam_lines.MAX_KEY_FRAMES]) | set(stroke_frames)
+        wanted = set(key_frame_indices(len(infos), clip.fps)) | set(stroke_frames)
         video = sam_lines.PromptVideo(clip.dir / "sam_lines" / "prompt.mp4", w, h, _reference_pictures(clip, refs))
 
         def tap(src):
