@@ -166,6 +166,7 @@ class FakeMeta:
     failures: list[tuple[int, dict]] = field(default_factory=list)  # (status, headers) before normal answers
     simulator: bool = False
     cut_next: int = 0  # how many SAM streams to cut before completing
+    stream_errors: list[dict] = field(default_factory=list)  # error objects sent as an error event, one per SAM stream
     calls: list[tuple[str, dict]] = field(default_factory=list)
     files: dict[str, str] = field(default_factory=dict)  # file id → sha256
 
@@ -216,6 +217,11 @@ class FakeMeta:
                 fid = next(c["file_id"] for c in content if c["type"] == "input_video")
                 default = fake.objects if re.match(r"<\d+f>", concept) else fake.by_concept.get(concept, "")
                 text = fake.streams.get((fake.files.get(fid, ""), concept), default)
+                if fake.stream_errors:
+                    err = fake.stream_errors.pop(0)
+                    events = [{"type": "response.created"}, {"type": "error", "error": err}]
+                    body = "".join(f"data: {json.dumps(e)}\n\n" for e in events)
+                    return self._send(200, body.encode(), "text/event-stream")
                 cut = fake.cut_next > 0
                 if cut:
                     fake.cut_next -= 1

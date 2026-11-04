@@ -1,8 +1,9 @@
 """HTTP client for the Meta Model API (SAM 3.1 and Muse Spark), with urllib.
 
-- Retries: 429, 5xx, timeouts and cut streams are retried 3 times with
-  exponential backoff, respecting Retry-After. Anything else is a MetaError
-  and the job fails: there is no local fallback.
+- Retries: 429, 5xx, timeouts, cut streams and server-side stream errors
+  (an error event with no message, or a server, timeout or overload code) are
+  retried 3 times with exponential backoff, respecting Retry-After. Anything
+  else is a MetaError and the job fails: there is no local fallback.
 - Cache: every raw response is stored under META_CACHE_DIR with a key that
   includes the base URL, so a response from the local SAM simulator never
   comes out of the cache in a run against real SAM. It is a cache, not a
@@ -26,6 +27,8 @@ from typing import Callable
 from .types import MetaError, RetryableError
 
 MAX_RETRIES = 3
+# Codes of a stream error event that the server may not repeat: retried like a 5xx.
+TRANSIENT_STREAM_ERRORS = ("server", "internal", "timeout", "overload", "unavailable", "rate_limit")
 SIMULATOR_HEADER = "X-PP-Simulator"
 
 
@@ -101,7 +104,12 @@ def parse_sse(body: str) -> tuple[str, bool]:
                 parts.append(output_text(event.get("response") or {}))
         elif kind in ("response.failed", "error", "response.error"):
             err = event.get("error") or (event.get("response") or {}).get("error") or {}
-            raise MetaError("", f"stream error: {str(err.get('message') or err)[:200]}")
+            message = f"stream error: {str(err.get('message') or err)[:200]}"
+            code = f"{err.get('code') or ''} {err.get('type') or ''}".lower()
+            # A 49-minute job died on `stream error: {}` after two hours: an empty error is the server's.
+            if not err.get("message") or any(t in code for t in TRANSIENT_STREAM_ERRORS):
+                raise RetryableError(message)
+            raise MetaError("", message)
     return "".join(parts), completed
 
 

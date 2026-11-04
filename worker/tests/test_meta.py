@@ -94,6 +94,27 @@ def test_cut_stream_is_retried(meta, tmp_path):
     assert c.usage.retries == 1
 
 
+def sam_ball(c):
+    fid, _ = c.upload(Path(__file__), "sha-of-this-file")
+    return c.respond({"model": "sam-3.1", "input": [{"role": "user", "content": [{"type": "input_text", "text": "soccer ball"}, {"type": "input_video", "file_id": fid}]}]}, "k1", {})
+
+
+def test_a_server_stream_error_is_retried(meta, tmp_path):
+    # Test03: `stream error: {}` in the eighth chunk ended a 49-minute job after two hours.
+    meta.stream_errors = [{}, {"code": "server_error", "message": "try again"}]
+    c = MetaClient(meta.url, KEY, "meta_sam", Usage(), ResponseCache(None), sleep=lambda s: None)
+    assert sam_ball(c).text == ""
+    assert c.usage.retries == 2
+
+
+def test_a_request_stream_error_is_not_retried(meta, tmp_path):
+    meta.stream_errors = [{"code": "invalid_prompt", "message": "the concept is not allowed"}]
+    c = MetaClient(meta.url, KEY, "meta_sam", Usage(), ResponseCache(None), sleep=lambda s: None)
+    with pytest.raises(MetaError) as e:
+        sam_ball(c)
+    assert "not allowed" in str(e.value) and c.usage.retries == 0
+
+
 def test_without_model_api_key_the_worker_does_not_start(tmp_path):
     with pytest.raises(ConfigError):
         from_env({"PP_COACH_TRACKER_API_URL": "http://x"})
