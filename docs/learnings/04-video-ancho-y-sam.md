@@ -59,6 +59,7 @@ Un solo recorte pierde las porterías. La solución fue partir el panorama en **
    - se pasan las cajas de cada parte a las coordenadas del original;
    - dos tracks de partes vecinas son el mismo jugador si sus cajas coinciden (IoU > 0.5) en al menos la mitad de los cuadros en que los dos están en el traslape, y en 5 o más, la misma regla que une los tracks entre chunks;
    - en el traslape queda una caja por jugador: la de la parte cuyo borde queda más lejos, porque cerca del borde la caja puede venir cortada.
+   - unir tracks no basta: en un chunk de 5 min un jugador cambia de track dentro de una parte, y la unión uno a uno deja solo el track de la otra. En un partido de 49 min con 2 partes sobraban 2.5 cajas por cuadro; ahora, en cada cuadro, dos cajas de partes distintas con IoU > 0.5 son una persona.
 
 ### 6. Probar gratis primero, pagar después
 

@@ -25,7 +25,10 @@ with players of 30–40 px, about 20 once SAM shrinks 1920 to 1024.
   their boxes overlap (IoU > 0.5) in at least half of the frames both are
   inside the overlap, and in 5 or more (the rule between chunks, sam.py).
 - dedupe: inside an overlap one box per player and frame, the one of the
-  tile whose edge is farther away (near an edge the box may be cut).
+  tile whose edge is farther away (near an edge the box may be cut). Also
+  for tracks that were not joined: two boxes of different tiles with
+  IoU > 0.5 in a frame are one person (in a 5-minute chunk a player changes
+  track inside a tile, and Test03 kept 2.5 boxes too many per frame).
 """
 
 from __future__ import annotations
@@ -384,7 +387,7 @@ def margin_in_tile(b: TileBox, edges: dict[int, tuple[float, float]]) -> float:
 
 
 def dedupe(boxes: list[TileBox], roots: dict[tuple[int, int], tuple[int, int]], edges: dict[int, tuple[float, float]]) -> list[TileBox]:
-    """One box per joined track and frame: the one farthest from its tile's edge."""
+    """One box per joined track and frame, and per person in a frame: the one farthest from its tile's edge."""
     best: dict[tuple[int, tuple[int, int]], TileBox] = {}
     for b in boxes:
         group = roots.get((b.tile, b.track), (b.tile, b.track))
@@ -392,4 +395,16 @@ def dedupe(boxes: list[TileBox], roots: dict[tuple[int, int], tuple[int, int]], 
         prev = best.get(k)
         if prev is None or margin_in_tile(b, edges) > margin_in_tile(prev, edges):
             best[k] = b
-    return sorted(best.values(), key=lambda b: (b.frame, b.tile, b.track))
+    by_frame: dict[int, list[TileBox]] = defaultdict(list)
+    for b in best.values():
+        by_frame[b.frame].append(b)
+    kept: list[TileBox] = []
+    for frame_boxes in by_frame.values():
+        # Farthest from an edge first: a box of another tile on the same person goes.
+        frame_boxes.sort(key=lambda b: -margin_in_tile(b, edges))
+        mine: list[TileBox] = []
+        for b in frame_boxes:
+            if not any(o.tile != b.tile and iou(o.box, b.box) > JOIN_IOU for o in mine):
+                mine.append(b)
+        kept += mine
+    return sorted(kept, key=lambda b: (b.frame, b.tile, b.track))

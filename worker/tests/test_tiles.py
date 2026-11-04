@@ -151,3 +151,16 @@ def test_the_grass_mask_leaves_out_a_press_area_between_two_grass_corners():
     assert (out[1060, 100] == img[1060, 100]).all()  # the grass corner
     # The players inside the pitch are holes in the grass, filled: all kept.
     assert (out[260:960, 100:1800] == img[260:960, 100:1800]).all()
+
+
+def test_a_player_seen_by_two_tiles_counts_once_even_when_the_tracks_did_not_join():
+    # Test03: inside 5 minutes a player changes track in a tile, the one-to-one join leaves
+    # the other tile's track alone, and every frame of the overlap had him twice.
+    edges = {0: (0.0, 0.8), 1: (0.2, 1.0)}
+    box = (0.45, 0.4, 0.02, 0.05)
+    boxes = [tiles.TileBox(f, 0, 1, "player", box) for f in range(3)]
+    boxes += [tiles.TileBox(f, 1, 7, "player", (box[0] + 0.001, box[1], box[2], box[3])) for f in range(3)]
+    boxes += [tiles.TileBox(0, 1, 8, "player", (0.6, 0.4, 0.02, 0.05))]  # someone else
+    roots = {(b.tile, b.track): (b.tile, b.track) for b in boxes}  # nothing joined
+    kept = tiles.dedupe(boxes, roots, edges)
+    assert [(b.frame, b.tile, b.track) for b in kept] == [(0, 0, 1), (0, 1, 8), (1, 0, 1), (2, 0, 1)]
