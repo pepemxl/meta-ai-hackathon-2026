@@ -4,6 +4,7 @@ Cada versión publicada, con sus capturas, qué cambió y qué se probó ([promp
 
 | Versión | Fecha | Qué trae |
 |---|---|---|
+| [0.4.4](0.4.4/README.md) | 4 nov 2026 | Zoom y líneas de dos puntos al marcar la cancha; botón de guardar sobre la barra de Android; en el worker, tracks entre mosaicos, posesión más estable y pausas fuera de las métricas |
 | [0.4.3](0.4.3/README.md) | 3 nov 2026 | La muestra de la cancha rechaza un toque en la sombra o en algo gris; el worker ignora las que mezclan sombra y sol |
 | [0.4.2](0.4.2/README.md) | 3 nov 2026 | Girar un video 90° a la izquierda o a la derecha antes de enviarlo, sin recodificar |
 | [0.4.1](0.4.1/README.md) | 3 nov 2026 | Los videos grabados en horizontal ya no quedan girados 90°; en el worker, la muestra de la cancha con margen |
