@@ -2,7 +2,7 @@
 
 - **Fecha:** 4 de noviembre de 2026.
 - **Versión anterior:** [0.4.3](../0.4.3/README.md).
-- **Probado en:** pruebas unitarias de la app y del worker, y un partido completo de 49 min (Test03) recalculado sin llamadas; el release se compiló y firmó con la misma llave que 0.4.3, y **falta probarlo en un teléfono real**.
+- **Probado en:** pruebas unitarias de la app y del worker, y un partido completo de 49 min (Test03) recalculado sin llamadas; el release se compiló y firmó con la misma llave que 0.4.3. En un teléfono real se usó para crear partidos y marcar la cancha con zoom en nuestras dos canchas ([capturas](#capturas-en-un-teléfono)).
 - **Versiones:** app 0.4.4 (`versionCode` 8). La API sigue en 0.4.0, sin cambios en el contrato. El worker de producción ya corre los cambios de abajo.
 
 ## Qué cambió
@@ -27,7 +27,25 @@
 
 - **Pruebas:** app (unitarias); worker, 132 pasan y 2 fallas esperadas.
 - **Partido real:** Test03 (49 min), con las respuestas de SAM guardadas: la posesión contra marcas a mano y la pausa de hidratación revisada a ojo (24:09 a 27:16).
-- **Pendiente:** el zoom y las líneas de dos puntos en un teléfono real, y la pausa de hidratación de un segundo tiempo.
+- **Teléfono real:** crear un partido y marcar la cancha con zoom, en pasto sintético y en tierra ([capturas](#capturas-en-un-teléfono)).
+- **Pendiente:** las líneas de dos puntos en un teléfono real, y la pausa de hidratación de un segundo tiempo.
+
+## Capturas en un teléfono
+
+Tomadas por el equipo el 4 de noviembre con la app 0.4.4 y nuestro propio video de las canchas de Yerbabuena, sin personas ([assets/aplicacion/](../../assets/aplicacion/README.md)).
+
+| Inicio | Partido nuevo |
+|---|---|
+| ![](../../assets/aplicacion/home_01.jpg) | ![](../../assets/aplicacion/ini_match_configuration.jpg) |
+
+- **Inicio:** los clips recientes arriba y abajo los partidos, cada uno con los colores de sus equipos, la cancha, cuántos clips tiene y cuánto duran.
+- **Partido nuevo:** lo primero que se configura son los dos equipos y el color de su camiseta. Ese color es el que el worker le pide a SAM 3.1 (`player in red jersey`) para seguir a cada equipo, sin entrenar nada.
+
+| Marcar la cancha | Zoom ×4 | Cancha de tierra sin líneas | El mismo cuadro sin marcas |
+|---|---|---|---|
+| ![](../../assets/aplicacion/pitch_points_01.jpg) | ![](../../assets/aplicacion/pitch_points_02.jpg) | ![](../../assets/aplicacion/pitch_points_03.jpg) | ![](../../assets/aplicacion/pitch_points_04.jpg) |
+
+Las de la cancha se explican en [results/04-hito-cancha-sin-lineas.md](../../results/04-hito-cancha-sin-lineas.md).
 
 ## Archivo
 
