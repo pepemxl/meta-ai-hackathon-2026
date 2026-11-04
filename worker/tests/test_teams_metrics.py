@@ -37,6 +37,19 @@ def test_smoothing_removes_short_blips():
     assert out[-6:] == ["B"] * 6
 
 
+def test_a_long_gap_between_two_runs_of_the_same_team_is_still_its_possession():
+    # Its passes: nobody near the ball for 3 s, then a teammate has it.
+    raw = ["A"] * 10 + [None] * 30 + ["A"] * 10 + [None] * 30 + ["B"] * 10
+    out = smooth_owner(raw)
+    assert out[:50] == ["A"] * 50
+    assert out[50:80] == [None] * 30  # between A and B: nobody
+    # More than 10 s without an owner is not its passes: nobody.
+    long = ["A"] * 10 + [None] * 101 + ["A"] * 10
+    assert smooth_owner(long)[10:111] == [None] * 101
+    # Never across a break (a cut).
+    assert smooth_owner(raw, breaks_at={25})[10:40] == [None] * 30
+
+
 def test_possession_pressers_and_changes():
     frames = _frames(40)
     rows = []

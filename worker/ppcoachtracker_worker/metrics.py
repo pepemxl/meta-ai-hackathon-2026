@@ -6,7 +6,8 @@ meters; those frames count for it from the start), loses it when nobody of the
 team is within 0.09 (3 m) and keeps it up to 2 s without seeing the ball; a ball
 faster than a run (a pass, a shot) gives it to nobody new. Runs with fewer than
 MIN_RUN frames with ball are noise (between two runs of the same team they count
-for that team, otherwise for nobody); nothing joins across a break (cut or
+for that team, otherwise for nobody); a gap of up to 10 s with no owner between two
+runs of the same team is its possession (its passes); nothing joins across a break (cut or
 discarded stretch).
 """
 
@@ -44,6 +45,10 @@ RELEASE_DISTANCE = 0.09
 OWNER_DISTANCE_M = 2.0
 RELEASE_DISTANCE_M = 3.0
 CONFIRM_FRAMES = 10  # frames with ball (1 s at 10 fps) a team must hold it to gain it
+# A gap with no owner between two runs of the same team (its passes, the ball rolling
+# between teammates, a throw-in) is still its possession, up to 10 s at 10 fps; a longer
+# one is not seen play (in Test03 up to 59 s), and filling it moved the share 7 points.
+SAME_TEAM_GAP = 100
 # Faster than this the ball is in a pass or a shot: whoever it passes by does not get it.
 PASS_SPEED_M = 9.0  # m/s; a player running with the ball stays under ~8
 PASS_SPEED = 0.11  # screen per second, the same in a wide shot
@@ -162,14 +167,15 @@ def smooth_owner(raw: list[str | None], has_ball: list[bool] | None = None, brea
             fill = runs[before][0]
         for i in range(a, b):
             out[i] = fill
-    # Short gaps (no owner) between two runs of the same team keep that team, never across a break.
+    # A gap (no owner) between two runs of the same team keeps that team: the same possession
+    # goes on through its passes. Never across a break.
     i = 0
     while i < n:
         if out[i] is None:
             j = i
             while j < n and out[j] is None:
                 j += 1
-            if 0 < i and j < n and j - i < MIN_RUN and out[i - 1] == out[j] and not crosses_break(i - 1, j):
+            if 0 < i and j < n and j - i <= SAME_TEAM_GAP and out[i - 1] == out[j] and not crosses_break(i - 1, j):
                 for k in range(i, j):
                     out[k] = out[j]
             i = j

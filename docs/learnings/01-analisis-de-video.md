@@ -40,6 +40,8 @@ Lo aprendido con el worker local (YOLOv8n + tracker IoU) sobre 10 minutos de una
 - **Más cambios de posesión no es necesariamente peor:** al medir así aparecen posesiones cortas que antes se perdían (de 6 a 18 cambios en 10 minutos). Sin una referencia no se sabe cuántos son reales.
 - **En una toma abierta, 0.06 de pantalla son unos 5 m** (partido de 49 min, Test03). A esa distancia hay jugadores de los dos equipos en un tercio de los cuadros con dueño. Como el balón cambiaba de equipo en cuanto un rival estaba más cerca, cada pase que cruzaba cerca de un rival y cada disputa contaban como cambio: 5.2 cambios por minuto, la mitad vaivenes A → B → A de menos de 3 s. El balón y los equipos estaban bien.
 - **Lo que lo bajó:** exigir 1 s para ganar el balón, medir en metros donde hay cancha (2 m) e ignorar el balón en un pase (más de 9 m/s). En la misma corrida, 1.45 cambios por minuto y 10 vaivenes. El porcentaje de posesión casi no se movió (52 % → 55 %): el número de cambios depende de la regla mucho más que el reparto.
+- **Contra 4 min marcados a mano (9 cambios reales):** la regla anterior daba 27 cambios con 11 % de precisión; la nueva da 7, con 4 a menos de 2 s y el mismo dueño en el 94 % de los cuadros. Ninguna variante de umbrales fue mejor.
+- **Un pase entre compañeros no termina la posesión.** El worker dejaba sin dueño el balón entre pases (48 % del tiempo con dueño contra 88 % a mano). Darle al equipo el hueco entre dos rachas suyas lo sube sin tocar los cambios. Pero sin límite se tragaba huecos de hasta 59 s sin nadie cerca del balón y movía el reparto 7 puntos: 10 s alcanzan para un pase largo o un saque.
 
 ## El árbitro
 
