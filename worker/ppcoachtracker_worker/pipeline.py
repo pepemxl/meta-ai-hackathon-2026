@@ -18,8 +18,8 @@ from .api import ApiError, PpApi
 from .chunks import load_clip
 from .config import Config
 from .debug import save_run
-from . import ball as ball_mod, cuts as cuts_mod, pitch as pitch_mod, shots as shots_mod, tiles as tiles_mod
-from .calibration import calibrate
+from . import ball as ball_mod, cuts as cuts_mod, pauses as pauses_mod, pitch as pitch_mod, shots as shots_mod, tiles as tiles_mod
+from .calibration import _fmt as _fmt_ms, calibrate
 from .calibration.sam_lines import SamLines
 from .chunks import iter_frames
 from .insights import MuseSpark, warnings_of
@@ -163,8 +163,11 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
     if seen is not None and seen < tiles_mod.MIN_SAM_PLAYER_PX:
         # Tiles cannot enlarge: a video that came small (an encoder that brought it down) stays small.
         notes.append(_t("players_small", px=segmenter.player_px, w=clip.width, h=clip.height, seen=seen, need=tiles_mod.MIN_SAM_PLAYER_PX))
-    if shots.used_mask and len(shots.counted) / max(1, len(trackset.frames)) < 0.999:
-        notes.append(_t("discarded", n=len(trackset.frames) - len(shots.counted)))
+    paused = sum(round((e - s) * clip.fps / 1000) for s, e in shots.pauses)
+    if shots.used_mask and (len(shots.counted) + paused) / max(1, len(trackset.frames)) < 0.999:
+        notes.append(_t("discarded", n=len(trackset.frames) - len(shots.counted) - paused))
+    for s, e in shots.pauses:
+        notes.append(_t("pause", at=_fmt_ms(s), seconds=round((e - s) / 1000)))
     if pitch is not None:
         limitations = [_t("lim_meters", pct=round(100 * pitch["frames_with_homography"]))]
         if pitch["approximate"]:
@@ -201,6 +204,7 @@ def _analyze(clip_dir, match, cfg, clip_id, job_id, raw_dir, sleep, pitch_mode, 
             "overlap_ms": clip.overlap_ms,
             "frames_used": len(shots.counted),
             "discarded": shots.discarded,
+            "pauses": shots.pauses,
             "cuts": len(cut_frames),
             "closeups": shots.closeups,
             "surface": surface,
@@ -248,6 +252,8 @@ def post_sam(trackset: TrackSet, masks: list, cut_frames: set[int], ball_grass: 
     # The ball: one trajectory per candidate, the one that lasts and passes by the feet.
     players_rows = [r for r in shots.trackset.rows if r.label == "player"]
     ball_rows, ball_report = ball_mod.select([r for r in shots.trackset.rows if r.label == "ball"], players_rows, shots.counted, shots.breaks, ball_grass)
+    # A long stoppage (the hydration break, an injury) leaves the metrics like a discarded stretch.
+    shots, players_rows, ball_rows = pauses_mod.apply(shots, players_rows, ball_rows)
     return shots, TrackSet(rows=players_rows + ball_rows, frames=trackset.frames), ball_report
 
 

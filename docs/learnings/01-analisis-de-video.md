@@ -43,6 +43,11 @@ Lo aprendido con el worker local (YOLOv8n + tracker IoU) sobre 10 minutos de una
 - **Contra 4 min marcados a mano (9 cambios reales):** la regla anterior daba 27 cambios con 11 % de precisión; la nueva da 7, con 4 a menos de 2 s y el mismo dueño en el 94 % de los cuadros. Ninguna variante de umbrales fue mejor.
 - **Un pase entre compañeros no termina la posesión.** El worker dejaba sin dueño el balón entre pases (48 % del tiempo con dueño contra 88 % a mano). Darle al equipo el hueco entre dos rachas suyas lo sube sin tocar los cambios. Pero sin límite se tragaba huecos de hasta 59 s sin nadie cerca del balón y movía el reparto 7 puntos: 10 s alcanzan para un pase largo o un saque.
 
+## Pausas
+
+- **La pausa de hidratación se ve en el balón, no en los jugadores.** En Test03 (cerca del minuto 22 del partido, 24:09 a 27:16 del video) el balón quedó quieto el 88 % de los segundos; ninguna falta, saque o lesión corta pasó de 40 s así. Los jugadores caminan casi como en un juego lento, y el reloj no sirve porque el video puede no empezar en el saque.
+- **Un segundo sin balón no es un segundo quieto.** La primera versión dejaba que los segundos sin balón no rompieran la pausa y encontró otra falsa (43:04 a 45:10): juego normal con el balón casi sin verse y el seguimiento pegado a algo quieto el 13 % del tiempo. Pedir que cada ventana de 30 s tenga el balón quieto en el 60 % de sus segundos la quitó.
+
 ## El árbitro
 
 - **"Lejos de su grupo" no basta cuando un equipo es disperso.** Las camisetas blancas varían tanto con la luz y la sombra que el árbitro de amarillo quedaba dentro del límite del grupo blanco. Un tercer grupo de k-means lo separa; se acepta solo si es chico y está lejos de los dos equipos, para no partir un equipo en dos tonos.

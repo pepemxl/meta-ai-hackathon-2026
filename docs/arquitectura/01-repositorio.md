@@ -122,6 +122,7 @@ worker/
 │   ├── pitch.py            máscara de la cancha por cuadro (cuando la app no la manda)
 │   ├── cuts.py             cortes de cámara
 │   ├── shots.py            qué cuadros cuentan (fuera acercamientos y tomas sin cancha)
+│   ├── pauses.py           pausas largas con el balón quieto (hidratación, lesión): fuera de las métricas
 │   ├── ball.py             trayectorias del balón
 │   ├── metrics.py          forma, heatmap, posesión, presión, timeline; y en metros
 │   ├── debug.py            guarda una corrida para el visor

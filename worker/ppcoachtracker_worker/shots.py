@@ -17,7 +17,7 @@ widened 0.02. If fewer than half the frames have pitch, the mask is not used.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .pitch import PitchMask
 from .types import FrameInfo, TrackRow, TrackSet
@@ -41,6 +41,7 @@ class Shots:
     used_mask: bool
     with_pitch: int
     closeups: int
+    pauses: list[list[int]] = field(default_factory=list)  # [start_ms, end_ms] of each long stoppage (pauses.py)
 
 
 def _closeup(rows: list[TrackRow], mask: PitchMask | None) -> bool:

@@ -111,6 +111,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "es": "Se descartaron {n} cuadros sin cancha (acercamientos, tribuna o gráficos): no entran a las métricas.",
         "en": "{n} frames without the pitch were discarded (close-ups, stands or graphics): they are not in the metrics.",
     },
+    "pause": {
+        "es": "En {at} el juego se detuvo {seconds} s (hidratación o lesión: el balón quieto): ese tramo no entra a las métricas.",
+        "en": "At {at} play stopped for {seconds} s (hydration break or injury: the ball still): that stretch is not in the metrics.",
+    },
     # pipeline: limitations
     "lim_meters": {
         "es": "Las métricas en metros salen del {pct} % del video (los cuadros con la cancha calculada); las de la imagen, de todo el video.",
