@@ -175,10 +175,11 @@ fun PaintReferenceScreen(vm: CoachViewModel, lib: Library, matchId: Int, refId: 
 
 /**
  * A transparent layer that records finger strokes (normalized 0..1) and draws
- * them; [onStroke] gets each finished stroke (a tap is not a stroke).
+ * them; [onStroke] gets each finished stroke (a tap is not a stroke). Under a
+ * zoom, [zoom] keeps the drawn lines at their width on screen.
  */
 @Composable
-fun StrokeCanvas(strokes: List<Stroke>, color: Color, pending: Stroke? = null, pendingColor: Color = Color.White, onStroke: (Stroke) -> Unit) {
+fun StrokeCanvas(strokes: List<Stroke>, color: Color, pending: Stroke? = null, pendingColor: Color = Color.White, zoom: Float = 1f, onStroke: (Stroke) -> Unit) {
     var current by remember { mutableStateOf<Stroke>(emptyList()) }
     val finish by rememberUpdatedState(onStroke)
     Canvas(Modifier.fillMaxSize().pointerInput(Unit) {
@@ -194,9 +195,9 @@ fun StrokeCanvas(strokes: List<Stroke>, color: Color, pending: Stroke? = null, p
             onDragCancel = { current = emptyList() },
         )
     }) {
-        drawStrokes(strokes, color, 3.dp.toPx())
-        pending?.let { drawStrokes(listOf(it), pendingColor, 4.dp.toPx()) }
-        drawStrokes(listOf(current), Color.White, 3.dp.toPx())
+        drawStrokes(strokes, color, 3.dp.toPx() / zoom)
+        pending?.let { drawStrokes(listOf(it), pendingColor, 4.dp.toPx() / zoom) }
+        drawStrokes(listOf(current), Color.White, 3.dp.toPx() / zoom)
     }
 }
 

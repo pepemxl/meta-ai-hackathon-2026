@@ -372,6 +372,16 @@ interface Strings {
     val lineStepPaint: String
     val lineStepName: String
     val justALine: String
+    val lineFreehand: String
+    val lineTwoPoints: String
+    val lineStepFirstEnd: String
+    val lineStepSecondEnd: String
+    val zoomIn: String
+    val zoomOut: String
+    val moveUp: String
+    val moveDown: String
+    val moveLeft: String
+    val moveRight: String
     fun touchReadyMarks(points: Int, lines: Int): String
     val pitchInMeters: String
     val metersPerMinute: String
@@ -803,6 +813,16 @@ object Es : Strings {
     override val lineStepPaint = "Pasa el dedo encima de una línea de la imagen (sirve aunque esté tenue o borrada)"
     override val lineStepName = "¿Qué línea es? Tócala en el dibujo"
     override val justALine = "No sé cuál, solo es una línea"
+    override val lineFreehand = "A mano"
+    override val lineTwoPoints = "Con dos puntos"
+    override val lineStepFirstEnd = "Toca un extremo de la línea en la imagen"
+    override val lineStepSecondEnd = "Ahora toca el otro extremo"
+    override val zoomIn = "Acercar"
+    override val zoomOut = "Alejar"
+    override val moveUp = "Mover arriba"
+    override val moveDown = "Mover abajo"
+    override val moveLeft = "Mover a la izquierda"
+    override val moveRight = "Mover a la derecha"
     override fun touchReadyMarks(points: Int, lines: Int) = "Listo: ${marksSummary(points, lines)}. La cancha calculada se ve en violeta."
     override val pitchInMeters = "En la cancha, en metros"
     override val metersPerMinute = "Metros por jugador por minuto"
@@ -1234,6 +1254,16 @@ object En : Strings {
     override val lineStepPaint = "Run your finger over a line of the image (works even if it is faint or worn out)"
     override val lineStepName = "Which line is it? Tap it in the drawing"
     override val justALine = "Not sure, it is just a line"
+    override val lineFreehand = "Freehand"
+    override val lineTwoPoints = "Two points"
+    override val lineStepFirstEnd = "Tap one end of the line in the image"
+    override val lineStepSecondEnd = "Now tap the other end"
+    override val zoomIn = "Zoom in"
+    override val zoomOut = "Zoom out"
+    override val moveUp = "Move up"
+    override val moveDown = "Move down"
+    override val moveLeft = "Move left"
+    override val moveRight = "Move right"
     override fun touchReadyMarks(points: Int, lines: Int) = "Ready: ${marksSummary(points, lines)}. The computed pitch shows in violet."
     override val pitchInMeters = "On the pitch, in meters"
     override val metersPerMinute = "Meters per player per minute"

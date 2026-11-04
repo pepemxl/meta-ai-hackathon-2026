@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.ZoomIn
+import androidx.compose.material.icons.rounded.ZoomOut
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -26,12 +33,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -44,6 +56,7 @@ import com.ppcoach.tracker.data.PitchTemplate
 import com.ppcoach.tracker.data.PitchTouches
 import com.ppcoach.tracker.data.PitchSurface
 import com.ppcoach.tracker.data.SavedPitch
+import com.ppcoach.tracker.data.Strokes
 import com.ppcoach.tracker.data.SurfaceSample
 import com.ppcoach.tracker.data.Touch
 import com.ppcoach.tracker.ui.CoachViewModel
@@ -63,6 +76,8 @@ import com.ppcoach.tracker.ui.theme.SparkColors
 
 private val DIAGRAM_MARGIN = 20.dp
 private const val MARGIN_M = 3.0 // roughly what the margin adds, to keep the drawing's proportions
+private const val MAX_ZOOM = 8f
+private const val MOVE_STEP = 0.25f // of what is in view
 
 /**
  * The coach's points: a bar picks the frame; tap a point of the image, then
@@ -72,7 +87,9 @@ private const val MARGIN_M = 3.0 // roughly what the margin adds, to keep the dr
  * finger runs over a line (faint, worn out or in poor light) and then the line
  * is tapped on the drawing, or left unnamed ("just a line", for SAM). From 4
  * marks the computed pitch is drawn in violet over the frame; with exactly 4 a
- * fifth is asked (with 4 any names fit).
+ * fifth is asked (with 4 any names fit). A line can also be two taps, one on
+ * each end. Buttons under the frame zoom it (up to ×8) and move it, to mark
+ * small or far points precisely.
  */
 @Composable
 fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
@@ -87,6 +104,23 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
     var sampling by remember { mutableStateOf(false) }
     var lastTap by remember { mutableStateOf<Offset?>(null) }
     var pendingLine by remember { mutableStateOf<com.ppcoach.tracker.data.Stroke?>(null) }
+    // A line from two taps: the first end, until the second.
+    var twoPoints by remember { mutableStateOf(false) }
+    var lineStart by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    // The zoom over the frame and the top-left corner of what is in view (0..1 of the frame).
+    var zoom by remember { mutableStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    fun zoomTo(z: Float) {
+        val next = z.coerceIn(1f, MAX_ZOOM)
+        val shift = 0.5f / zoom - 0.5f / next // keeps the middle of the view in place
+        val max = 1f - 1f / next
+        pan = Offset((pan.x + shift).coerceIn(0f, max), (pan.y + shift).coerceIn(0f, max))
+        zoom = next
+    }
+    fun move(dx: Float, dy: Float) {
+        val max = 1f - 1f / zoom
+        pan = Offset((pan.x + dx * MOVE_STEP / zoom).coerceIn(0f, max), (pan.y + dy * MOVE_STEP / zoom).coerceIn(0f, max))
+    }
     val namedLines = PitchTemplate.namedLines(touches.size, touches.lengthM, touches.widthM)
     var frame by remember { mutableStateOf<Bitmap?>(null) }
     var sliderMs by remember { mutableStateOf(touches.tMs.toFloat()) }
@@ -114,6 +148,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 if (touches.size != before) {
                     pending = null
                     pendingLine = null
+                    lineStart = null
                 }
             }
             val saved = lib.pitch(touches.pitchId)
@@ -123,7 +158,13 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 sampling = k == "sample"
                 pending = null
                 pendingLine = null
+                lineStart = null
                 lastTap = null
+            }
+            if (painting) FilterChips(listOf("free" to s.lineFreehand, "two" to s.lineTwoPoints), if (twoPoints) "two" else "free") { k ->
+                twoPoints = k == "two"
+                pendingLine = null
+                lineStart = null
             }
             // The frame with the points and, from 4 points, the computed pitch.
             val bmp = frame
@@ -148,14 +189,34 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 vm.usePitch(clip.matchId, p.id)
             }
             Box(Modifier.fillMaxWidth().aspectRatio(aspect).clip(RoundedCornerShape(8.dp)).background(Color.Black)) {
+              // Everything inside is zoomed together, so taps and strokes stay in 0..1 of the frame.
+              Box(Modifier.fillMaxSize().graphicsLayer {
+                  transformOrigin = TransformOrigin(0f, 0f)
+                  scaleX = zoom
+                  scaleY = zoom
+                  translationX = -pan.x * size.width * zoom
+                  translationY = -pan.y * size.height * zoom
+              }) {
                 if (bmp != null) Image(bmp.asImageBitmap(), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
-                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, touches.dimensions, painting, sampling, bmp, saved) {
-                    if (!painting) detectTapGestures { o ->
-                        if (sampling) {
-                            lastTap = o
-                            sampleAt(o.x / size.width, o.y / size.height)
-                        } else {
-                            pending = (o.x / size.width).toDouble().coerceIn(0.0, 1.0) to (o.y / size.height).toDouble().coerceIn(0.0, 1.0)
+                Canvas(Modifier.fillMaxSize().pointerInput(touches.size, touches.dimensions, painting, twoPoints, sampling, bmp, saved) {
+                    if (!painting || twoPoints) detectTapGestures { o ->
+                        val p = (o.x / size.width).toDouble().coerceIn(0.0, 1.0) to (o.y / size.height).toDouble().coerceIn(0.0, 1.0)
+                        when {
+                            sampling -> {
+                                lastTap = o
+                                sampleAt(o.x / size.width, o.y / size.height)
+                            }
+                            painting -> {
+                                val start = lineStart
+                                if (start == null) {
+                                    lineStart = p
+                                    pendingLine = null
+                                } else {
+                                    lineStart = null
+                                    listOf(start, p).takeIf { Strokes.isStroke(it) }?.let { pendingLine = it }
+                                }
+                            }
+                            else -> pending = p
                         }
                     }
                 }) {
@@ -165,11 +226,11 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                             val ch = size.height / GRID_H
                             for (i in cells.indices) if (cells[i]) drawRect(violet.copy(alpha = 0.45f), Offset(i % GRID_W * cw, i / GRID_W * ch), androidx.compose.ui.geometry.Size(cw, ch))
                         }
-                        lastTap?.let { drawCircle(Color.White, PATCH * size.width, it, style = Stroke(2.dp.toPx())) }
+                        lastTap?.let { drawCircle(Color.White, PATCH * size.width, it, style = Stroke(2.dp.toPx() / zoom)) }
                         return@Canvas
                     }
                     if (h != null) {
-                        val stroke = 2.dp.toPx()
+                        val stroke = 2.dp.toPx() / zoom
                         fun px(x: Double, y: Double) = Homography.apply(h, x, y)?.let { Offset((it.first * size.width).toFloat(), (it.second * size.height).toFloat()) }
                         for ((a, b) in PitchTemplate.lines(touches.size, touches.lengthM, touches.widthM)) {
                             val p = px(a.first, a.second)
@@ -180,19 +241,37 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                         val circle = (0..48).mapNotNull { k -> px(r * kotlin.math.cos(k * Math.PI / 24), r * kotlin.math.sin(k * Math.PI / 24)) }
                         circle.zipWithNext().forEach { (p, q) -> drawLine(violet, p, q, stroke) }
                     }
-                    drawStrokes(touches.lines.filter { it.name != null }.map { it.points }, c.accent, 3.dp.toPx())
-                    drawStrokes(touches.lines.filter { it.name == null }.map { it.points }, Color.White.copy(alpha = 0.8f), 3.dp.toPx())
+                    // Sizes divided by the zoom, so marks keep their size on screen.
+                    drawStrokes(touches.lines.filter { it.name != null }.map { it.points }, c.accent, 3.dp.toPx() / zoom)
+                    drawStrokes(touches.lines.filter { it.name == null }.map { it.points }, Color.White.copy(alpha = 0.8f), 3.dp.toPx() / zoom)
                     for (t in touches.points) {
                         val o = Offset((t.x * size.width).toFloat(), (t.y * size.height).toFloat())
-                        drawCircle(Color.White, 7.dp.toPx(), o)
-                        drawCircle(c.accent, 5.dp.toPx(), o)
+                        drawCircle(Color.White, 7.dp.toPx() / zoom, o)
+                        drawCircle(c.accent, 5.dp.toPx() / zoom, o)
                     }
                     pending?.let {
                         val o = Offset((it.first * size.width).toFloat(), (it.second * size.height).toFloat())
-                        drawCircle(Color.White, 9.dp.toPx(), o, style = Stroke(3.dp.toPx()))
+                        drawCircle(Color.White, 9.dp.toPx() / zoom, o, style = Stroke(3.dp.toPx() / zoom))
+                    }
+                    if (twoPoints) {
+                        lineStart?.let { drawCircle(Color.White, 6.dp.toPx() / zoom, Offset((it.first * size.width).toFloat(), (it.second * size.height).toFloat()), style = Stroke(2.dp.toPx() / zoom)) }
+                        pendingLine?.let { drawStrokes(listOf(it), Color.White, 4.dp.toPx() / zoom) }
                     }
                 }
-                if (painting) StrokeCanvas(emptyList(), c.accent, pending = pendingLine) { pendingLine = it }
+                if (painting && !twoPoints) StrokeCanvas(emptyList(), c.accent, pending = pendingLine, zoom = zoom) { pendingLine = it }
+              }
+            }
+            // Zoom and move the frame.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                FrameButton(Icons.Rounded.ZoomOut, s.zoomOut, zoom > 1f) { zoomTo(zoom / 2f) }
+                Text("×${zoom.toInt()}", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
+                FrameButton(Icons.Rounded.ZoomIn, s.zoomIn, zoom < MAX_ZOOM) { zoomTo(zoom * 2f) }
+                Spacer(Modifier.weight(1f))
+                val max = 1f - 1f / zoom
+                FrameButton(Icons.Rounded.KeyboardArrowUp, s.moveLeft, pan.x > 0f, -90f) { move(-1f, 0f) }
+                FrameButton(Icons.Rounded.KeyboardArrowUp, s.moveUp, pan.y > 0f) { move(0f, -1f) }
+                FrameButton(Icons.Rounded.KeyboardArrowUp, s.moveDown, pan.y < max, 180f) { move(0f, 1f) }
+                FrameButton(Icons.Rounded.KeyboardArrowUp, s.moveRight, pan.x < max, 90f) { move(1f, 0f) }
             }
             Row {
                 Text("${s.frameAt} ${formatDuration(sliderMs.toLong())}", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
@@ -204,19 +283,21 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                     touches = touches.copy(tMs = sliderMs.toLong(), points = emptyList(), lines = emptyList())
                     pending = null
                     pendingLine = null
+                    lineStart = null
                 },
                 valueRange = 0f..clip.durationMs.coerceAtLeast(1).toFloat(),
                 colors = SliderDefaults.colors(thumbColor = c.accent, activeTrackColor = c.accent),
             )
-            val waiting = pending != null || pendingLine != null
+            val waiting = pending != null || pendingLine != null || lineStart != null
             val named = touches.lines.count { it.name != null }
             val status = when {
                 sampling -> saved?.sample?.let { s.sampleSummary(it.taps, it.hue, it.sat, it.value) } ?: if (saved == null) s.sampleNeedsPitch else s.sampleStep(dirt)
                 pendingLine != null -> s.lineStepName
                 pending != null -> s.touchStepName
+                lineStart != null -> s.lineStepSecondEnd
                 touches.state == PitchTouches.State.NEED_FIFTH -> s.touchNeedFifth
                 touches.state == PitchTouches.State.READY -> if (touches.lines.isEmpty()) s.touchReady(touches.points.size) else s.touchReadyMarks(touches.points.size, touches.lines.size)
-                painting -> s.lineStepPaint
+                painting -> if (twoPoints) s.lineStepFirstEnd else s.lineStepPaint
                 else -> s.touchStepImage
             }
             Text(status, style = MaterialTheme.typography.titleMedium, color = if (touches.state == PitchTouches.State.NEED_FIFTH && !waiting) c.warning else c.textPrimary, minLines = 2)
@@ -277,8 +358,9 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                     touches = if (painting) touches.copy(lines = touches.lines.dropLast(1)) else touches.copy(points = touches.points.dropLast(1))
                     pending = null
                     pendingLine = null
+                    lineStart = null
                 })
-                PpTextButton(s.clearAll, { touches = touches.copy(points = emptyList(), lines = emptyList()); pending = null; pendingLine = null }, color = c.negative)
+                PpTextButton(s.clearAll, { touches = touches.copy(points = emptyList(), lines = emptyList()); pending = null; pendingLine = null; lineStart = null }, color = c.negative)
             }
             PrimaryButton(s.save, { vm.saveTouches(clipId, touches); vm.back() }, Modifier.fillMaxWidth())
         }
@@ -295,6 +377,7 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
                 if (touches.size != before) {
                     pending = null
                     pendingLine = null
+                    lineStart = null
                 }
                 editing = null
             },
@@ -307,7 +390,15 @@ fun PitchTouchesScreen(vm: CoachViewModel, lib: Library, clipId: Int) {
     }
 }
 
-/** Distance from [p] to the segment [a]–[b] (diagram pixels). */
+/** A button under the frame; the arrows are one icon turned by [turn] degrees. */
+@Composable
+private fun FrameButton(icon: ImageVector, label: String, enabled: Boolean, turn: Float = 0f, onClick: () -> Unit) {
+    val c = PpTheme.colors
+    IconButton(onClick, enabled = enabled) {
+        Icon(icon, label, Modifier.rotate(turn), tint = if (enabled) c.textPrimary else c.textSecondary.copy(alpha = 0.4f))
+    }
+}
+
 private const val GRID_W = 160
 private const val GRID_H = 90
 /** Half the side of the sampled patch, a fraction of the frame's width. */
@@ -325,6 +416,7 @@ private fun patch(bmp: Bitmap, x: Float, y: Float): IntArray {
     return IntArray(w * h).also { bmp.getPixels(it, 0, w, x0, y0, w, h) }.map { it and 0xFFFFFF }.toIntArray()
 }
 
+/** Distance from [p] to the segment [a]–[b] (diagram pixels). */
 private fun segmentDistance(p: Offset, a: Offset, b: Offset): Float {
     val d = b - a
     val len2 = d.x * d.x + d.y * d.y
