@@ -24,11 +24,16 @@ with players of 30–40 px, about 20 once SAM shrinks 1920 to 1024.
 - join_tracks: two tracks of neighbouring tiles are the same player when
   their boxes overlap (IoU > 0.5) in at least half of the frames both are
   inside the overlap, and in 5 or more (the rule between chunks, sam.py).
+  Not one to one: when SAM changes a player's track inside a tile, both
+  halves join the other tile's track, as long as the two groups are never in
+  the same tile at the same time (that would be two people).
 - dedupe: inside an overlap one box per player and frame, the one of the
   tile whose edge is farther away (near an edge the box may be cut). Also
   for tracks that were not joined: two boxes of different tiles with
   IoU > 0.5 in a frame are one person (in a 5-minute chunk a player changes
-  track inside a tile, and Test03 kept 2.5 boxes too many per frame).
+  track inside a tile, and Test03 kept 2.5 boxes too many per frame). The
+  track that kept the person last frame keeps it while both see him, so he
+  does not jump between two tracks frame by frame.
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ TRIGGER_LONG_SIDE = 2048
 TRIGGER_ASPECT = 2.2
 JOIN_IOU = 0.5
 JOIN_MIN_FRAMES = 5
+MAX_SHARED_FRAMES = 2  # a track SAM drops may linger a frame or two next to the new one
 # A player SAM sees smaller than this (median, in the 1024 px it works at) goes in tiles.
 MIN_SAM_PLAYER_PX = 24
 MIN_PLAYER_BLOBS = 30  # fewer over the sampled frames: no measure, no tiles for size
@@ -347,6 +353,16 @@ def join_tracks(boxes: list[TileBox], edges: dict[int, tuple[float, float]], lab
     for b in boxes:
         if b.label == label:
             by_frame[b.frame][b.tile].append(b)
+    # The frames each group has in each tile: two groups that are both in a tile
+    # at the same time are two people, so they are never joined.
+    seen: dict[tuple[int, int], dict[int, set[int]]] = {}
+    for b in boxes:
+        if b.label == label:
+            seen.setdefault((b.tile, b.track), {b.tile: set()})[b.tile].add(b.frame)
+
+    def apart(a, b) -> bool:
+        return all(len(f & seen[b].get(t, set())) <= MAX_SHARED_FRAMES for t, f in seen[a].items())
+
     order = sorted(edges)
     joins = []
     for li, ri in zip(order, order[1:]):
@@ -368,13 +384,17 @@ def join_tracks(boxes: list[TileBox], edges: dict[int, tuple[float, float]], lab
                     both[k] += 1
                     if iou(x.box, y.box) > JOIN_IOU:
                         good[k] += 1
-        used_l, used_r = set(), set()
+        # Not one to one: when SAM changes a player's track inside a tile, both
+        # halves join the other tile's track (they are never in a frame together).
         for (lt, rt), n in sorted(good.items(), key=lambda kv: -kv[1]):
-            if n < JOIN_MIN_FRAMES or n * 2 < both[(lt, rt)] or lt in used_l or rt in used_r:
+            if n < JOIN_MIN_FRAMES or n * 2 < both[(lt, rt)]:
                 continue
-            used_l.add(lt)
-            used_r.add(rt)
-            parent[find((ri, rt))] = find((li, lt))
+            a, b = find((li, lt)), find((ri, rt))
+            if a == b or not apart(a, b):
+                continue
+            parent[b] = a
+            for t, f in seen.pop(b, {}).items():
+                seen[a].setdefault(t, set()).update(f)
             joins.append({"tiles": [li, ri], "tracks": [lt, rt], "frames": n})
     return {n: find(n) for n in list(parent)}, joins
 
@@ -387,7 +407,8 @@ def margin_in_tile(b: TileBox, edges: dict[int, tuple[float, float]]) -> float:
 
 
 def dedupe(boxes: list[TileBox], roots: dict[tuple[int, int], tuple[int, int]], edges: dict[int, tuple[float, float]]) -> list[TileBox]:
-    """One box per joined track and frame, and per person in a frame: the one farthest from its tile's edge."""
+    """One box per joined track and frame, and per person in a frame: the one
+    farthest from its tile's edge, or the track that kept the person last frame."""
     best: dict[tuple[int, tuple[int, int]], TileBox] = {}
     for b in boxes:
         group = roots.get((b.tile, b.track), (b.tile, b.track))
@@ -399,12 +420,21 @@ def dedupe(boxes: list[TileBox], roots: dict[tuple[int, int], tuple[int, int]], 
     for b in best.values():
         by_frame[b.frame].append(b)
     kept: list[TileBox] = []
-    for frame_boxes in by_frame.values():
-        # Farthest from an edge first: a box of another tile on the same person goes.
-        frame_boxes.sort(key=lambda b: -margin_in_tile(b, edges))
+    group_of = lambda b: roots.get((b.tile, b.track), (b.tile, b.track))
+    won: set[tuple[int, int]] = set()  # the groups that kept a box over another one last frame
+    for frame in sorted(by_frame):
+        frame_boxes = by_frame[frame]
+        # The group that won last frame first, so the person does not jump between two
+        # tracks frame by frame; then farthest from an edge. A box of another tile on the same person goes.
+        frame_boxes.sort(key=lambda b: (group_of(b) not in won, -margin_in_tile(b, edges)))
         mine: list[TileBox] = []
+        winners: set[tuple[int, int]] = set()
         for b in frame_boxes:
-            if not any(o.tile != b.tile and iou(o.box, b.box) > JOIN_IOU for o in mine):
+            same = next((o for o in mine if o.tile != b.tile and iou(o.box, b.box) > JOIN_IOU), None)
+            if same is None:
                 mine.append(b)
+            else:
+                winners.add(group_of(same))
+        won = winners
         kept += mine
     return sorted(kept, key=lambda b: (b.frame, b.tile, b.track))

@@ -164,3 +164,38 @@ def test_a_player_seen_by_two_tiles_counts_once_even_when_the_tracks_did_not_joi
     roots = {(b.tile, b.track): (b.tile, b.track) for b in boxes}  # nothing joined
     kept = tiles.dedupe(boxes, roots, edges)
     assert [(b.frame, b.tile, b.track) for b in kept] == [(0, 0, 1), (0, 1, 8), (1, 0, 1), (2, 0, 1)]
+
+
+def _overlap_boxes(tile, track, frames, x=0.45):
+    return [tiles.TileBox(f, tile, track, "player", (x, 0.4, 0.02, 0.05)) for f in frames]
+
+
+def test_a_player_who_changes_track_in_one_tile_joins_the_other_tile_twice():
+    # Test03: tile 1 keeps him as track 7 the whole chunk, tile 0 as 1 and then as 2.
+    edges = {0: (0.0, 0.8), 1: (0.2, 1.0)}
+    boxes = _overlap_boxes(0, 1, range(0, 10)) + _overlap_boxes(0, 2, range(10, 20)) + _overlap_boxes(1, 7, range(20))
+    roots, joins = tiles.join_tracks(boxes, edges)
+    assert len(joins) == 2
+    assert roots[(0, 1)] == roots[(0, 2)] == roots[(1, 7)]
+
+
+def test_two_people_at_once_in_a_tile_never_join_the_same_group():
+    edges = {0: (0.0, 0.8), 1: (0.2, 1.0)}
+    # Tracks 1 and 2 of tile 0 are both there in frames 0..9 (two people, close together).
+    boxes = _overlap_boxes(0, 1, range(10)) + _overlap_boxes(0, 2, range(10), x=0.451) + _overlap_boxes(1, 7, range(10))
+    roots, joins = tiles.join_tracks(boxes, edges)
+    assert len(joins) == 1
+    assert roots[(0, 1)] != roots[(0, 2)]
+
+
+def test_the_person_stays_on_the_track_that_had_him_last_frame():
+    # Two unjoined tracks on one person: the edge margins cross back and forth, the track does not.
+    edges = {0: (0.0, 0.8), 1: (0.2, 1.0)}
+    boxes = []
+    for f in range(6):
+        x = 0.49 if f % 2 else 0.51  # the center of the overlap is 0.5
+        boxes += [tiles.TileBox(f, 0, 1, "player", (x - 0.01, 0.4, 0.02, 0.05)), tiles.TileBox(f, 1, 7, "player", (x - 0.0105, 0.4, 0.02, 0.05))]
+    roots = {(b.tile, b.track): (b.tile, b.track) for b in boxes}
+    kept = tiles.dedupe(boxes, roots, edges)
+    assert len(kept) == 6
+    assert len({(b.tile, b.track) for b in kept}) == 1
