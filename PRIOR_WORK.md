@@ -38,10 +38,10 @@ All of this was written from Oct 28 to Nov 3 in 109 commits after `2005a96`, eac
 |---|---|---|
 | Android app (`android_native/`, Kotlin + Jetpack Compose) | Matches, record or import, a 10 fps analysis copy in chunks with a per-frame pitch mask, resumable upload, consent, the pitch marks (points, painted lines, reference pictures, play area, surface sample), the analysis, squad and per-player stats, demo accounts, rotating a video | ~11,600 lines, 86 unit tests |
 | API (`api/`): PHP 8.3 for production, Node for development | Login, resumable 8 MB part uploads, job queue, consent history, results, video retention; one contract, both pass the same tests | ~5,500 lines, 27 PHP and 24 Node tests |
-| Analysis worker (`worker/`, Python) | SAM 3.1 by concept (each team, the ball), wide video split into tiles, tracks joined across chunks, the pitch mask, the pitch in meters from the coach's marks, metrics, Muse Spark findings with a strict JSON schema, cost tracking. No local model fallback | ~8,400 lines, 117 tests |
+| Analysis worker (`worker/`, Python) | SAM 3.1 by concept (each team, the ball), wide video split into tiles, tracks joined across chunks, the pitch mask, the pitch in meters from the coach's marks, metrics, Muse Spark findings with a strict JSON schema, cost tracking. No local model fallback | ~8,800 lines, 132 tests |
 | Run viewer (`viewer/`, React, local only) | Shows a run over its video and compares two runs | ~1,800 lines |
 
-- **App versions:** 0.1.0 (Oct 28) to 0.4.3 (Nov 3), each with its release notes in [docs/versions/](docs/versions/README.md).
+- **App versions:** 0.1.0 (Oct 28) to 0.4.4 (Nov 4), each with its release notes in [docs/versions/](docs/versions/README.md).
 - **Measured results:** [docs/results/](docs/results/README.md), SAM 3.1 on real video: players, ball, possession, cost (about US$0.36 per minute of video), wide video and the pitch in meters.
 - **Our own test footage:** two real pitches (artificial turf and dirt) recorded on Nov 3 with the app and with the phone's camera; small frames of them are test fixtures in `worker/tests/fixtures/real/`.
 - **AI-generated images and videos** for screenshots, made on Nov 2 with Meta muse-image-1.0 and Meta AI (Vibes), labeled as such ([docs/08-uso-de-video.md](docs/08-uso-de-video.md)).
