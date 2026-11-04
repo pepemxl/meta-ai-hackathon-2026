@@ -93,7 +93,9 @@ fun AppRoot(vm: CoachViewModel, onExit: () -> Unit) {
     val top = vm.top
     val isRoot = top == Screen.Matches || top == Screen.Settings || top == Screen.Squad || top == Screen.Stats
     Column(Modifier.fillMaxSize().background(c.background)) {
-        Box(Modifier.weight(1f)) {
+        // The bottom bar keeps root screens above Android's navigation bar; the other screens
+        // need it themselves (the camera stays edge to edge).
+        Box(Modifier.weight(1f).then(if (isRoot || top is Screen.Record) Modifier else Modifier.navigationBarsPadding())) {
             when (top) {
                 Screen.Matches -> MatchesScreen(vm, lib, onEdit = { editing = it })
                 Screen.Settings -> SettingsScreen(vm)
