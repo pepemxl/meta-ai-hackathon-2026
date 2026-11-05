@@ -18,4 +18,4 @@
 - **Copia con las cajas de SAM 3.1:** [results/06-cajas-de-sam-en-una-imagen.jpg](../../results/06-cajas-de-sam-en-una-imagen.md) es `jugada_01_sin_pasto.png` reducida a 1280 px con las cajas dibujadas, y [06-cancha-y-lineas-de-sam.jpg](../../results/06-cajas-de-sam-en-una-imagen.md#la-cancha-las-líneas-y-la-homografía) le suma la cancha, las líneas y la cancha completa proyectada con la homografía; las dos lo dicen en la propia imagen.
 - **Al usarlos, decirlo** en la diapositiva, la captura o el video, con la herramienta.
 
-Los videos de esta escena (generados con Meta AI, Vibes) no se versionan: sus términos no dicen de quién son los resultados ni si se permite el uso comercial.
+Los videos de esta escena (generados con Meta AI, Vibes) no se versionan: sus términos no dicen de quién son los resultados ni si se permite el uso comercial. Sí se publican las capturas de la app que los muestran, con su etiqueta, por decisión del equipo del 5 de noviembre de 2026: la lámina del [flujo completo](../../15-flujo-completo.md) ([08-uso-de-video.md](../../08-uso-de-video.md#contenido-generado-con-ia)).
