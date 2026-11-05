@@ -2,6 +2,8 @@
 
 Un celular que mide la cancha en metros: SAM 3.1 sigue a los jugadores y la calibración del entrenador pone sus posiciones en metros, también en canchas con líneas borradas o poca luz. Hecho para el **Meta Global AI Developer Hackathon** (Cerebral Valley, del 26 de octubre al 4 de noviembre de 2026).
 
+**Video del demo:** [pp-coach-tracker: a phone camera that measures the pitch in meters](https://youtu.be/ZZ1fL0aZ5mI) (YouTube).
+
 **Para construirlo, empieza por [prompts/](prompts/README.md).** Ahí está el orden de las etapas y el contexto que se pega en cada sesión del agente. Qué es previo y qué se hizo durante el hackathon está declarado en [PRIOR_WORK.md](../PRIOR_WORK.md) (en inglés, con un resumen en español).
 
 La versión que se construye **no tiene respaldo local**: SAM 3.1 sigue a jugadores y balón, y Muse Spark escribe los insights, los dos por la Meta Model API. SAM 3.1 y Muse Spark ya se verificaron con la API real ([results/](results/README.md)); mientras se desarrollaba, el worker usó un simulador local de SAM, fuera del repo, para no gastar créditos ([13-entorno-desarrollo.md](13-entorno-desarrollo.md)). Usa solo dependencias con licencia permisiva (más `meta-sam-parser`, de Meta, para las máscaras de SAM). La API de producción vive en **https://ppcoachtracker.pepemxl.com** y el worker de producción corre en Docker en la máquina de desarrollo.

@@ -4,6 +4,10 @@
 
 Built for the **Meta Global AI Developer Hackathon** (October 26 – November 4, 2026). The core is SAM 3.1 tracking plus metric calibration.
 
+**Demo video:** [pp-coach-tracker: a phone camera that measures the pitch in meters](https://youtu.be/ZZ1fL0aZ5mI) (YouTube).
+
+[![pp-coach-tracker demo video](https://i.ytimg.com/vi/ZZ1fL0aZ5mI/hqdefault.jpg)](https://youtu.be/ZZ1fL0aZ5mI)
+
 ## How it differs from a common sports analyzer
 
 1. **Meters, not pixels, from one phone.** The coach taps a few points or paints a few lines of the pitch on one frame. The worker solves the camera (homography) and follows it frame by frame as the phone pans, tilts or zooms (or keeps it fixed when the coach says the camera stays still), so every player's feet land in meters on the pitch. Common analyzers give pixel heatmaps, or need fixed installations, several cameras or GPS vests.
