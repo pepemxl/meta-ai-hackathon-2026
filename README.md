@@ -8,6 +8,12 @@ Built for the **Meta Global AI Developer Hackathon** (October 26 – November 4,
 
 [![pp-coach-tracker demo video](https://i.ytimg.com/vi/ZZ1fL0aZ5mI/hqdefault.jpg)](https://youtu.be/ZZ1fL0aZ5mI)
 
+## The app, from a video to the analysis
+
+![The whole app flow in 14 steps: matches, new match, import a video, the clip, save the pitch, grass sample, compute the pitch, sent, analysis ready, findings, heatmaps, link tracks, starting lineup and player page](docs/assets/aplicacion/flujo_completo.jpg)
+
+App 0.4.4 on an Android emulator, end to end against the API and the worker with the real SAM 3.1 and Muse Spark. The clip is AI-generated with Meta AI (Vibes), so it shows the flow, not the accuracy. The steps, and what the analysis gave, are in [docs/15-flujo-completo.md](docs/15-flujo-completo.md) (in Spanish).
+
 ## How it differs from a common sports analyzer
 
 1. **Meters, not pixels, from one phone.** The coach taps a few points or paints a few lines of the pitch on one frame. The worker solves the camera (homography) and follows it frame by frame as the phone pans, tilts or zooms (or keeps it fixed when the coach says the camera stays still), so every player's feet land in meters on the pitch. Common analyzers give pixel heatmaps, or need fixed installations, several cameras or GPS vests.
