@@ -27,8 +27,9 @@
 
 - **Pruebas:** app (unitarias); worker, 132 pasan y 2 fallas esperadas.
 - **Partido real:** Test03 (49 min), con las respuestas de SAM guardadas: la posesión contra marcas a mano y la pausa de hidratación revisada a ojo (24:09 a 27:16).
+- **Segundo tiempo** (53 min, con SAM 3.1 real): la pausa de hidratación (23:16, 100 s) y una detención de 136 s a las 47:43, revisada a ojo, que parece un gol con su festejo ([results/07](../../results/07-partido-completo-dos-tiempos.md)).
 - **Teléfono real:** crear un partido y marcar la cancha con zoom, en pasto sintético y en tierra ([capturas](#capturas-en-un-teléfono)).
-- **Pendiente:** las líneas de dos puntos en un teléfono real, y la pausa de hidratación de un segundo tiempo.
+- **Pendiente:** las líneas de dos puntos en un teléfono real.
 
 ## Capturas en un teléfono
 
